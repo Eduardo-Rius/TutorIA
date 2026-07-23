@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  /* Colores Institucionales IMSS */
+  --imss-green-dark: #154f3a;
+  --imss-green-medium: #214f3a;
+  --imss-gold: #bd965c;
+  --imss-bg: #f3f4f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utilidades Institucionales IMSS */
+.bg-imss-green-dark { background-color: var(--imss-green-dark) !important; }
+.bg-imss-green-medium { background-color: var(--imss-green-medium) !important; }
+.bg-imss-gold { background-color: var(--imss-gold) !important; }
+.text-imss-green-dark { color: var(--imss-green-dark) !important; }
+.text-imss-gold { color: var(--imss-gold) !important; }
+
+/* Estilos para formato de documento */
+.pdf-document {
+  background-color: white !important;
+  color: #1a1a1a !important;
+  width: 210mm;
+  margin: 0 auto;
+  box-shadow: none !important;
+}
+
+.pdf-document * {
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.pdf-document h2 { font-size: 18pt !important; color: #154f3a !important; }
+.pdf-document h3 { font-size: 12pt !important; background-color: #154f3a !important; color: white !important; padding: 2px 8px !important; }
+.pdf-document p, .pdf-document span, .pdf-document li { font-size: 10pt !important; line-height: 1.4 !important; }
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #documento-planeacion,
+  #documento-planeacion * {
+    visibility: visible;
+  }
+
+  #documento-planeacion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+    box-shadow: none;
+  }
+
+  button,
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+}
