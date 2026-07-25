@@ -1,58 +1,32 @@
-# Create Reusable Architecture Project
+# TutorIA Platform — Implementation Plan
 
-This plan outlines the steps to extract the reusable components of the GuarderiasIMSS MVP into a new, clean project directory. This new project will serve as a foundational template with Authentication, Firebase, n8n integration, and standard layouts already configured.
+- **Producto:** TutorIA Platform
+- **Versión actual:** 0.9.0
+- **Repositorio canónico:** `/Users/rius/Developer/TutorIA`
+- **Remoto oficial:** `https://github.com/Eduardo-Rius/TutorIA.git`
+- **Estado actual:** Sprint 0 — Knowledge Architecture completado y aprobado
+- **Próxima fase activa:** Sprint 0.5 — Platform Foundation
+- **Objetivo de salida de Sprint 0.5:** Base técnica Zero Legacy con build exitoso, configuración saneada y cero dependencias funcionales del MVP heredado
 
-## Open Questions
+*Nota: Architecture Board creado. Las capacidades documentadas en `tutoria-docs/vision/` son la visión a largo plazo y no están comprometidas con el MVP inmediato.*
 
-> [!IMPORTANT]
-> **What should we name the new project directory?**
-> Please let me know the desired name for the new folder (e.g., `BaseProject`, `ArchitectureTemplate`, etc.). I will use this name to create the folder in `/Users/rius/<YourProjectName>`.
+### Hitos Posteriores
+- **Sprint 0.6 — Core Domain:** Firebase, Identity, RBAC, Roles, Tenant.
+- **Sprint 1:** Institution Core.
+- **Sprint 2:** Knowledge Platform.
+- **Sprint 3:** Pedagogical Platform.
+- **Sprint 4:** AI Platform.
+- **Sprint 5:** Planning Engine.
+- **Sprint 6:** Normative RAG.
+- **Sprint 7:** Piloto Operativo.
 
-## Proposed Changes
+## Restricciones Estrictas
 
-We will create a new directory and copy the essential, reusable pieces from the current project. We will carefully omit any code or pages specific to the `GuarderiasIMSS` business logic (like `Planeaciones`, `ChatNormativo`, etc.).
-
-### Base Configuration
-- Copy `package.json` and `package-lock.json`
-- Copy `vite.config.js`, `tailwind.config.js`, `postcss.config.js`, `eslint.config.js`
-- Copy `.env` and `.gitignore`
-- Copy `index.html` (Title will be updated to a generic one)
-
-### Source Code (`src/`)
-
-#### Core Files
-- Copy `src/main.jsx` and `src/index.css` (Tailwind imports)
-- Copy and clean `src/App.jsx` (Remove Guarderias-specific imports)
-- Copy and clean `src/routes/AppRoutes.jsx` (Keep only auth routes and a basic Dashboard route)
-
-#### Context & State
-- Copy `src/context/AuthContext.jsx`
-- Copy `src/context/SessionTimeoutContext.jsx`
-- Copy `src/context/UserContext.jsx`
-
-#### Services
-- Copy `src/services/firebase.js`
-- Copy `src/services/authService.js`
-- Copy `src/services/sessionService.js`
-- Copy `src/services/n8nService.js`
-- (Will **not** copy `guarderiasService.js`, `planeacionService.js`, etc.)
-
-#### Components
-- Copy `src/components/auth/ProtectedRoute.jsx`
-- Copy `src/components/auth/SessionWarningModal.jsx`
-- Copy and clean `src/components/layout/MainLayout.jsx` (Remove Guarderias-specific navigation links)
-
-#### Pages
-- Copy `src/pages/Login.jsx`
-- Copy `src/pages/Register.jsx`
-- Copy `src/pages/ResetPassword.jsx`
-- Create a generic `src/pages/Dashboard.jsx` (Empty placeholder for the new product)
-
-### Verification Plan
-
-### Automated Tests
-- Run `npm install` in the new directory.
-- Run `npm run build` to ensure the project compiles successfully without any missing dependency errors.
-
-### Manual Verification
-- After the project is set up, I will ask you to navigate to the new directory, run `npm run dev`, and verify that the authentication flow (Login/Register) and the base layout work as expected.
+Queda explícitamente prohibido:
+- Copiar archivos `.env`.
+- Almacenar credenciales en Git.
+- Copiar nuevos componentes desde GuarderiasIMSS.
+- Desarrollar directamente sobre `main`.
+- Crear repositorios Git anidados.
+- Trabajar dentro de OneDrive.
+- Exponer claves de Firebase, OpenAI o n8n en el frontend.
