@@ -20,3 +20,4 @@ Durante el inicio del desarrollo (Kick Off), la prioridad absoluta es la **Arqui
 - `tutoria-docs/knowledge/`: Repositorio base e inventario de fuentes institucionales a ingestar.
 - `tutoria-docs/decisions/`: ADRs (Architecture Decision Records) que sustentan la plataforma.
 - `tutoria-docs/audits/`: Reportes de revisión y control de calidad.
+- `tutoria-docs/sprints/`: Archivo histórico de Sprint Charters, auditorías, reportes y retrospectivas (Memoria Operativa).

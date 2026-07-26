@@ -7,6 +7,9 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 ### Added
+- Inicio formal de Sprint 0.5 — Platform Foundation.
+- Adopción de Sprint Charter y Sprint Retrospective como memoria operativa del desarrollo.
+- Foundation Rule para evitar la modificación retrospectiva de Sprints cerrados.
 - Architecture Board de TutorIA (`tutoria-docs/vision/`).
 - Visión de producto a diez años.
 - Arquitectura cognitiva conceptual.
