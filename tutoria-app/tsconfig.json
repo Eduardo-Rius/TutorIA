@@ -7,14 +7,17 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
+    "jsx": "react-jsx",
     "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx"
+    "forceConsistentCasingInFileNames": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
   },
   "include": ["src"]
 }
