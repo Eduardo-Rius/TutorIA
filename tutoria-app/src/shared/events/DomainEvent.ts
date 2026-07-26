@@ -19,6 +19,7 @@ export abstract class DomainEvent {
     eventId: string,
     eventName: string,
     eventVersion: string,
+    occurredOn: Date,
     aggregateId: string,
     aggregateType: string,
     metadata: EventMetadata
@@ -26,7 +27,7 @@ export abstract class DomainEvent {
     this.eventId = eventId;
     this.eventName = eventName;
     this.eventVersion = eventVersion;
-    this.occurredOn = new Date();
+    this.occurredOn = occurredOn;
     this.aggregateId = aggregateId;
     this.aggregateType = aggregateType;
     this.metadata = Object.freeze(metadata);

@@ -3,6 +3,13 @@ import { Entity } from '../kernel/Entity';
 import { TenantId } from '../value-objects/Ids';
 import { AggregateRoot } from '../kernel/AggregateRoot';
 import { DomainEvent } from '../events/DomainEvent';
+import { Clock } from '../kernel/Clock';
+
+class FixedClock implements Clock {
+  now(): Date {
+    return new Date('2026-01-01T00:00:00Z');
+  }
+}
 
 class TestEntity extends Entity<TenantId> {
   public constructor(id: TenantId) {
@@ -11,8 +18,8 @@ class TestEntity extends Entity<TenantId> {
 }
 
 class TestEvent extends DomainEvent {
-  constructor(aggregateId: string) {
-    super("ev1", "TestEvent", "1.0", aggregateId, "TestAggregate", { tenantId: "t1", timestamp: new Date() });
+  constructor(aggregateId: string, occurredOn: Date) {
+    super("ev1", "TestEvent", "1.0", occurredOn, aggregateId, "TestAggregate", { tenantId: "t1", timestamp: occurredOn });
   }
 }
 
@@ -20,8 +27,8 @@ class TestAggregate extends AggregateRoot<TenantId> {
   public constructor(id: TenantId) {
     super(id);
   }
-  public doSomething() {
-    this.addDomainEvent(new TestEvent(this.id.toString()));
+  public doSomething(clock: Clock) {
+    this.addDomainEvent(new TestEvent(this.id.toString(), clock.now()));
   }
 }
 
@@ -34,24 +41,38 @@ describe('Entity and AggregateRoot', () => {
   });
 
   it('events should not be modifiable externally', () => {
+    const clock = new FixedClock();
     const id = TenantId.restore("550e8400-e29b-41d4-a716-446655440000");
     const agg = new TestAggregate(id);
-    agg.doSomething();
+    agg.doSomething(clock);
     const events = agg.domainEvents;
-    // events should be a copy (readonly array type) but let's verify runtime mutation doesn't affect internal array
-    (events as any).push({}); 
+    
+    // We try to push to the array, which should fail if it is frozen or a copy.
+    // In our implementation, getter returns a copy, so the internal array is safe.
+    try {
+      (events as unknown as Array<any>).push({}); 
+    } catch (e) {
+      // Ignored
+    }
+    
     expect(agg.domainEvents.length).toBe(1);
   });
 
   it('should extract and clean events', () => {
+    const clock = new FixedClock();
     const id = TenantId.restore("550e8400-e29b-41d4-a716-446655440000");
     const agg = new TestAggregate(id);
-    agg.doSomething();
-    agg.doSomething();
+    agg.doSomething(clock);
+    agg.doSomething(clock);
     
     expect(agg.domainEvents.length).toBe(2);
     const extracted = agg.pullDomainEvents();
     expect(extracted.length).toBe(2);
+    
+    // Verifying time determinism
+    expect(extracted[0]?.occurredOn.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+    expect(extracted[1]?.occurredOn.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+
     expect(agg.domainEvents.length).toBe(0);
   });
 });
