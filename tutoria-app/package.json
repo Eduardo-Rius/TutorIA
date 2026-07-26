@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "architecture:check": "node check-architecture.cjs",
     "test": "vitest"
   },

@@ -12,10 +12,12 @@ const FORBIDDEN_IMPORTS = [
   'src/infrastructure',
   'src/presentation',
   '../infrastructure',
-  '../presentation'
+  '../presentation',
+  '../../infrastructure',
+  '../../presentation'
 ];
 
-const FORBIDDEN_TOKENS = [
+const FORBIDDEN_TOKENS_PROD = [
   'console.log',
   'Date.now',
   'Math.random',
@@ -26,18 +28,39 @@ const FORBIDDEN_TOKENS = [
   'sessionStorage',
   'window.',
   'document.',
-  'navigator.'
+  'navigator.',
+  ' any ',
+  '<any>',
+  ': any',
+  'as any'
 ];
 
 const TARGET_DIRS = [
-  path.join(__dirname, 'src/domain'),
-  path.join(__dirname, 'src/shared'),
-  path.join(__dirname, 'src/application')
+  { path: path.join(__dirname, 'src/shared'), layer: 'shared' },
+  { path: path.join(__dirname, 'src/domain'), layer: 'domain' },
+  { path: path.join(__dirname, 'src/application'), layer: 'application' }
 ];
 
 let hasErrors = false;
+const excludedFiles = [];
 
-function scanDirectory(dir) {
+function checkInverseImports(fullPath, line, layer, lineNum) {
+  if (layer === 'shared') {
+    if (line.includes('/domain/') || line.includes('/application/')) {
+      console.error(`Architecture Violation in ${fullPath}:${lineNum}`);
+      console.error(`Layer 'shared' cannot import from higher layers.`);
+      hasErrors = true;
+    }
+  } else if (layer === 'domain') {
+    if (line.includes('/application/')) {
+      console.error(`Architecture Violation in ${fullPath}:${lineNum}`);
+      console.error(`Layer 'domain' cannot import from 'application'.`);
+      hasErrors = true;
+    }
+  }
+}
+
+function scanDirectory(dir, layer) {
   if (!fs.existsSync(dir)) return;
   const files = fs.readdirSync(dir);
   
@@ -46,8 +69,10 @@ function scanDirectory(dir) {
     const stat = fs.statSync(fullPath);
     
     if (stat.isDirectory()) {
-      if (file !== '__tests__') {
-        scanDirectory(fullPath);
+      if (file === '__tests__') {
+        excludedFiles.push(fullPath);
+      } else {
+        scanDirectory(fullPath, layer);
       }
     } else if (file.endsWith('.ts') || file.endsWith('.tsx') || file.endsWith('.js')) {
       const content = fs.readFileSync(fullPath, 'utf-8');
@@ -56,7 +81,10 @@ function scanDirectory(dir) {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         
-        // Check imports
+        // Ignore comments
+        if (line.trim().startsWith('//') || line.trim().startsWith('*')) continue;
+
+        // Check explicit banned imports
         if (line.includes('import ') || line.includes('require(')) {
           for (const forbidden of FORBIDDEN_IMPORTS) {
             if (line.includes(`'${forbidden}'`) || line.includes(`"${forbidden}"`) || line.includes(`'${forbidden}/`) || line.includes(`"${forbidden}/`)) {
@@ -65,17 +93,27 @@ function scanDirectory(dir) {
               hasErrors = true;
             }
           }
+          checkInverseImports(fullPath, line, layer, i + 1);
         }
 
-        // Check tokens
-        for (const token of FORBIDDEN_TOKENS) {
+        // Check specific file exemptions
+        const isClockFile = fullPath.endsWith('src/shared/kernel/Clock.ts');
+        if (isClockFile && line.includes('new Date')) {
+          continue; // Allowed here
+        }
+
+        if (line.includes('new Date')) {
+           console.error(`Architecture Violation in ${fullPath}:${i + 1}`);
+           console.error(`Forbidden direct time access: new Date`);
+           hasErrors = true;
+        }
+
+        // Check tokens for prod code
+        for (const token of FORBIDDEN_TOKENS_PROD) {
           if (line.includes(token)) {
-            // Check if it's not a comment
-            if (!line.trim().startsWith('//') && !line.trim().startsWith('*')) {
-              console.error(`Architecture Violation in ${fullPath}:${i + 1}`);
-              console.error(`Forbidden direct environment access found: ${token}`);
-              hasErrors = true;
-            }
+            console.error(`Architecture Violation in ${fullPath}:${i + 1}`);
+            console.error(`Forbidden token found in production code: ${token}`);
+            hasErrors = true;
           }
         }
       }
@@ -83,11 +121,17 @@ function scanDirectory(dir) {
   }
 }
 
-TARGET_DIRS.forEach(scanDirectory);
+TARGET_DIRS.forEach(target => scanDirectory(target.path, target.layer));
+
+console.log('--- Architecture Check ---');
+if (excludedFiles.length > 0) {
+  console.log('Excluded directories from strict prod rules (tests):');
+  excludedFiles.forEach(f => console.log(`  - ${f}`));
+}
 
 if (hasErrors) {
-  console.error('Architecture check failed!');
+  console.error('\nArchitecture check failed!');
   process.exit(1);
 } else {
-  console.log('Architecture check passed successfully.');
+  console.log('\nArchitecture check passed successfully.');
 }
