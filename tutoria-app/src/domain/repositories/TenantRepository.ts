@@ -1,4 +1,6 @@
 import { Repository } from '../../shared/kernel/Repository';
+import { TenantId } from '../../shared/value-objects/Ids';
 
-export interface TenantRepository extends Repository<any> {
-}
+export interface Tenant {}
+
+export interface TenantRepository extends Repository<Tenant, TenantId> {}

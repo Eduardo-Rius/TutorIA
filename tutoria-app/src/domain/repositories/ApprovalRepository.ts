@@ -1,4 +1,6 @@
 import { Repository } from '../../shared/kernel/Repository';
+import { ApprovalId } from '../../shared/value-objects/Ids';
 
-export interface ApprovalRepository extends Repository<any> {
-}
+export interface Approval {}
+
+export interface ApprovalRepository extends Repository<Approval, ApprovalId> {}
