@@ -19,5 +19,6 @@ Durante el inicio del desarrollo (Kick Off), la prioridad absoluta es la **Arqui
 - `tutoria-docs/vision/`: **Architecture Board.** Contiene la visión a largo plazo (10 años), el modelo cognitivo, motores de decisión e hipótesis futuras. *Nota: Las ideas en este directorio no comprometen la implementación técnica inmediata del MVP.*
 - `tutoria-docs/knowledge/`: Repositorio base e inventario de fuentes institucionales a ingestar.
 - `tutoria-docs/decisions/`: ADRs (Architecture Decision Records) que sustentan la plataforma.
+- `tutoria-docs/engineering/`: Constitución de Ingeniería (Cultura, reglas, y estándares operativos).
 - `tutoria-docs/audits/`: Reportes de revisión y control de calidad.
 - `tutoria-docs/sprints/`: Archivo histórico de Sprint Charters, auditorías, reportes y retrospectivas (Memoria Operativa).
