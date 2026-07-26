@@ -2,7 +2,7 @@ import { EntityId } from '../ids/EntityId';
 import { Result } from '../result/Result';
 
 function createId<T extends EntityId>(
-  ctor: new (id: string) => T,
+  ctor: any,
   id: string
 ): Result<T> {
   if (!id || id.trim().length === 0) {
@@ -16,73 +16,85 @@ function createId<T extends EntityId>(
 }
 
 export class TenantId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<TenantId> { return createId(TenantId, id); }
   public static restore(id: string): TenantId { return new TenantId(id); }
 }
 
 export class UserId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<UserId> { return createId(UserId, id); }
   public static restore(id: string): UserId { return new UserId(id); }
 }
 
 export class CenterId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<CenterId> { return createId(CenterId, id); }
   public static restore(id: string): CenterId { return new CenterId(id); }
 }
 
 export class GroupId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<GroupId> { return createId(GroupId, id); }
   public static restore(id: string): GroupId { return new GroupId(id); }
 }
 
 export class ChildId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<ChildId> { return createId(ChildId, id); }
   public static restore(id: string): ChildId { return new ChildId(id); }
 }
 
 export class PlanningId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<PlanningId> { return createId(PlanningId, id); }
   public static restore(id: string): PlanningId { return new PlanningId(id); }
 }
 
 export class RecommendationId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<RecommendationId> { return createId(RecommendationId, id); }
   public static restore(id: string): RecommendationId { return new RecommendationId(id); }
 }
 
 export class ApprovalId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<ApprovalId> { return createId(ApprovalId, id); }
   public static restore(id: string): ApprovalId { return new ApprovalId(id); }
 }
 
 export class AuditId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<AuditId> { return createId(AuditId, id); }
   public static restore(id: string): AuditId { return new AuditId(id); }
 }
 
 export class InstitutionId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<InstitutionId> { return createId(InstitutionId, id); }
   public static restore(id: string): InstitutionId { return new InstitutionId(id); }
 }
 
 export class KnowledgeSourceId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<KnowledgeSourceId> { return createId(KnowledgeSourceId, id); }
   public static restore(id: string): KnowledgeSourceId { return new KnowledgeSourceId(id); }
 }
 
 export class ObservationId extends EntityId {
-  public constructor(id: string) { super(id); }
+  private constructor(id: string) { super(id); }
   public static create(id: string): Result<ObservationId> { return createId(ObservationId, id); }
   public static restore(id: string): ObservationId { return new ObservationId(id); }
+}
+
+export class EvaluationId extends EntityId {
+  private constructor(id: string) { super(id); }
+  public static create(id: string): Result<EvaluationId> { return createId(EvaluationId, id); }
+  public static restore(id: string): EvaluationId { return new EvaluationId(id); }
+}
+
+export class RoomId extends EntityId {
+  private constructor(id: string) { super(id); }
+  public static create(id: string): Result<RoomId> { return createId(RoomId, id); }
+  public static restore(id: string): RoomId { return new RoomId(id); }
 }
