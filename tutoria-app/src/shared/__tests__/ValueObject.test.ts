@@ -22,8 +22,8 @@ describe('ValueObject', () => {
 
   it('props should be immutable (freeze)', () => {
     const vo = new TestVO({ a: 1, b: 'test' });
-    expect(() => {
-      (vo.props as any).a = 2;
-    }).toThrowError();
+    expect(Object.isFrozen(vo.props)).toBe(true);
+    const success = Reflect.set(vo.props, 'a', 2);
+    expect(success).toBe(false);
   });
 });
