@@ -2,6 +2,7 @@ import React from 'react';
 import { InfrastructureContext } from './createInfrastructure';
 import { ApplicationContext } from './createApplication';
 import { SessionProvider } from '../providers/SessionProvider';
+import { MembershipProvider } from '../providers/MembershipProvider';
 
 export interface AppProvidersProps {
   infra: InfrastructureContext;
@@ -12,7 +13,9 @@ export interface AppProvidersProps {
 export const AppProviders: React.FC<AppProvidersProps> = ({ infra, children }) => {
   return (
     <SessionProvider authProvider={infra.authProvider}>
-      {children}
+      <MembershipProvider membershipRepository={infra.membershipRepository}>
+        {children}
+      </MembershipProvider>
     </SessionProvider>
   );
 };
