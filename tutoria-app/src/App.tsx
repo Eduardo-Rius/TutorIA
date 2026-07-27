@@ -4,7 +4,7 @@ import { createInfrastructure } from './composition/createInfrastructure';
 import { createApplication } from './composition/createApplication';
 import { AppProviders } from './composition/AppProviders';
 import { LoginPage } from './pages/auth/LoginPage';
-import { AuthenticatedHome } from './pages/home/AuthenticatedHome';
+import { OperationalWorkspace } from './pages/home/OperationalWorkspace';
 import { AuthorizationBoundary } from './components/auth/AuthorizationBoundary';
 import { ContextBoundary } from './components/auth/ContextBoundary';
 import { ContextSelector } from './components/auth/ContextSelector';
@@ -25,11 +25,11 @@ function App() {
               unauthorized={<LoginPage />}
               loading={<LoadingState text="Validando sesión..." />}
             >
-              <Navigate to="/home" replace />
+              <Navigate to="/workspace" replace />
             </AuthorizationBoundary>
           } />
           
-          <Route path="/home" element={
+          <Route path="/workspace" element={
             <AuthorizationBoundary
               unauthorized={<Navigate to="/login" replace />}
               loading={<LoadingState text="Cargando aplicación..." />}
@@ -44,12 +44,13 @@ function App() {
                 }
                 selector={<ContextSelector />}
               >
-                <AuthenticatedHome />
+                <OperationalWorkspace />
               </ContextBoundary>
             </AuthorizationBoundary>
           } />
           
-          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<Navigate to="/workspace" replace />} />
+          <Route path="/" element={<Navigate to="/workspace" replace />} />
         </Routes>
       </BrowserRouter>
     </AppProviders>
