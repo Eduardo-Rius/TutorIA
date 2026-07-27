@@ -38,7 +38,7 @@ Traducir el Visual Language aprobado como candidato a un lenguaje consistente de
 - Dialog; Drawer; Popover; DropdownMenu.
 
 ### DATA DISPLAY
-- Table; DataTable; KPI; StatCard; Timeline; StatusIndicator.
+- Table; DataTable; KPI; StatCard; Timeline; StatusIndicatoricator.
 
 ### AI EXPERIENCE
 - AssistantAvatar; AssistantMessage; SuggestionCard; AIComposer; AIStatus; ExplainabilityPanel.

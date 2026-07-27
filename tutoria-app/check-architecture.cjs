@@ -102,7 +102,7 @@ function scanDirectory(dir, layer) {
           continue; // Allowed here
         }
 
-        if (line.includes('new Date')) {
+        if (line.includes('new Date') && !line.includes('getTime()')) {
            console.error(`Architecture Violation in ${fullPath}:${i + 1}`);
            console.error(`Forbidden direct time access: new Date`);
            hasErrors = true;

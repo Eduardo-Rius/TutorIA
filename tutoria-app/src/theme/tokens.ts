@@ -4,9 +4,12 @@ import { spacing } from './spacing';
 import { radius } from './radius';
 import { shadows } from './shadows';
 import { gradients } from './gradients';
+import { motion } from './motion';
+import { breakpoints } from './breakpoints';
+import { focus } from './focus';
+import { zIndex } from './zIndex';
 import { logos } from './logos';
 
-// TODO: Estructura de tokens pendientes de diseño
 export const tokens = {
   colors,
   typography,
@@ -14,5 +17,11 @@ export const tokens = {
   radius,
   shadows,
   gradients,
+  motion,
+  breakpoints,
+  focus,
+  zIndex,
   logos
-};
+} as const;
+
+export type Tokens = typeof tokens;

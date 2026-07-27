@@ -1,15 +1,11 @@
-// TODO: Valores pendientes de aprobación por el Product Owner
 export const colors = {
-  brandNavy: 'PENDING_REVIEW',
-  brandTeal: 'PENDING_REVIEW',
-  brandTurquoise: 'PENDING_REVIEW',
-  brandOrange: 'PENDING_REVIEW',
-  brandYellow: 'PENDING_REVIEW',
-  brandGreen: 'PENDING_REVIEW',
-  brandPurple: 'PENDING_REVIEW',
-  brandBlue: 'PENDING_REVIEW',
-  brandRed: 'PENDING_REVIEW',
-  brandIvory: 'PENDING_REVIEW',
-  brandWhite: 'PENDING_REVIEW',
-  brandInk: 'PENDING_REVIEW',
-};
+  brandPrimary: '#003c58', // Navy
+  brandSecondary: '#0ca994', // Teal
+  brandAccent: '#ff9e02', // Orange
+  surfacePrimary: '#ffffff',
+
+  // NOTE: Scales 50-950, danger, success, warning, info are blocked.
+  // Not declaring them until ARB provides validated HSL scales.
+} as const;
+
+export type Colors = typeof colors;

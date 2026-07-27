@@ -46,15 +46,15 @@ describe('Entity and AggregateRoot', () => {
     const agg = new TestAggregate(id);
     agg.doSomething(clock);
     const events = agg.domainEvents;
-    
+
     // We try to push to the array, which should fail if it is frozen or a copy.
     // In our implementation, getter returns a copy, so the internal array is safe.
     try {
-      (events as unknown as Array<any>).push({}); 
+      (events as unknown as Array<unknown>).push({});
     } catch (e) {
       // Ignored
     }
-    
+
     expect(agg.domainEvents.length).toBe(1);
   });
 
@@ -64,11 +64,11 @@ describe('Entity and AggregateRoot', () => {
     const agg = new TestAggregate(id);
     agg.doSomething(clock);
     agg.doSomething(clock);
-    
+
     expect(agg.domainEvents.length).toBe(2);
     const extracted = agg.pullDomainEvents();
     expect(extracted.length).toBe(2);
-    
+
     // Verifying time determinism
     expect(extracted[0]?.occurredOn.toISOString()).toBe('2026-01-01T00:00:00.000Z');
     expect(extracted[1]?.occurredOn.toISOString()).toBe('2026-01-01T00:00:00.000Z');
