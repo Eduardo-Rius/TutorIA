@@ -232,6 +232,7 @@ Registrar, sin resolver todavía:
 - observabilidad;
 - presupuesto y cuotas de IA;
 - política de información enviada a LLM;
-- entornos de desarrollo, pruebas y producción.
+- entornos de desarrollo, pruebas y producción;
+- NavigationService (Future Port).
 
 Estas decisiones deberán resolverse en el Wave correspondiente mediante ADR cuando sean arquitectónicamente significativas.
