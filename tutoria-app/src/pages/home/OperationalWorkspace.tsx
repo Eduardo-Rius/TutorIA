@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppShell, ContentArea, LoadingState } from '../../components/layouts';
 import { Button } from '../../components/primitives';
 import { Stack } from '../../components/foundations';
@@ -13,6 +14,7 @@ import { WorkQueueZone } from '../../components/workspace/WorkQueueZone';
 import { NextActionZone } from '../../components/workspace/NextActionZone';
 
 export const OperationalWorkspace: React.FC = () => {
+  const navigate = useNavigate();
   const { logout } = useSession();
   const { contextState, selectContext } = useMembership();
   const { workspaceSeedRepository } = useInfrastructure();
@@ -39,6 +41,9 @@ export const OperationalWorkspace: React.FC = () => {
       <div className="px-6 py-8 md:flex md:items-center md:justify-between max-w-5xl mx-auto w-full">
         <OperationalIdentityZone context={activeContext} />
         <div className="mt-4 flex md:mt-0 md:ml-4 flex-row gap-3 items-center">
+          <Button variant="primary" onClick={() => navigate('/workspace/planning/new')}>
+            Nueva Planeación
+          </Button>
           {contextState.availableMemberships.length > 1 && (
             <Button variant="outline" onClick={() => selectContext('')}>
               Cambiar Centro

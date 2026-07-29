@@ -5,6 +5,7 @@ import { createApplication } from './composition/createApplication';
 import { AppProviders } from './composition/AppProviders';
 import { LoginPage } from './pages/auth/LoginPage';
 import { OperationalWorkspace } from './pages/home/OperationalWorkspace';
+import { FirstInstitutionalExperience } from './pages/planning/PM01/FirstInstitutionalExperience';
 import { AuthorizationBoundary } from './components/auth/AuthorizationBoundary';
 import { ContextBoundary } from './components/auth/ContextBoundary';
 import { ContextSelector } from './components/auth/ContextSelector';
@@ -45,6 +46,21 @@ function App() {
                 selector={<ContextSelector />}
               >
                 <OperationalWorkspace />
+              </ContextBoundary>
+            </AuthorizationBoundary>
+          } />
+          
+          <Route path="/workspace/planning/new" element={
+            <AuthorizationBoundary
+              unauthorized={<Navigate to="/login" replace />}
+              loading={<LoadingState text="Cargando aplicación..." />}
+            >
+              <ContextBoundary
+                loading={<LoadingState text="Cargando contexto institucional..." />}
+                noMemberships={<Navigate to="/workspace" replace />}
+                selector={<ContextSelector />}
+              >
+                <FirstInstitutionalExperience />
               </ContextBoundary>
             </AuthorizationBoundary>
           } />
