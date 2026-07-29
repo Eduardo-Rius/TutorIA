@@ -72,6 +72,10 @@ Toda automatización debe poder auditarse.
 La simplicidad es una obligación arquitectónica.
 *Toda nueva capacidad deberá hacer el sistema más claro que antes de existir. Si una nueva funcionalidad incrementa la complejidad sin aumentar proporcionalmente el valor institucional, deberá replantearse antes de implementarse.*
 
+**Axioma IX**  
+El conocimiento institucional precede al contexto.
+*La cadena arquitectónica superior es inmutable: Knowledge → Policy → Context → Generation → Governance. Ninguna inferencia ni realidad operativa existe sin antes sustentarse en el patrimonio del conocimiento institucional.*
+
 ---
 
 ## TÍTULO II
@@ -160,3 +164,6 @@ La evolución de Waves (Draft → Released), el nacimiento de ADRs y, excepciona
 
 - **Glosario y Lenguaje Ubicuo:** (Espacio reservado para las definiciones de agregados, entidades y dominios, asegurando un lenguaje unificado entre desarrollo y pedagogía).
 - **Definiciones Institucionales:** (Términos oficiales que operan como puente entre normatividad infantil y desarrollo de software).
+
+---
+> **"Las tecnologías evolucionan. El conocimiento perdura. Nuestra responsabilidad como ingenieros es construir sistemas que preserven ese conocimiento y lo pongan al servicio de las personas."**
