@@ -160,6 +160,21 @@ La evolución de Waves (Draft → Released), el nacimiento de ADRs y, excepciona
 
 ---
 
+## TÍTULO VIII: Identidad de Producto y Documentación Operativa
+
+La arquitectura es el motor, pero el producto es la institución. Para garantizar que TutorIA jamás pierda su rumbo hacia una mera automatización, se establece el siguiente mandato documental inquebrantable.
+
+**Mandato de Justificación Institucional**  
+A partir de la Fase II de desarrollo, ninguna nueva capacidad, funcionalidad o documento táctico podrá ser integrado al sistema a menos que responda, en su misma definición y de manera explícita, a las siguientes tres preguntas fundacionales:
+
+1. **¿Qué capacidad institucional fortalece?** *(No qué tarea automatiza).*
+2. **¿Qué actor institucional beneficia?** *(Directora, Docente, Supervisor).*
+3. **¿Cómo contribuye a que la institución aprenda y evolucione?** *(Aprendizaje Organizacional).*
+
+Si una propuesta no puede responder a estas tres preguntas, no pertenece al núcleo de TutorIA y será rechazada por el Architecture Review Board.
+
+---
+
 ## ANEXOS
 
 - **Glosario y Lenguaje Ubicuo:** (Espacio reservado para las definiciones de agregados, entidades y dominios, asegurando un lenguaje unificado entre desarrollo y pedagogía).
