@@ -14,6 +14,7 @@ Bienvenido al repositorio central de **TutorIA**. Esta plataforma dejó de ser u
 TutorIA es un ecosistema con múltiples aristas. Selecciona tu punto de entrada de acuerdo con tu rol y responsabilidades en el proyecto:
 
 Si eres...
+- **Cualquiera** → Lee primero nuestro [TutorIA Manifesto](MANIFESTO.md)
 - **Arquitecto** → Debes conocer la ley inquebrantable: [Engineering Constitution](tutoria-docs/architecture/ENGINEERING_CONSTITUTION.md)
 - **Product** → Entiende nuestra estrategia en [Product Vision](tutoria-docs/product/00_Product_Vision.md) y [Capability Map](tutoria-docs/product/04_Capability_Map.md)
 - **Pedagogía** → Estudia a nuestros participantes en [Institutional Actors](tutoria-docs/product/03_Institutional_Actors.md)
