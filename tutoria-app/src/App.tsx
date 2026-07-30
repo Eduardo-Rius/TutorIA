@@ -6,6 +6,7 @@ import { AppProviders } from './composition/AppProviders';
 import { LoginPage } from './pages/auth/LoginPage';
 import { OperationalWorkspace } from './pages/home/OperationalWorkspace';
 import { FirstInstitutionalExperience } from './pages/planning/PM01/FirstInstitutionalExperience';
+import { PlanningDashboard } from './pages/planning/PlanningDashboard';
 import { AuthorizationBoundary } from './components/auth/AuthorizationBoundary';
 import { ContextBoundary } from './components/auth/ContextBoundary';
 import { ContextSelector } from './components/auth/ContextSelector';
@@ -29,7 +30,7 @@ function App() {
               <Navigate to="/workspace" replace />
             </AuthorizationBoundary>
           } />
-          
+
           <Route path="/workspace" element={
             <AuthorizationBoundary
               unauthorized={<Navigate to="/login" replace />}
@@ -49,7 +50,22 @@ function App() {
               </ContextBoundary>
             </AuthorizationBoundary>
           } />
-          
+
+          <Route path="/workspace/planning" element={
+            <AuthorizationBoundary
+              unauthorized={<Navigate to="/login" replace />}
+              loading={<LoadingState text="Cargando aplicación..." />}
+            >
+              <ContextBoundary
+                loading={<LoadingState text="Cargando contexto institucional..." />}
+                noMemberships={<Navigate to="/workspace" replace />}
+                selector={<ContextSelector />}
+              >
+                <PlanningDashboard />
+              </ContextBoundary>
+            </AuthorizationBoundary>
+          } />
+
           <Route path="/workspace/planning/new" element={
             <AuthorizationBoundary
               unauthorized={<Navigate to="/login" replace />}
@@ -64,7 +80,7 @@ function App() {
               </ContextBoundary>
             </AuthorizationBoundary>
           } />
-          
+
           <Route path="/home" element={<Navigate to="/workspace" replace />} />
           <Route path="/" element={<Navigate to="/workspace" replace />} />
         </Routes>

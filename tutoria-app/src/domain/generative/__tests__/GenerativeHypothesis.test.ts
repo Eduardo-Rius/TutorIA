@@ -29,11 +29,11 @@ describe('GenerativeHypothesis', () => {
 
     // Test immutability
     expect(() => { // @ts-expect-error testing readonly
-      hypothesis.limitations.push('new limitation'); 
+      hypothesis.limitations.push('new limitation');
     }).toThrow();
-    
+
     expect(() => { // @ts-expect-error testing readonly
-      hypothesis.assumptions.push('new assumption'); 
+      hypothesis.assumptions.push('new assumption');
     }).toThrow();
   });
 });

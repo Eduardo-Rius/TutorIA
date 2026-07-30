@@ -56,7 +56,7 @@ export class CenterStatus extends ValueObject<{ value: CenterState }> {
     if (state === 'SUSPENDED') return Result.ok(CenterStatus.suspended());
     if (state === 'CLOSED') return Result.ok(CenterStatus.closed());
     if (state === 'ARCHIVED') return Result.ok(CenterStatus.archived());
-    
+
     return Result.fail(new InvalidCenterStatusError(`Unknown state '${state}'`));
   }
 }

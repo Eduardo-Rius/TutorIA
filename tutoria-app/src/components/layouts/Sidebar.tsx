@@ -1,73 +1,77 @@
 import React from 'react';
-import { Surface, Stack, Spacer } from '../foundations';
-import { Text, Icon } from '../primitives';
+import { Home, NotebookPen, Lightbulb, Library, BookOpen, LineChart, Users, Settings, ChevronDown } from 'lucide-react';
+import robotLogo from '../../assets/brand/logos/imagotype/TutorIA_Imagotype_Transparent.png';
 
-export interface NavigationItem {
-  id: string;
+import { useNavigate, useLocation } from 'react-router-dom';
+
+interface SidebarItem {
+  icon: React.ElementType;
   label: string;
-  icon?: React.ReactNode;
-  active?: boolean;
-  href?: string;
+  path: string;
 }
 
-export interface SidebarProps extends React.HTMLAttributes<HTMLElement> {
-  headerSlot?: React.ReactNode;
-  footerSlot?: React.ReactNode;
-  items?: NavigationItem[];
-  onItemClick?: (item: NavigationItem) => void;
-}
+const ITEMS: SidebarItem[] = [
+  { icon: Home, label: 'Mi espacio', path: '/workspace' },
+  { icon: NotebookPen, label: 'Planeaciones', path: '/workspace/planning' },
+  { icon: Lightbulb, label: 'Experiencias', path: '/workspace/experiences' },
+  { icon: Library, label: 'Conocimiento', path: '/workspace/knowledge' },
+  { icon: BookOpen, label: 'Lineamientos', path: '/workspace/guidelines' },
+  { icon: LineChart, label: 'Analítica', path: '/workspace/analytics' },
+  { icon: Users, label: 'Comunidad', path: '/workspace/community' },
+  { icon: Settings, label: 'Configuración', path: '/workspace/settings' },
+];
 
-export function Sidebar({
-  headerSlot,
-  footerSlot,
-  items = [],
-  onItemClick,
-  className = '',
-  ...props
-}: SidebarProps) {
-  const combinedClassName = `flex flex-col flex-1 h-full border-r border-brandPrimary/10 ${className}`.trim();
+export const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
-    <Surface as="aside" className={combinedClassName} {...props}>
-      <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-        {headerSlot && (
-          <div className="flex items-center shrink-0 px-4 mb-4">
-            {headerSlot}
-          </div>
-        )}
-        
-        <nav className="mt-5 flex-1 px-2 space-y-1" aria-label="Sidebar">
-          {items.map((item) => (
-            <a
-              key={item.id}
-              href={item.href || '#'}
-              onClick={(e) => {
-                if (!item.href) e.preventDefault();
-                onItemClick?.(item);
-              }}
-              className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
-                item.active 
-                  ? 'bg-brandPrimary/10 text-brandPrimary' 
-                  : 'text-textPrimary hover:bg-brandPrimary/5'
-              }`}
-              aria-current={item.active ? 'page' : undefined}
-            >
-              {item.icon && (
-                <span className={`mr-3 flex-shrink-0 ${item.active ? 'text-brandPrimary' : 'text-textPrimary/50'}`}>
-                  {item.icon}
-                </span>
-              )}
-              {item.label}
-            </a>
-          ))}
-        </nav>
+    <div className="flex flex-col h-full w-[280px] bg-brandDark shadow-lg overflow-y-auto">
+      {/* Header (Logo) */}
+      <div className="flex flex-col items-center justify-center pt-8 pb-6">
+        <img src={robotLogo} alt="Robot TutorIA" className="h-16 w-auto mb-2 object-contain" />
+        <h2 className="text-white text-2xl font-poppins font-bold tracking-tight">
+          Tutor<span className="text-brandPrimary">IA</span>
+        </h2>
       </div>
 
-      {footerSlot && (
-        <div className="shrink-0 flex border-t border-brandPrimary/10 p-4">
-          {footerSlot}
-        </div>
-      )}
-    </Surface>
+      {/* Navegación */}
+      <nav className="flex-1 px-4 py-2 space-y-1">
+        {ITEMS.map((item, idx) => {
+          const isActive = location.pathname === item.path || (item.path !== '/workspace' && location.pathname.startsWith(item.path));
+
+          return (
+            <button
+              key={idx}
+              onClick={() => navigate(item.path)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-[8px] transition-all duration-300 ${
+                isActive
+                  ? 'bg-brandPrimary text-white shadow-soft'
+                  : 'text-textLight hover:bg-navHover hover:text-white'
+              }`}
+            >
+              <item.icon size={20} className={isActive ? 'text-white' : ''} />
+              <span className={`text-[15px] font-inter ${isActive ? 'font-medium' : ''}`}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Perfil (Inferior) */}
+      <div className="p-4 mt-auto">
+        <button className="w-full flex items-center gap-3 p-3 rounded-[8px] hover:bg-navHover transition-colors text-left group">
+          <div className="w-10 h-10 rounded-full bg-surfaceLight flex items-center justify-center overflow-hidden shrink-0 border border-white/10">
+            <img src="https://i.pravatar.cc/150?u=ana" alt="Avatar Ana Martínez" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate font-inter">Ana Martínez</p>
+            <p className="text-xs text-textLight truncate font-inter">Docente</p>
+          </div>
+          <ChevronDown size={16} className="text-textLight group-hover:text-white transition-colors" />
+        </button>
+      </div>
+    </div>
   );
-}
+};

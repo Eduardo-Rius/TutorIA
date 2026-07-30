@@ -1,5 +1,13 @@
 import type { Config } from 'tailwindcss';
-import { tokens } from './src/theme/tokens';
+import { colors } from './src/theme/colors';
+import { typography } from './src/theme/typography';
+import { spacing } from './src/theme/spacing';
+import { radius } from './src/theme/radius';
+import { shadows } from './src/theme/shadows';
+import { gradients } from './src/theme/gradients';
+import { motion } from './src/theme/motion';
+import { breakpoints } from './src/theme/breakpoints';
+import { zIndex } from './src/theme/zIndex';
 
 export default {
   content: [
@@ -7,21 +15,34 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    // Override Tailwind's default configuration completely where applicable
-    colors: tokens.colors,
-    spacing: tokens.spacing,
-    borderRadius: tokens.radius,
-    boxShadow: tokens.shadows,
-    fontFamily: tokens.typography.fontFamily,
-    fontSize: tokens.typography.sizes,
-    fontWeight: tokens.typography.weights,
-    zIndex: tokens.zIndex,
-    // Add custom extensions
+    colors: colors,
+    spacing: spacing,
+    borderRadius: radius,
+    boxShadow: shadows,
+    fontFamily: typography.fontFamily,
+    fontSize: typography.sizes,
+    fontWeight: typography.weights,
+    zIndex: zIndex,
     extend: {
-      backgroundImage: tokens.gradients,
-      transitionDuration: tokens.motion.durations,
-      transitionTimingFunction: tokens.motion.curves,
-      screens: tokens.breakpoints,
+      backgroundImage: gradients,
+      transitionDuration: motion.durations,
+      transitionTimingFunction: motion.curves,
+      screens: breakpoints,
+      keyframes: {
+        'bounce-slow': {
+          '0%, 100%': {
+            transform: 'translateY(-5%)',
+            animationTimingFunction: 'cubic-bezier(0.8,0,1,1)',
+          },
+          '50%': {
+            transform: 'none',
+            animationTimingFunction: 'cubic-bezier(0,0,0.2,1)',
+          },
+        },
+      },
+      animation: {
+        'bounce-slow': 'bounce-slow 2.5s infinite',
+      },
     },
   },
   plugins: [],

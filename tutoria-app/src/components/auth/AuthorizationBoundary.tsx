@@ -7,10 +7,10 @@ export interface AuthorizationBoundaryProps {
   children: React.ReactNode;
 }
 
-export const AuthorizationBoundary: React.FC<AuthorizationBoundaryProps> = ({ 
-  unauthorized, 
-  loading, 
-  children 
+export const AuthorizationBoundary: React.FC<AuthorizationBoundaryProps> = ({
+  unauthorized,
+  loading,
+  children
 }) => {
   const { session } = useSession();
 

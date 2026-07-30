@@ -47,7 +47,7 @@ export class InstitutionStatus extends ValueObject<{ value: InstitutionState }> 
     if (state === 'ACTIVE') return Result.ok(InstitutionStatus.active());
     if (state === 'SUSPENDED') return Result.ok(InstitutionStatus.suspended());
     if (state === 'ARCHIVED') return Result.ok(InstitutionStatus.archived());
-    
+
     return Result.fail(new InvalidInstitutionStatusError(`Unknown state '${state}'`));
   }
 }

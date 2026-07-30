@@ -22,13 +22,13 @@ export function TopBar({
         <div className="flex-1 flex items-center justify-start">
           {leadingSlot}
         </div>
-        
+
         {centerSlot && (
           <div className="flex-1 flex items-center justify-center px-4">
             {centerSlot}
           </div>
         )}
-        
+
         <div className="flex-1 flex items-center justify-end">
           {trailingSlot}
         </div>

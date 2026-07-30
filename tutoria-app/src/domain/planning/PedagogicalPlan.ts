@@ -44,7 +44,7 @@ export class PedagogicalPlan extends AggregateRoot<PlanningId> {
     idStr?: string
   ): PedagogicalPlan {
     const idResult = idStr ? PlanningId.restore(idStr) : PlanningId.restore(crypto.randomUUID());
-    
+
     const plan = new PedagogicalPlan(idResult, centerId, groupId, cycleId, validFrom, validUntil);
     plan.authorSignature = AuthorSignature.create({
       signerId: authorId,
@@ -84,7 +84,7 @@ export class PedagogicalPlan extends AggregateRoot<PlanningId> {
     if (this.status !== PlanStatus.UNDER_REVIEW) {
       return Result.fail('Plan is not under review.');
     }
-    
+
     // SoD Check
     if (this.authorId?.equals(command.approverId)) {
       return Result.fail('Separation of Duties (SoD) violated: Author cannot approve their own plan.');
@@ -96,7 +96,7 @@ export class PedagogicalPlan extends AggregateRoot<PlanningId> {
       signedAt: new SystemClock().now(),
       contextId: command.contextId
     });
-    
+
     this.snapshot = PlanningSnapshot.create({
       normativeVersion: command.normativeVersion,
       curriculumVersion: command.curriculumVersion,
@@ -112,7 +112,7 @@ export class PedagogicalPlan extends AggregateRoot<PlanningId> {
     if (this.status !== PlanStatus.UNDER_REVIEW) {
       return Result.fail('Plan is not under review.');
     }
-    
+
     if (this.authorId?.equals(command.approverId)) {
       return Result.fail('Author cannot reject their own plan.');
     }
@@ -124,7 +124,7 @@ export class PedagogicalPlan extends AggregateRoot<PlanningId> {
       reviewerId: command.approverId,
       ...(command.outcome ? { outcome: command.outcome } : {})
     };
-    
+
     this.rejectionReason = RejectionReason.create(reasonProps);
 
     this.addDomainEvent(new PlanRejected(this.id.toString(), command.approverId.toString(), command.reason));
@@ -158,7 +158,7 @@ export class PedagogicalPlan extends AggregateRoot<PlanningId> {
     this.versionHistory.push(this.activeVersion);
     const newVersionNumber = this.versionHistory.length + 1;
     this.activeVersion = this.activeVersion.cloneForAmendment(`v${newVersionNumber}`);
-    
+
     this.status = PlanStatus.DRAFT;
     this.approvalSignature = undefined;
     this.snapshot = undefined;

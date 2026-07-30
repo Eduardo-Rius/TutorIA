@@ -5,7 +5,7 @@ import { PlanningPolicyContext } from '../policies/PlanningPolicyContext';
 describe('PlanningPeriodPolicy', () => {
   const policy = new PlanningPeriodPolicy();
   const ctx = {
-    targetId: '1', timestamp: new Date(), 
+    targetId: '1', timestamp: new Date(),
     schoolPeriodStart: new Date('2024-01-01'), schoolPeriodEnd: new Date('2024-12-31'),
     authorId: 'u1', activities: [], existingPlans: []
   };

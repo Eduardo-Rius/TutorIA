@@ -25,7 +25,7 @@ export class ContextScore extends ValueObject<ContextScoreProps> {
   get freshness(): number { return this.props.freshness; }
   get authority(): number { return this.props.authority; }
   get relevance(): number { return this.props.relevance; }
-  
+
   public getOverallScore(): number {
     return (this.coverage + this.freshness + this.authority + this.relevance) / 4;
   }

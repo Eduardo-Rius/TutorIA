@@ -50,7 +50,7 @@ export class GroupStatus extends ValueObject<{ value: GroupState }> {
     if (state === 'SUSPENDED') return Result.ok(GroupStatus.suspended());
     if (state === 'CLOSED') return Result.ok(GroupStatus.closed());
     if (state === 'ARCHIVED') return Result.ok(GroupStatus.archived());
-    
+
     return Result.fail(new InvalidGroupStatusError(`Unknown state '${state}'`));
   }
 }

@@ -38,13 +38,13 @@ describe('Foundations', () => {
     const html = renderToString(<Divider orientation="horizontal" />);
     expect(html).toContain('<hr');
   });
-  
+
   it('renders Section without crashing', () => {
     const html = renderToString(<Section header={<h1>Header</h1>}>Content</Section>);
     expect(html).toContain('<section');
     expect(html).toContain('Header');
   });
-  
+
   it('renders Page without crashing', () => {
     const html = renderToString(<Page>Content</Page>);
     expect(html).toContain('min-h-screen');

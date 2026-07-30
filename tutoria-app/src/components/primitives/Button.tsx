@@ -23,7 +23,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const baseClasses = 'inline-grid place-items-center font-medium rounded-md focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brandSecondary transition-colors';
-  
+
   // REMEDIATION 10: TEMPORARY Pending Hover Tokens
   let variantClass = '';
   switch (variant) {
@@ -57,7 +57,7 @@ export function Button({
   // REMEDIATION 05: Props order fixed
   // REMEDIATION 04: Grid layout for spinner overlap using col-start-1 row-start-1
   return (
-    <button 
+    <button
       {...props}
       type={type}
       disabled={disabled || loading}

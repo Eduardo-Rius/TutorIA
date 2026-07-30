@@ -32,7 +32,7 @@ export class DateOverlapPolicy implements Policy<PlanningPolicyContext> {
       for (const existing of existingPlans) {
         const extFrom = existing.validFrom.getTime();
         const extUntil = existing.validUntil.getTime();
-        
+
         // Overlap condition: from1 <= until2 && from2 <= until1
         if (fromTime <= extUntil && extFrom <= untilTime) {
           violations.push({

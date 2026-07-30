@@ -1,6 +1,6 @@
 export type MembershipStatus = 'ACTIVE' | 'SUSPENDED' | 'REVOKED' | 'EXPIRED';
 
-export type Capability = 
+export type Capability =
   | 'manage:users'
   | 'read:students'
   | 'write:evaluations'

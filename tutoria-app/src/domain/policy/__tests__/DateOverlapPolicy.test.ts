@@ -47,7 +47,7 @@ describe('DateOverlapPolicy', () => {
     expect(res.passed).toBe(false);
     expect(res.violations[0]!.messageKey).toBe('planning.date.invalid_range');
   });
-  
+
   it('handles leap year correctly', () => {
     const ctx = getContext('2024-02-28', '2024-03-01', [
       { validFrom: new Date('2024-02-29'), validUntil: new Date('2024-02-29') }

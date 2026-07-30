@@ -6,24 +6,11 @@ export class MockMembershipRepository implements MembershipRepository {
     // Return mock data for development
     return [
       {
-        id: 'mem-1234-uuid',
+        id: 'mem-demo-1',
         identityId,
-        tenantId: 'tenant-imss',
-        centerId: 'center-norte',
-        roleId: 'role-director',
-        status: 'ACTIVE',
-        validFrom: new Date().toISOString(),
-        assignment: {
-          assignedBy: 'system',
-          assignedAt: new Date().toISOString()
-        }
-      },
-      {
-        id: 'mem-5678-uuid',
-        identityId,
-        tenantId: 'tenant-imss',
-        centerId: 'center-sur',
-        roleId: 'role-tutor',
+        tenantId: 'Centro Infantil TutorIA',
+        centerId: 'Guardería Demo 001',
+        roleId: 'Docente',
         status: 'ACTIVE',
         validFrom: new Date().toISOString(),
         assignment: {

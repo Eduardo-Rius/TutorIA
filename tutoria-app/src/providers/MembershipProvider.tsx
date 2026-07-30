@@ -31,7 +31,7 @@ export const MembershipProvider: React.FC<{
     setContextState((prev) => ({ ...prev, status: 'LOADING' }));
     try {
       const memberships = await membershipRepository.getMembershipsForIdentity(session.userId);
-      
+
       if (memberships.length === 0) {
         setContextState({ status: 'NO_MEMBERSHIPS', availableMemberships: [] });
       } else if (memberships.length === 1 && memberships[0]) {
@@ -49,10 +49,10 @@ export const MembershipProvider: React.FC<{
         });
       }
     } catch (err) {
-      setContextState({ 
-        status: 'ERROR', 
-        availableMemberships: [], 
-        error: err instanceof Error ? err.message : 'Unknown error loading memberships' 
+      setContextState({
+        status: 'ERROR',
+        availableMemberships: [],
+        error: err instanceof Error ? err.message : 'Unknown error loading memberships'
       });
     }
   }, [session.status, session.userId, membershipRepository]);

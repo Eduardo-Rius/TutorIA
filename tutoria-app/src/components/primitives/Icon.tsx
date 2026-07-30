@@ -20,7 +20,7 @@ export function Icon({
   const isDecorative = !label;
 
   return (
-    <span 
+    <span
       {...props}
       aria-hidden={isDecorative ? "true" : undefined}
       aria-label={label}

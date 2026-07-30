@@ -17,13 +17,13 @@ describe('ContextSnapshot', () => {
   it('can query components safely', () => {
     const comp: ContextComponent<{ role: string }> = { type: 'Actor', value: { role: 'Teacher' }, source: 'System', capturedAt: timestamp };
     const snap = new ContextSnapshot('s1', timestamp, [comp], [], score);
-    
+
     expect(snap.hasComponent('Actor')).toBe(true);
     expect(snap.hasComponent('Missing')).toBe(false);
     expect(snap.getComponent<{ role: string }>('Actor')?.value.role).toBe('Teacher');
     expect(snap.getComponent('Missing')).toBeUndefined();
   });
-  
+
   it('collections are immutable', () => {
     const snap = new ContextSnapshot('s1', timestamp, [], [], score);
     expect(() => { // @ts-expect-error testing readonly

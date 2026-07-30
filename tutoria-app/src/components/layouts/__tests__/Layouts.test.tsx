@@ -1,17 +1,18 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { 
-  AppShell, 
-  Sidebar, 
-  TopBar, 
-  PageHeader, 
-  Breadcrumb, 
-  ContentArea, 
-  Panel, 
-  EmptyState, 
-  LoadingState, 
-  ErrorState 
+import { MemoryRouter } from 'react-router-dom';
+import {
+  AppShell,
+  Sidebar,
+  TopBar,
+  PageHeader,
+  Breadcrumb,
+  ContentArea,
+  Panel,
+  EmptyState,
+  LoadingState,
+  ErrorState
 } from '../';
 
 describe('Layout System', () => {
@@ -28,15 +29,14 @@ describe('Layout System', () => {
   });
 
   it('renders Sidebar without crashing', () => {
-    const items = [
-      { id: '1', label: 'Home', href: '/home', active: true },
-      { id: '2', label: 'Settings', href: '/settings' }
-    ];
-    const html = renderToString(<Sidebar items={items} />);
-    expect(html).toContain('<aside');
-    expect(html).toContain('Home');
-    expect(html).toContain('Settings');
-    expect(html).toContain('aria-current="page"'); // From active state
+    const html = renderToString(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>
+    );
+    expect(html).toContain('Mi espacio');
+    expect(html).toContain('Planeaciones');
+    expect(html).toContain('Conocimiento');
   });
 
   it('renders TopBar without crashing', () => {

@@ -14,11 +14,11 @@ export interface Membership {
   zoneId?: string;
   centerId?: string;
   roleId: string;
-  
+
   status: MembershipStatus;
   validFrom: string;
   validUntil?: string;
-  
+
   assignment: MembershipAssignment;
   permissionSnapshot?: PermissionSnapshot; // For runtime evaluation if needed
 }

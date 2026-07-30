@@ -31,9 +31,9 @@ export function ChatMessage({
   return (
     <div className={combinedClassName} {...props}>
       <div className="flex-shrink-0 mt-1">
-        <Avatar 
-          alt={isAssistant ? 'AI Assistant' : 'User'} 
-          initials={avatarInitials || (isAssistant ? 'IA' : 'U')} 
+        <Avatar
+          alt={isAssistant ? 'AI Assistant' : 'User'}
+          initials={avatarInitials || (isAssistant ? 'IA' : 'U')}
           {...(avatarSrc ? { src: avatarSrc } : {})}
           size="sm"
         />

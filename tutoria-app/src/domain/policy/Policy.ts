@@ -7,6 +7,6 @@ export interface Policy<TContext extends PolicyContext> {
   name: string;
   description: string;
   severity: PolicySeverity;
-  
+
   evaluate(context: TContext): PolicyResult;
 }

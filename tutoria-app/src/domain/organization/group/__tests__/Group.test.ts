@@ -44,7 +44,7 @@ describe('Group Aggregate', () => {
     const code = GroupCode.create('L-A-2026').getValue();
     const stage = DevelopmentStage.create('INFANTS').getValue();
     const cycle = AcademicCycle.create('2026-2027').getValue();
-    
+
     return Group.create(
       groupId, tenantId, instId, centerId,
       name, code, stage, 15, cycle,
@@ -62,7 +62,7 @@ describe('Group Aggregate', () => {
     expect(group.capacity.maxSeats).toBe(15);
     expect(group.capacity.occupiedSeats).toBe(0);
     expect(group.status.isActive()).toBe(true);
-    
+
     const events = group.pullDomainEvents();
     expect(events.length).toBe(1);
     expect(events[0]!).toBeInstanceOf(GroupCreated);
@@ -76,7 +76,7 @@ describe('Group Aggregate', () => {
 
     const newName = GroupName.create('Lactantes A+').getValue();
     const renameRes = group.rename(newName, clock, idGen);
-    
+
     expect(renameRes.isSuccess).toBe(true);
     expect(group.name.value).toBe('Lactantes A+');
 
@@ -92,7 +92,7 @@ describe('Group Aggregate', () => {
 
     const newName = GroupName.create('Lactantes A').getValue();
     const renameRes = group.rename(newName, clock, idGen);
-    
+
     expect(renameRes.isFailure).toBe(true);
   });
 
@@ -170,12 +170,12 @@ describe('Group Aggregate', () => {
 
     const newCycle = AcademicCycle.create('2027-2028').getValue();
     const startRes = group.startNewAcademicCycle(newCycle, clock, idGen);
-    
+
     expect(startRes.isSuccess).toBe(true);
     expect(group.status.isActive()).toBe(true);
     expect(group.cycle.value).toBe('2027-2028');
     expect(group.capacity.occupiedSeats).toBe(0); // Occupancy is reset for new cycle
-    
+
     expect(group.pullDomainEvents()[0]!).toBeInstanceOf(AcademicCycleStarted);
   });
 
@@ -183,7 +183,7 @@ describe('Group Aggregate', () => {
     const group = createValidGroup();
     const newCycle = AcademicCycle.create('2027-2028').getValue();
     const startRes = group.startNewAcademicCycle(newCycle, clock, idGen);
-    
+
     expect(startRes.isFailure).toBe(true);
   });
 

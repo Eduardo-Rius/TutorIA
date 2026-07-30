@@ -27,8 +27,8 @@ export function Avatar({
   return (
     <div {...props} role="img" aria-label={alt} className={combinedClassName}>
       {src && !imgError ? (
-        <img 
-          src={src} 
+        <img
+          src={src}
           alt={alt}
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}

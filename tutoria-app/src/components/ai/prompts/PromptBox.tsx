@@ -37,19 +37,19 @@ export function PromptBox({
     <form className={combinedClassName} onSubmit={handleSubmit} {...props}>
       <Field className="mb-0">
         <div className="relative flex items-center w-full">
-          <Input 
-            type="text" 
-            placeholder={placeholder} 
-            value={value} 
+          <Input
+            type="text"
+            placeholder={placeholder}
+            value={value}
             onChange={onChange}
             disabled={disabled || loading}
             className="pr-24 py-3 sm:py-4 rounded-full shadow-sm"
           />
           <div className="absolute right-2">
-            <Button 
-              type="submit" 
-              variant="primary" 
-              size="sm" 
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
               className="rounded-full"
               disabled={disabled || loading || !value?.trim()}
               loading={loading}

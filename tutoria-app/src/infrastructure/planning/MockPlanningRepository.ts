@@ -15,7 +15,7 @@ export class MockPlanningRepository implements PlanningRepository {
   }
 
   async findByCenterAndGroup(centerId: CenterId, groupId: GroupId): Promise<PedagogicalPlan[]> {
-    return Array.from(this.plans.values()).filter(p => 
+    return Array.from(this.plans.values()).filter(p =>
       p.centerId.equals(centerId) && p.groupId.equals(groupId)
     );
   }

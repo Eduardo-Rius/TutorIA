@@ -15,7 +15,7 @@ export const ContextSelector: React.FC = () => {
           <Heading as="h1" size="xl">Selecciona tu Entorno</Heading>
           <Text color="secondary">Tienes acceso a múltiples centros</Text>
         </div>
-        
+
         <Stack gap={4}>
           {contextState.availableMemberships.map((membership) => (
             <Card key={membership.id} className="p-4 shadow-sm">

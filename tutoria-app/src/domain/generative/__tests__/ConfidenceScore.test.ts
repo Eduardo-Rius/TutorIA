@@ -15,7 +15,7 @@ describe('ConfidenceScore', () => {
     expect(score.isLowConfidence()).toBe(true);
     expect(score.requiresHumanReview()).toBe(true);
   });
-  
+
   it('creates correctly and assesses Medium level', () => {
     const score = ConfidenceScore.create('Medium');
     expect(score.isReliable()).toBe(false);

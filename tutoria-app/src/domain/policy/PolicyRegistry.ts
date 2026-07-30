@@ -19,7 +19,7 @@ export class InMemoryPolicyRegistry<TContext extends PolicyContext> implements P
   getPolicies(): Policy<TContext>[] {
     return [...this.policies];
   }
-  
+
   clear(): void {
     this.policies = [];
   }

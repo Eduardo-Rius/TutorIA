@@ -125,7 +125,7 @@ describe('Center Aggregate', () => {
     const name = CenterName.create('Guarderia 001').getValue();
     const code = CenterCode.create('U-001').getValue();
     const center = Center.create(centerId, tenantId, instId, name, code, clock, idGen).getValue();
-    
+
     const createdAtCopy = center.createdAt;
     createdAtCopy.setFullYear(2030);
 

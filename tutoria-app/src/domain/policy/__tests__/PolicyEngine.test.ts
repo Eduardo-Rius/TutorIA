@@ -17,26 +17,26 @@ class MockPolicy implements Policy<TestContext> {
   ) {}
   name = 'Mock';
   description = 'Mock';
-  
+
   evaluate(context: TestContext) {
     if (this.shouldPass && !this.isWarning) {
       return { passed: true, violations: [], warnings: [], executionTime: 1, policyId: this.id };
     }
     if (this.isWarning) {
-      return { 
-        passed: true, 
-        violations: [], 
-        warnings: [{ code: PolicyCode.create('TST-001'), severity: this.severity, messageKey: 'test.warn' }], 
-        executionTime: 1, 
-        policyId: this.id 
+      return {
+        passed: true,
+        violations: [],
+        warnings: [{ code: PolicyCode.create('TST-001'), severity: this.severity, messageKey: 'test.warn' }],
+        executionTime: 1,
+        policyId: this.id
       };
     }
-    return { 
-      passed: false, 
-      violations: [{ code: PolicyCode.create('TST-001'), severity: this.severity, messageKey: 'test.err' }], 
-      warnings: [], 
-      executionTime: 1, 
-      policyId: this.id 
+    return {
+      passed: false,
+      violations: [{ code: PolicyCode.create('TST-001'), severity: this.severity, messageKey: 'test.err' }],
+      warnings: [],
+      executionTime: 1,
+      policyId: this.id
     };
   }
 }
@@ -45,10 +45,10 @@ describe('PolicyEngine', () => {
   it('evaluates passing policies', () => {
     const registry = new InMemoryPolicyRegistry<TestContext>();
     registry.register(new MockPolicy('1', PolicySeverity.ERROR, true));
-    
+
     const engine = new PolicyEngine(registry);
     const report = engine.evaluate({ targetId: '1', timestamp: new Date() });
-    
+
     expect(report.passed).toBe(true);
     expect(report.score).toBe(100);
     expect(report.evaluatedPolicies).toBe(1);
@@ -61,10 +61,10 @@ describe('PolicyEngine', () => {
     registry.register(new MockPolicy('1', PolicySeverity.BLOCKING, false));
     registry.register(new MockPolicy('2', PolicySeverity.ERROR, false));
     registry.register(new MockPolicy('3', PolicySeverity.WARNING, true, true));
-    
+
     const engine = new PolicyEngine(registry);
     const report = engine.evaluate({ targetId: '1', timestamp: new Date() });
-    
+
     expect(report.passed).toBe(false);
     expect(report.violations.length).toBe(2);
     expect(report.blockingIssues.length).toBe(1);

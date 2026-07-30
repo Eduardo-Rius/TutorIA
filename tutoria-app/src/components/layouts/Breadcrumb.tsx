@@ -26,7 +26,7 @@ export function Breadcrumb({
       <Inline as="ol" gap={2} align="center">
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
-          
+
           return (
             <li key={item.id} className="flex items-center">
               {isLast ? (

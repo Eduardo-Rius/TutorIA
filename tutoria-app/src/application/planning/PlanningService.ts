@@ -2,14 +2,14 @@ import { PlanningRepository } from '../ports/PlanningRepository';
 import { PedagogicalReviewProvider } from '../ports/PedagogicalReviewProvider';
 import { PedagogicalPlan } from '../../domain/planning/PedagogicalPlan';
 import { Result } from '../../shared/result/Result';
-import { 
-  CreatePlanCommand, 
-  ReadyForReviewCommand, 
-  SubmitForReviewCommand, 
-  ApprovePlanCommand, 
-  RejectPlanCommand, 
-  ReturnForCorrectionCommand, 
-  AmendPlanCommand 
+import {
+  CreatePlanCommand,
+  ReadyForReviewCommand,
+  SubmitForReviewCommand,
+  ApprovePlanCommand,
+  RejectPlanCommand,
+  ReturnForCorrectionCommand,
+  AmendPlanCommand
 } from '../../domain/planning/Commands';
 import { PlanningId } from '../../shared/value-objects/Ids';
 

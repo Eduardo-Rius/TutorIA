@@ -11,19 +11,19 @@ export function Divider({
 }: DividerProps) {
   if (orientation === 'vertical') {
     return (
-      <div 
+      <div
         {...(props as React.HTMLAttributes<HTMLDivElement>)}
-        role="separator" 
+        role="separator"
         aria-orientation="vertical"
-        className={`w-px h-full bg-brandPrimary/10 ${className}`.trim().replace(/\s+/g, ' ')} 
+        className={`w-px h-full bg-brandPrimary/10 ${className}`.trim().replace(/\s+/g, ' ')}
       />
     );
   }
 
   return (
-    <hr 
+    <hr
       {...(props as React.HTMLAttributes<HTMLHRElement>)}
-      className={`w-full border-t border-brandPrimary/10 m-0 ${className}`.trim().replace(/\s+/g, ' ')} 
+      className={`w-full border-t border-brandPrimary/10 m-0 ${className}`.trim().replace(/\s+/g, ' ')}
     />
   );
 }

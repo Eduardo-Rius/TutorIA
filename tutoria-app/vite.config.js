@@ -13,4 +13,8 @@ export default defineConfig({
       brotliSize: true,
     })
   ],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  }
 })

@@ -27,7 +27,7 @@ export function AIResponse({
         {/* Children contains the actual response text, lists, or structured components */}
         {children}
       </div>
-      
+
       {(sourcesSlot || confidenceSlot || timestampSlot) && (
         <Inline gap={4} align="center" className="mt-2 pt-3 border-t border-brandPrimary/10">
           {confidenceSlot && <div>{confidenceSlot}</div>}

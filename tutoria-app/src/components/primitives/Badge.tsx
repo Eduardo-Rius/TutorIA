@@ -16,7 +16,7 @@ export function Badge({
   ...props
 }: BadgeProps) {
   const baseClasses = 'inline-flex items-center px-2.5 py-0.5 rounded-pill text-xs font-medium';
-  
+
   let variantClass = 'bg-brandPrimary/10 text-brandPrimary';
   if (variant === 'primary') {
     variantClass = 'bg-brandPrimary text-white';

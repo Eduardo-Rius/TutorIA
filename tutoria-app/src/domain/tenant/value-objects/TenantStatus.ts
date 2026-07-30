@@ -51,7 +51,7 @@ export class TenantStatus extends ValueObject<TenantStatusProps> {
     if (state === 'ACTIVE') return Result.ok(TenantStatus.active());
     if (state === 'SUSPENDED') return Result.ok(TenantStatus.suspended());
     if (state === 'ARCHIVED') return Result.ok(TenantStatus.archived());
-    
+
     return Result.fail(new InvalidTenantStatusError(`Unknown state '${state}'`));
   }
 }

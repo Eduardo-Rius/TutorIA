@@ -12,7 +12,7 @@ describe('PromptComposer', () => {
     const timestamp = new Date(new SystemClock().now().getTime());
     const score = ContextScore.create({ coverage: 100, freshness: 100, authority: 100, relevance: 100 });
     const snap = new ContextSnapshot('s1', timestamp, [], [], score);
-    
+
     const cap: GenerativeCapability = {
       name: 'TestCap',
       description: 'Test',

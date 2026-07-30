@@ -26,11 +26,11 @@ export function SuggestionCard({
   } ${disabled || loading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''} ${className}`.trim();
 
   return (
-    <Surface 
-      as="div" 
-      radius="md" 
-      elevation="none" 
-      withBorder 
+    <Surface
+      as="div"
+      radius="md"
+      elevation="none"
+      withBorder
       className={combinedClassName}
       onClick={isInteractive ? onSelect : undefined}
       role={isInteractive ? 'button' : undefined}

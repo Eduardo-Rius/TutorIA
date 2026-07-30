@@ -1,4 +1,4 @@
-import { FirebaseAuthenticationProvider } from '../infrastructure/authentication/FirebaseAuthenticationProvider';
+import { MockAuthenticationProvider } from '../infrastructure/authentication/MockAuthenticationProvider';
 import { AuthenticationProvider } from '../application/ports/AuthenticationProvider';
 import { MembershipRepository } from '../application/ports/MembershipRepository';
 import { MockMembershipRepository } from '../infrastructure/identity/MockMembershipRepository';
@@ -18,7 +18,7 @@ export interface InfrastructureContext {
 }
 
 export function createInfrastructure(): InfrastructureContext {
-  const authProvider = new FirebaseAuthenticationProvider();
+  const authProvider = new MockAuthenticationProvider();
   const membershipRepository = new MockMembershipRepository();
   const workspaceSeedRepository = new MockWorkspaceSeedRepository();
   const planningRepository = new MockPlanningRepository();

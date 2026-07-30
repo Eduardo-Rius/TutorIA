@@ -9,6 +9,10 @@ export const typography = {
       '"Segoe UI"',
       'sans-serif'
     ],
+    poppins: [
+      'Poppins',
+      'sans-serif'
+    ]
   },
   weights: {
     300: '300',

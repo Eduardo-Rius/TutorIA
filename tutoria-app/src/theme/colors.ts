@@ -1,11 +1,15 @@
 export const colors = {
-  brandPrimary: '#003c58', // Navy
-  brandSecondary: '#0ca994', // Teal
-  brandAccent: '#ff9e02', // Orange
+  brandPrimary: '#00A99D',
+  brandSecondary: '#0D6EFD',
+  brandDark: '#0B1E2D',
+  surfaceLight: '#F5F7FA',
   surfacePrimary: '#ffffff',
-
-  // NOTE: Scales 50-950, danger, success, warning, info are blocked.
-  // Not declaring them until ARB provides validated HSL scales.
+  surfaceSuccess: '#ECFDF5',
+  borderDefault: '#E5E7EB',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  textLight: '#9CA3AF',
+  navHover: '#1F2937',
 } as const;
-
 export type Colors = typeof colors;

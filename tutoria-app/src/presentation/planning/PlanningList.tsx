@@ -20,12 +20,12 @@ export const PlanningList: React.FC = () => {
   return (
     <Container maxWidth="lg" padding={true}>
       <Stack gap={6}>
-        <PageHeader 
-          title="Planeaciones Pedagógicas" 
+        <PageHeader
+          title="Planeaciones Pedagógicas"
           subtitle="Gestiona las planeaciones de tu centro."
           actionsSlot={<Button variant="primary">Crear Planeación</Button>}
         />
-        
+
         <Stack gap={4}>
           {MOCK_PLANS.map(plan => (
             <Surface key={plan.id} withBorder radius="md" className="p-4">
@@ -35,7 +35,7 @@ export const PlanningList: React.FC = () => {
                   <Text size="sm">Versión: {plan.version}</Text>
                 </Stack>
                 <div className="flex flex-row items-center gap-4">
-                  <Badge 
+                  <Badge
                     variant={plan.status === PlanStatus.APPROVED ? 'primary' : 'default'}
                     label={plan.status}
                   />

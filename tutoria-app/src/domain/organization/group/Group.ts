@@ -157,7 +157,7 @@ export class Group extends AggregateRoot<GroupId> {
     if (this._status.isArchived()) {
       return Result.fail(new InvalidGroupOperationError('Cannot change capacity of an archived group'));
     }
-    
+
     if (newMaxSeats === this._capacity.maxSeats) {
         return Result.ok();
     }
@@ -192,7 +192,7 @@ export class Group extends AggregateRoot<GroupId> {
      if (this._status.isArchived() || this._status.isClosed()) {
         return Result.fail(new InvalidGroupOperationError('Cannot update occupancy of an archived or closed group'));
      }
-     
+
      if (newOccupancy === this._capacity.occupiedSeats) {
          return Result.ok();
      }
@@ -219,7 +219,7 @@ export class Group extends AggregateRoot<GroupId> {
           now
         )
       );
-  
+
       return Result.ok();
   }
 

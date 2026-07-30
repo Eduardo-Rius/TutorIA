@@ -22,7 +22,7 @@ describe('Tenant Aggregate', () => {
   it('should create a valid tenant', () => {
     const idRes = TenantId.create(validUUID);
     const nameRes = TenantName.create('IMSS');
-    
+
     expect(idRes.isSuccess).toBe(true);
     expect(nameRes.isSuccess).toBe(true);
 
@@ -64,10 +64,10 @@ describe('Tenant Aggregate', () => {
     const id = TenantId.create(validUUID).getValue();
     const name = TenantName.create('IMSS').getValue();
     const tenant = Tenant.create(id, name, clock).getValue();
-    
+
     tenant.suspend(clock);
     const suspendRes = tenant.suspend(clock); // Second time
-    
+
     expect(suspendRes.isFailure).toBe(true);
     expect(suspendRes.error).toBeInstanceOf(InvalidTenantOperationError);
   });
@@ -76,7 +76,7 @@ describe('Tenant Aggregate', () => {
     const id = TenantId.create(validUUID).getValue();
     const name = TenantName.create('IMSS').getValue();
     const tenant = Tenant.create(id, name, clock).getValue();
-    
+
     tenant.suspend(clock);
     tenant.pullDomainEvents();
 
@@ -93,7 +93,7 @@ describe('Tenant Aggregate', () => {
     const id = TenantId.create(validUUID).getValue();
     const name = TenantName.create('IMSS').getValue();
     const tenant = Tenant.create(id, name, clock).getValue();
-    
+
     // Already active
     const reactivateRes = tenant.reactivate(clock);
     expect(reactivateRes.isFailure).toBe(true);
@@ -123,7 +123,7 @@ describe('Tenant Aggregate', () => {
     const id = TenantId.create(validUUID).getValue();
     const name = TenantName.create('IMSS').getValue();
     const tenant = Tenant.create(id, name, clock).getValue();
-    
+
     const newName = TenantName.create('IMSS').getValue();
     const renameRes = tenant.rename(newName, clock);
 

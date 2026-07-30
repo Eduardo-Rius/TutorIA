@@ -12,11 +12,11 @@ export function Panel({
   const combinedClassName = `overflow-hidden ${className}`.trim();
 
   return (
-    <Surface 
-      as="section" 
-      elevation="sm" 
-      radius="md" 
-      withBorder 
+    <Surface
+      as="section"
+      elevation="sm"
+      radius="md"
+      withBorder
       className={combinedClassName}
       {...props}
     >

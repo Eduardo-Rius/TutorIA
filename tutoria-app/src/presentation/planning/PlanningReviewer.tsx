@@ -13,12 +13,12 @@ export const PlanningReviewer: React.FC = () => {
   return (
     <Container maxWidth="lg" padding={true}>
       <Stack gap={6}>
-        <PageHeader 
-          title="Revisar Planeación" 
+        <PageHeader
+          title="Revisar Planeación"
           subtitle="Auditoría pedagógica y aprobación."
           actionsSlot={<Badge variant="default" label="UNDER_REVIEW" />}
         />
-        
+
         <Surface withBorder radius="md" className="p-6">
           <Stack gap={6}>
             <Stack gap={2}>
@@ -26,9 +26,9 @@ export const PlanningReviewer: React.FC = () => {
               <Text>Autor: María Docente</Text>
               <Text>Ciclo: 2026-2027</Text>
             </Stack>
-            
+
             <Divider />
-            
+
             <Stack gap={4}>
               <Heading as="h4" size="md">Resultados de IA</Heading>
               <Surface radius="sm" className="p-4 bg-brandPrimary/10">
@@ -39,9 +39,9 @@ export const PlanningReviewer: React.FC = () => {
                 </Stack>
               </Surface>
             </Stack>
-            
+
             <Divider />
-            
+
             <Stack gap={4}>
               <Heading as="h3" size="lg">Decisión</Heading>
               <div className="flex flex-row items-center gap-4">

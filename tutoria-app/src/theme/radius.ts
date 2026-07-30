@@ -5,6 +5,7 @@ export const radius = {
   md: '6px',
   lg: '8px',
   xl: '12px',
+  button: '50px',
   pill: '9999px',
   circle: '50%',
 } as const;

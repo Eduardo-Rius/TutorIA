@@ -79,7 +79,7 @@ describe('Institution Aggregate', () => {
     const name = InstitutionName.create('IMSS').getValue();
     const code = InstitutionCode.create('IMSS-01').getValue();
     const inst = Institution.create(instId, tenantId, name, code, clock, idGen).getValue();
-    
+
     inst.suspend(clock, idGen);
     inst.pullDomainEvents();
     const prevUpdatedAt = inst.updatedAt.getTime();
@@ -88,7 +88,7 @@ describe('Institution Aggregate', () => {
     expect(suspendRes.isFailure).toBe(true);
     expect(suspendRes.error!).toBeInstanceOf(InvalidInstitutionOperationError);
     expect(inst.updatedAt.getTime()).toBe(prevUpdatedAt);
-    
+
     const events = inst.pullDomainEvents();
     expect(events.length).toBe(0); // No event generated
   });
@@ -97,7 +97,7 @@ describe('Institution Aggregate', () => {
     const name = InstitutionName.create('IMSS').getValue();
     const code = InstitutionCode.create('IMSS-01').getValue();
     const inst = Institution.create(instId, tenantId, name, code, clock, idGen).getValue();
-    
+
     inst.suspend(clock, idGen);
     inst.pullDomainEvents();
 
@@ -155,7 +155,7 @@ describe('Institution Aggregate', () => {
     const name = InstitutionName.create('IMSS').getValue();
     const code = InstitutionCode.create('IMSS-01').getValue();
     const inst = Institution.create(instId, tenantId, name, code, clock, idGen).getValue();
-    
+
     inst.archive(clock, idGen);
     expect(inst.status.isArchived()).toBe(true);
 
@@ -173,7 +173,7 @@ describe('Institution Aggregate', () => {
     const name = InstitutionName.create('IMSS').getValue();
     const code = InstitutionCode.create('IMSS-01').getValue();
     const inst = Institution.create(instId, tenantId, name, code, clock, idGen).getValue();
-    
+
     const createdAtCopy = inst.createdAt;
     createdAtCopy.setFullYear(2030);
 

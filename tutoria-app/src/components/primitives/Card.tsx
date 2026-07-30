@@ -12,10 +12,10 @@ export function Card({
   const combinedClassName = `p-4 sm:p-6 ${className}`.trim();
 
   return (
-    <Surface 
-      radius="md" 
-      elevation="sm" 
-      withBorder 
+    <Surface
+      radius="md"
+      elevation="sm"
+      withBorder
       {...props}
       className={combinedClassName}
     >

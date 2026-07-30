@@ -12,13 +12,13 @@ export abstract class ValueObject<T> {
     if (vo.props === undefined) {
       return false;
     }
-    
+
     return this.shallowEqual(this.props, vo.props);
   }
 
   private shallowEqual(obj1: unknown, obj2: unknown): boolean {
     if (obj1 === obj2) return true;
-    
+
     if (typeof obj1 !== 'object' || obj1 === null || typeof obj2 !== 'object' || obj2 === null) {
       return false;
     }

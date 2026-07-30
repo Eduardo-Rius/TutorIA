@@ -1,18 +1,18 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { 
-  Field, 
-  FieldGroup, 
-  Label, 
-  Input, 
-  Textarea, 
-  Select, 
-  Checkbox, 
-  Radio, 
-  Switch, 
-  FieldHint, 
-  FieldError 
+import {
+  Field,
+  FieldGroup,
+  Label,
+  Input,
+  Textarea,
+  Select,
+  Checkbox,
+  Radio,
+  Switch,
+  FieldHint,
+  FieldError
 } from '../';
 
 describe('Forms Foundation', () => {

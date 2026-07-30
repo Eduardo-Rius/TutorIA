@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { 
+import {
   AssistantPanel,
   SuggestionCard,
   ChatMessage,
@@ -40,7 +40,7 @@ describe('AI Experience System', () => {
     const assistantHtml = renderToString(<ChatMessage role="assistant">Hello User</ChatMessage>);
     expect(assistantHtml).toContain('Hello User');
     expect(assistantHtml).toContain('TutorIA');
-    
+
     const userHtml = renderToString(<ChatMessage role="user">Hi AI</ChatMessage>);
     expect(userHtml).toContain('Hi AI');
     expect(userHtml).toContain('Tú');
