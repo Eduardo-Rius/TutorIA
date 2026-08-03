@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <!-- Skin Tone and Hair -->
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDF8F5" />
+      <stop offset="100%" stop-color="#F1E3D3" />
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#023E8A" />
+      <stop offset="100%" stop-color="#03045E" />
+    </linearGradient>
+    <!-- Clothing -->
+    <linearGradient id="clothingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00B4D8" />
+      <stop offset="100%" stop-color="#48CAE4" />
+    </linearGradient>
+    <!-- Accents -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F77F00" />
+      <stop offset="100%" stop-color="#FFB703" />
+    </linearGradient>
+    
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#03045E" flood-opacity="0.1" />
+    </filter>
+  </defs>
+
+  <!-- Aura / Background (Warmth) -->
+  <circle cx="200" cy="200" r="160" fill="#F77F00" opacity="0.04" />
+  <circle cx="200" cy="200" r="120" fill="#F77F00" opacity="0.06" />
+
+  <!-- Body / Bust -->
+  <g transform="translate(0, 30)">
+    <!-- Shoulders -->
+    <path d="M 100 360 C 100 250, 300 250, 300 360" fill="url(#clothingGrad)" filter="url(#softShadow)" />
+    <!-- Collar/Scarf Accent -->
+    <path d="M 150 270 Q 200 330 250 270 L 260 360 L 140 360 Z" fill="#023E8A" opacity="0.1" />
+    <path d="M 130 290 Q 200 340 270 290 Q 250 360 200 360 Q 150 360 130 290" fill="url(#accentGrad)" opacity="0.9" />
+  </g>
+
+  <!-- Neck -->
+  <rect x="175" y="210" width="50" height="70" rx="10" fill="#EAD1C2" />
+
+  <!-- Head/Face Shape -->
+  <g transform="translate(0, -10)">
+    <!-- Back Hair (Bun) -->
+    <circle cx="260" cy="180" r="40" fill="url(#hairGrad)" filter="url(#softShadow)" />
+    
+    <!-- Face -->
+    <rect x="135" y="110" width="130" height="150" rx="60" fill="url(#skinGrad)" filter="url(#softShadow)" />
+    
+    <!-- Front Hair / Bangs (Soft curves) -->
+    <path d="M 135 170 C 135 110, 265 110, 265 170 C 265 130, 200 110, 135 170" fill="url(#hairGrad)" />
+    <path d="M 265 170 C 265 140, 220 120, 190 150 Q 220 140 265 170" fill="#48CAE4" opacity="0.2" />
+    
+    <!-- Subtle Facial Features (Glasses & minimalist smile) -->
+    <!-- We avoid drawing eyes explicitly, just elegant glasses to denote intelligence and profession -->
+    <g stroke="#03045E" stroke-width="4" fill="none">
+      <circle cx="170" cy="180" r="20" />
+      <circle cx="230" cy="180" r="20" />
+      <path d="M 190 180 L 210 180" />
+      <path d="M 150 180 L 135 175" />
+      <path d="M 250 180 L 265 175" />
+    </g>
+    <!-- Warm Blush -->
+    <circle cx="165" cy="210" r="12" fill="#F77F00" opacity="0.2" />
+    <circle cx="235" cy="210" r="12" fill="#F77F00" opacity="0.2" />
+    <!-- Smile (very subtle, no lips) -->
+    <path d="M 190 225 Q 200 235 210 225" stroke="#EAD1C2" stroke-width="3" stroke-linecap="round" fill="none" />
+  </g>
+</svg>

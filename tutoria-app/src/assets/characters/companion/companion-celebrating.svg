@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#023E8A" />
+      <stop offset="100%" stop-color="#03045E" />
+    </linearGradient>
+    <linearGradient id="faceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F8F9FA" />
+      <stop offset="100%" stop-color="#E9ECEF" />
+    </linearGradient>
+    <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F77F00" />
+      <stop offset="100%" stop-color="#FFB703" />
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#03045E" flood-opacity="0.15" />
+    </filter>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#F77F00" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Aura / Background: Festive Burst -->
+  <circle cx="200" cy="200" r="160" fill="#F77F00" opacity="0.05" />
+  <circle cx="200" cy="200" r="120" fill="#F77F00" opacity="0.1" />
+  
+  <!-- Confetti/Sparkles -->
+  <circle cx="100" cy="120" r="8" fill="#00B4D8" filter="url(#glow)" />
+  <circle cx="300" cy="140" r="6" fill="#00B4D8" filter="url(#glow)" />
+  <path d="M 80 200 L 90 205 L 85 195 Z" fill="#F77F00" />
+  <path d="M 320 220 L 330 230 L 325 215 Z" fill="#F77F00" />
+  <circle cx="130" cy="80" r="5" fill="#F77F00" opacity="0.8" />
+  <circle cx="270" cy="90" r="7" fill="#00B4D8" opacity="0.8" />
+
+  <!-- Body/Torso -->
+  <g transform="translate(0, -10)">
+    <path d="M 120 360 C 120 280, 280 280, 280 360" fill="url(#bodyGrad)" />
+    <path d="M 140 360 C 140 300, 260 300, 260 360" fill="#00B4D8" opacity="0.2" />
+  </g>
+
+  <!-- Raised Arms (Celebrating) -->
+  <g transform="translate(100, 200) rotate(-30)">
+    <rect x="-20" y="-30" width="30" height="60" rx="15" fill="url(#bodyGrad)" filter="url(#softShadow)" />
+  </g>
+  <g transform="translate(300, 200) rotate(30)">
+    <rect x="-10" y="-30" width="30" height="60" rx="15" fill="url(#bodyGrad)" filter="url(#softShadow)" />
+  </g>
+
+  <!-- Head Floating (Moved up for jump/joy) -->
+  <g transform="translate(0, -30)">
+    <rect x="110" y="100" width="180" height="150" rx="60" fill="url(#bodyGrad)" filter="url(#softShadow)" />
+    <rect x="125" y="115" width="150" height="120" rx="45" fill="url(#faceGrad)" />
+    <rect x="125" y="115" width="150" height="120" rx="45" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.5" />
+
+    <!-- Celebrating Eyes: Stars or big happy arcs -->
+    <g stroke="url(#eyeGrad)" stroke-width="14" stroke-linecap="round" fill="none" filter="url(#glow)">
+      <!-- Left Eye: ^ -->
+      <path d="M 155 180 L 170 160 L 185 180" />
+      <!-- Right Eye: ^ -->
+      <path d="M 215 180 L 230 160 L 245 180" />
+    </g>
+
+    <!-- Big Cheeks -->
+    <circle cx="145" cy="190" r="14" fill="#F77F00" opacity="0.5" filter="url(#glow)" />
+    <circle cx="255" cy="190" r="14" fill="#F77F00" opacity="0.5" filter="url(#glow)" />
+
+    <!-- Antenna/Indicator: Bright Orange -->
+    <circle cx="200" cy="70" r="12" fill="#F77F00" filter="url(#glow)" />
+    <path d="M 200 80 L 200 100" stroke="#F77F00" stroke-width="4" opacity="0.8" />
+  </g>
+</svg>

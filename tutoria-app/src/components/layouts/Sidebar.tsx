@@ -3,7 +3,9 @@ import { Home, NotebookPen, Lightbulb, Library, BookOpen, LineChart, Users, Sett
 import robotLogo from '../../assets/brand/logos/imagotype/TutorIA_Imagotype_Transparent.png';
 
 import { useNavigate, useLocation } from 'react-router-dom';
-
+import { PresencePolicy } from '../../presentation/experience/presence/PresencePolicy';
+import { ANITA_ID } from '../../presentation/experience/characters/CharacterDefinitionCatalog';
+import { InstitutionalPresenceRenderer } from '../../presentation/experience/presence/InstitutionalPresenceRenderer';
 interface SidebarItem {
   icon: React.ElementType;
   label: string;
@@ -24,6 +26,16 @@ const ITEMS: SidebarItem[] = [
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const resolution = PresencePolicy.resolve({
+    institutionalRole: 'Docente Maternal',
+    workspaceState: 'PENDING_WORK',
+    experienceState: 'NEUTRAL',
+    scene: 'default',
+    allowedCharacters: [ANITA_ID],
+    reducedMotionPreference: false,
+    requireAvailableAssets: true
+  });
 
   return (
     <div className="flex flex-col h-full w-[280px] bg-brandDark shadow-lg overflow-y-auto">
@@ -61,15 +73,15 @@ export const Sidebar: React.FC = () => {
 
       {/* Perfil (Inferior) */}
       <div className="p-4 mt-auto">
-        <button className="w-full flex items-center gap-3 p-3 rounded-[8px] hover:bg-navHover transition-colors text-left group">
-          <div className="w-10 h-10 rounded-full bg-surfaceLight flex items-center justify-center overflow-hidden shrink-0 border border-white/10">
-            <img src="https://i.pravatar.cc/150?u=ana" alt="Avatar Ana Martínez" className="w-full h-full object-cover" />
+        <button className="w-full flex items-center gap-3.5 p-3 rounded-[12px] hover:bg-white/5 transition-all duration-300 text-left group border border-transparent hover:border-white/5">
+          <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 border-2 border-white/10 shadow-sm relative">
+            <InstitutionalPresenceRenderer resolution={resolution} className="w-full h-full object-cover scale-110 translate-y-1" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate font-inter">Ana Martínez</p>
-            <p className="text-xs text-textLight truncate font-inter">Docente</p>
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <p className="text-[15px] font-semibold text-white truncate font-poppins tracking-tight leading-tight">Docente</p>
+            <p className="text-[13px] text-brandPrimary truncate font-inter font-medium leading-tight mt-0.5">Maternal B</p>
           </div>
-          <ChevronDown size={16} className="text-textLight group-hover:text-white transition-colors" />
+          <ChevronDown size={18} className="text-textLight group-hover:text-white transition-colors opacity-50 group-hover:opacity-100" />
         </button>
       </div>
     </div>

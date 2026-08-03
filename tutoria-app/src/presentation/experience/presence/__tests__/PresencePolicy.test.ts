@@ -74,13 +74,13 @@ describe('Presence Policy Selection Rules', () => {
     expect(res.resolutionReason).toBe('NO_ELIGIBLE_CHARACTER_FALLBACK');
   });
 
-  it('handles asset unavailable using fallback when strict mode is on', () => {
+  it('resolves normally when strict mode is on and asset is available', () => {
     const res = PresencePolicy.resolve({
       ...baseContext,
-      requireAvailableAssets: true // Since our assets are 'placeholder_pending'
+      requireAvailableAssets: true
     });
-    expect(res.isFallback).toBe(true);
-    expect(res.resolutionReason).toBe('ASSET_UNAVAILABLE_FALLBACK');
+    expect(res.isFallback).toBe(false);
+    expect(res.resolutionReason).toBe('COMPANION_DEFAULT');
   });
 
   it('conserves reduced motion preference without mutation', () => {

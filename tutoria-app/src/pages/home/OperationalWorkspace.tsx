@@ -5,6 +5,8 @@ import { useMembership } from '../../providers/MembershipProvider';
 import { Bell, Plus, Book, Search, BarChart2, ArrowRight, Sparkles } from 'lucide-react';
 import { useSession } from '../../providers/SessionProvider';
 import { TutorIAPresence, ExperienceContext } from '../../presentation/experience';
+import { PresencePolicy } from '../../presentation/experience/presence/PresencePolicy';
+import { COMPANION_ID } from '../../presentation/experience/characters/CharacterDefinitionCatalog';
 
 export const OperationalWorkspace: React.FC = () => {
   const navigate = useNavigate();
@@ -65,6 +67,18 @@ export const OperationalWorkspace: React.FC = () => {
     }
   };
 
+  const presenceContext = {
+    institutionalRole: 'Docente Maternal',
+    workspaceState: 'PENDING_WORK',
+    experienceState: 'GREETING' as const,
+    scene: 'workspace-reception',
+    allowedCharacters: [COMPANION_ID],
+    reducedMotionPreference: false,
+    requireAvailableAssets: true
+  };
+
+  const resolution = PresencePolicy.resolve(presenceContext);
+
   return (
     <AppShell>
       <div className="p-6 md:p-10 max-w-6xl mx-auto w-full min-h-screen flex flex-col gap-8">
@@ -97,6 +111,7 @@ export const OperationalWorkspace: React.FC = () => {
         <section className="w-full flex-shrink-0 relative z-10">
           <TutorIAPresence
             context={experienceContext}
+            resolution={resolution}
             onAction={(action) => {
               if (action.target) {
                 navigate(action.target);

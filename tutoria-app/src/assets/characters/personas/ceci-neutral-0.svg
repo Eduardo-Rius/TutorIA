@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <!-- Skin Tone and Hair -->
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF3E0" />
+      <stop offset="100%" stop-color="#FFE0B2" />
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6A4C93" />
+      <stop offset="100%" stop-color="#312244" />
+    </linearGradient>
+    <!-- Clothing: Dynamic/Turquoise -->
+    <linearGradient id="clothingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00B4D8" />
+      <stop offset="100%" stop-color="#023E8A" />
+    </linearGradient>
+    
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#00B4D8" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- Aura / Background (Dynamic, movement) -->
+  <circle cx="200" cy="200" r="160" fill="#00B4D8" opacity="0.05" />
+  <circle cx="210" cy="190" r="120" fill="#00B4D8" opacity="0.07" />
+
+  <!-- Body / Bust (Leaning forward slightly, dynamic collar) -->
+  <g transform="translate(10, 30)">
+    <!-- Shoulders -->
+    <path d="M 90 360 C 110 260, 270 240, 290 360" fill="url(#clothingGrad)" filter="url(#softShadow)" />
+    <!-- Collar (Asymmetric flow) -->
+    <path d="M 120 280 C 160 300, 200 350, 250 280 L 290 360 L 90 360 Z" fill="#F77F00" opacity="0.9" filter="url(#softShadow)" />
+  </g>
+
+  <!-- Neck -->
+  <rect x="180" y="210" width="40" height="60" rx="10" fill="#E8C396" transform="translate(10, 0)" />
+
+  <!-- Head/Face Shape -->
+  <g transform="translate(10, -10)">
+    <!-- Face (Round but leaning) -->
+    <rect x="135" y="105" width="130" height="145" rx="55" fill="url(#skinGrad)" filter="url(#softShadow)" />
+    
+    <!-- Hair (Flowing, dynamic curves) -->
+    <path d="M 120 150 C 120 70, 280 70, 280 150 C 280 230, 310 260, 300 280 C 280 280, 260 220, 265 170 C 265 120, 135 120, 135 170 C 140 220, 110 270, 100 270 C 90 250, 120 220, 120 150 Z" fill="url(#hairGrad)" filter="url(#softShadow)" />
+    
+    <!-- Hair Highlights -->
+    <path d="M 130 140 Q 200 80, 270 140" stroke="#FFB703" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.4" />
+    
+    <!-- Subtle Facial Features (Empathy, active listening) -->
+    <!-- Soft almond eyes contours without pupils to keep it abstract -->
+    <g stroke="#312244" stroke-width="4" stroke-linecap="round" fill="none">
+      <path d="M 160 175 Q 170 170 180 175" />
+      <path d="M 220 175 Q 230 170 240 175" />
+    </g>
+
+    <!-- Warm Blush -->
+    <circle cx="165" cy="195" r="10" fill="#F77F00" opacity="0.15" />
+    <circle cx="235" cy="195" r="10" fill="#F77F00" opacity="0.15" />
+    
+    <!-- Engaged Smile -->
+    <path d="M 185 220 Q 200 235 215 220" stroke="#E8C396" stroke-width="4" stroke-linecap="round" fill="none" />
+  </g>
+</svg>
