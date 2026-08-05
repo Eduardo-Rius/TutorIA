@@ -40,4 +40,16 @@ describe('Character Asset Manifest Catalog', () => {
       }
     });
   });
+
+  it('all canonical illustrated assets use PNG format and have physical sources', () => {
+    Object.values(CharacterAssetCatalog).forEach((asset) => {
+      if (asset.assetKey !== 'fallback_avatar') {
+        expect(asset.format).toBe('png');
+        expect(asset.status).toBe('available');
+        expect(asset.physicalSource).toBeDefined();
+      } else {
+        expect(asset.format).toBe('svg');
+      }
+    });
+  });
 });

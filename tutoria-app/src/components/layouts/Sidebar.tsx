@@ -74,8 +74,8 @@ export const Sidebar: React.FC = () => {
       {/* Perfil (Inferior) */}
       <div className="p-4 mt-auto">
         <button className="w-full flex items-center gap-3.5 p-3 rounded-[12px] hover:bg-white/5 transition-all duration-300 text-left group border border-transparent hover:border-white/5">
-          <div className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 border-2 border-white/10 shadow-sm relative">
-            <InstitutionalPresenceRenderer resolution={resolution} className="w-full h-full object-cover scale-110 translate-y-1" />
+          <div className="w-11 h-11 shrink-0 overflow-hidden rounded-full bg-white/10 flex items-center justify-center border-2 border-white/10 shadow-sm relative">
+            <InstitutionalPresenceRenderer resolution={resolution} variant="avatar" className="w-full h-full" />
           </div>
           <div className="flex-1 min-w-0 flex flex-col justify-center">
             <p className="text-[15px] font-semibold text-white truncate font-poppins tracking-tight leading-tight">Docente</p>

@@ -72,7 +72,7 @@ export function TutorIAPresence({ context, resolution, onAction }: TutorIAPresen
         <div className="w-full max-w-[500px] aspect-square relative z-10 flex items-center justify-center">
           <PresenceMotion level={presentation.motion}>
             {resolution ? (
-              <InstitutionalPresenceRenderer resolution={resolution} />
+              <InstitutionalPresenceRenderer resolution={resolution} variant="hero" className="w-full h-full" />
             ) : (
               <PresenceFallback mood={presentation.mood} />
             )}

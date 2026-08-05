@@ -1,14 +1,14 @@
 import { CharacterAssetManifest, AssetKey } from './CharacterAssetManifest';
 import { COMPANION_ID, ANITA_ID, TERE_ID, CECI_ID, FALLBACK_ID } from './CharacterDefinitionCatalog';
 
-import companionGreetingAsset from '../../../assets/characters/companion/companion-greeting.svg';
-import companionThinkingAsset from '../../../assets/characters/companion/companion-thinking.svg';
-import companionHelpingAsset from '../../../assets/characters/companion/companion-helping.svg';
-import companionWaitingAsset from '../../../assets/characters/companion/companion-waiting.svg';
-import companionCelebratingAsset from '../../../assets/characters/companion/companion-celebrating.svg';
-import anitaNeutralAsset from '../../../assets/characters/personas/anita-neutral.svg';
-import tereNeutralAsset from '../../../assets/characters/personas/tere-neutral.svg';
-import ceciNeutralAsset from '../../../assets/characters/personas/ceci-neutral.svg';
+import companionGreetingAsset from '../../../assets/characters/companion/companion-greeting.png';
+import companionThinkingAsset from '../../../assets/characters/companion/companion-thinking.png';
+import companionHelpingAsset from '../../../assets/characters/companion/companion-helping.png';
+import companionWaitingAsset from '../../../assets/characters/companion/companion-waiting.png';
+import companionCelebratingAsset from '../../../assets/characters/companion/companion-celebrating.png';
+import anitaNeutralAsset from '../../../assets/characters/personas/anita-neutral.png';
+import tereNeutralAsset from '../../../assets/characters/personas/tere-neutral.png';
+import ceciNeutralAsset from '../../../assets/characters/personas/ceci-neutral.png';
 import fallbackAsset from '../../../assets/characters/fallback/institutional-presence-fallback.svg';
 
 const freezeCharacterAssetManifest = (
@@ -21,7 +21,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: COMPANION_ID,
     presenceState: 'GREETING',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: companionGreetingAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -34,7 +34,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: COMPANION_ID,
     presenceState: 'GREETING',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: companionGreetingAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -47,7 +47,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: COMPANION_ID,
     presenceState: 'THINKING',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: companionThinkingAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -60,7 +60,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: COMPANION_ID,
     presenceState: 'HELPING',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: companionHelpingAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -73,7 +73,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: COMPANION_ID,
     presenceState: 'WAITING',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: companionWaitingAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -86,7 +86,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: COMPANION_ID,
     presenceState: 'CELEBRATING',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: companionCelebratingAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -99,7 +99,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: ANITA_ID,
     presenceState: 'NEUTRAL',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: anitaNeutralAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -112,7 +112,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: TERE_ID,
     presenceState: 'NEUTRAL',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: tereNeutralAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
@@ -125,7 +125,7 @@ const assets: Readonly<Record<AssetKey, CharacterAssetManifest>> = {
     characterId: CECI_ID,
     presenceState: 'NEUTRAL',
     representationType: 'static_image',
-    format: 'svg',
+    format: 'png',
     physicalSource: ceciNeutralAsset,
     hasTransparentBackground: true,
     accessibilityMode: 'informative',
