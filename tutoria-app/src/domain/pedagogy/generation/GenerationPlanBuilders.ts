@@ -30,7 +30,7 @@ export function buildObjective(
 ): PedagogicalGenerationObjective {
   let audience: TargetAudienceCode = 'EDUCATOR';
   if (ageRange && ageRange.includes('teen')) audience = 'STUDENT';
-  
+
   return Object.freeze({
     action,
     targetAudienceCode: audience,
@@ -66,14 +66,14 @@ export function convertConstraints(restrictions: readonly PedagogicalRestriction
         constraintType = 'must_align_with';
         break;
     }
-    
+
     return {
       constraintType,
       ruleCode: 'CONSTRAINT_CONVERTED' as GenerationRuleCode,
       sourceReferences: r.sourceIds
     };
   });
-  
+
   return Object.freeze([...constraints].sort((a, b) => a.constraintType.localeCompare(b.constraintType)));
 }
 
@@ -82,7 +82,7 @@ export function buildKnowledgeRequirements(
   action: PedagogicalAction
 ): readonly KnowledgeRequirement[] {
   if (frameworkIds.length === 0) return Object.freeze([]);
-  
+
   return Object.freeze([
     {
       requirementType: 'institutional_framework' as KnowledgeRequirementType,
@@ -99,13 +99,13 @@ export function buildOutputSchema(action: PedagogicalAction): readonly PlannedOu
     required: true,
     sequence: OutputSectionSequenceMap[sectionCode]
   }));
-  
+
   const optional = ActionToOptionalSectionsMap[action].map(sectionCode => ({
     sectionCode,
     required: false,
     sequence: OutputSectionSequenceMap[sectionCode]
   }));
-  
+
   const all = [...required, ...optional];
   return Object.freeze(all.sort((a, b) => a.sequence - b.sequence));
 }
@@ -116,7 +116,7 @@ export function buildValidationCriteria(action: PedagogicalAction): readonly Gen
     severity: 'error' as const,
     contextFieldsUsed: [] as readonly (keyof PedagogicalContext)[]
   }));
-  
+
   return Object.freeze([...criteria].sort((a, b) => a.validationCode.localeCompare(b.validationCode)));
 }
 
@@ -126,7 +126,7 @@ export function buildEvidence(decision: PedagogicalDecisionResolution): readonly
     contextFieldsUsed: ['pedagogicalIntent'] as readonly (keyof PedagogicalContext)[],
     decisionEvidenceReferences: [e.ruleCode]
   }));
-  
+
   if (evidenceList.length === 0) {
     return Object.freeze([]);
   }

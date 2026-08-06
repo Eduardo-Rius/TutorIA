@@ -20,26 +20,26 @@ function isValidIsoDate(dateStr: string): boolean {
   const year = parseInt(dateStr.substring(0, 4), 10);
   const month = parseInt(dateStr.substring(5, 7), 10);
   const day = parseInt(dateStr.substring(8, 10), 10);
-  
+
   if (month < 1 || month > 12) return false;
   if (day < 1) return false;
-  
+
   const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   let maxDays = typeof daysInMonth[month] === 'number' ? daysInMonth[month] : 0;
-  
+
   if (month === 2) {
     const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
     if (isLeap) maxDays = 29;
   }
-  
+
   if (day > maxDays) return false;
-  
+
   const hour = parseInt(dateStr.substring(11, 13), 10);
   const minute = parseInt(dateStr.substring(14, 16), 10);
   const second = parseInt(dateStr.substring(17, 19), 10);
-  
+
   if (hour > 23 || minute > 59 || second > 59) return false;
-  
+
   return true;
 }
 
@@ -59,7 +59,7 @@ function deepFreeze<T>(obj: T): T {
 
 export function buildPedagogicalGenerationPlan(input: PedagogicalGenerationPlanInput): PedagogicalGenerationPlanResolution {
   const diagnostics: GenerationPlanDiagnostic[] = [];
-  
+
   // Return helper for not_created
   const reject = (reason: PedagogicalGenerationPlanNotCreated['reason'], extraDiagnostics: GenerationPlanDiagnostic[] = []): PedagogicalGenerationPlanResolution => {
     const res: PedagogicalGenerationPlanNotCreated = {
@@ -123,7 +123,7 @@ export function buildPedagogicalGenerationPlan(input: PedagogicalGenerationPlanI
   const canonicalWarningKey = (w: import('../context/Contracts').PedagogicalWarning) => `${w.field}|${w.sourceType}|${w.message}`;
   const dWarnings = [...(decision.contextWarnings || [])].sort((a, b) => canonicalWarningKey(a).localeCompare(canonicalWarningKey(b)));
   const cWarnings = [...(context.warnings || [])].sort((a, b) => canonicalWarningKey(a).localeCompare(canonicalWarningKey(b)));
-  
+
   if (dWarnings.length !== cWarnings.length || dWarnings.some((w, i) => { const cw = cWarnings[i]; return !cw || canonicalWarningKey(w) !== canonicalWarningKey(cw); })) {
     return reject('INCONSISTENT_DECISION_INPUT', [{
       code: 'INCONSISTENT_CONTEXT_AND_DECISION',
@@ -154,7 +154,7 @@ export function buildPedagogicalGenerationPlan(input: PedagogicalGenerationPlanI
   if (decision.status === 'blocked') {
     return reject('DECISION_BLOCKED');
   }
-  
+
   if (decision.status === 'clarification_required') {
     return reject('CLARIFICATION_REQUIRED');
   }
@@ -170,7 +170,7 @@ export function buildPedagogicalGenerationPlan(input: PedagogicalGenerationPlanI
   }
 
   const action = decision.requestedAction;
-  
+
   if (!decision.allowedActions || !decision.allowedActions.includes(action)) {
     return reject('INCONSISTENT_DECISION_INPUT', [{
       code: 'REQUESTED_ACTION_NOT_ALLOWED',
@@ -185,10 +185,10 @@ export function buildPedagogicalGenerationPlan(input: PedagogicalGenerationPlanI
 
   // Build ready plan
   const planType = ActionToPlanTypeMap[action];
-  
+
   const intent = context.context?.pedagogicalIntent;
   const ageRange = context.context?.ageRange;
-  
+
   if (!intent || !ageRange) {
     return reject('INCONSISTENT_DECISION_INPUT', [{
       code: 'MISSING_REQUIRED_CONTEXT_SNAPSHOT',
@@ -210,8 +210,8 @@ export function buildPedagogicalGenerationPlan(input: PedagogicalGenerationPlanI
   }
 
   const unsupported = (decision.restrictions || []).find(
-    r => r.restrictionType !== 'institutional_framework' && 
-         r.restrictionType !== 'policy' && 
+    r => r.restrictionType !== 'institutional_framework' &&
+         r.restrictionType !== 'policy' &&
          r.restrictionType !== 'role_limit'
   );
   if (unsupported) {

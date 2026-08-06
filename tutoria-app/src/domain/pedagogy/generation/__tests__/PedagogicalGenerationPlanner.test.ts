@@ -166,7 +166,7 @@ describe('PedagogicalGenerationPlanner', () => {
     const input = createValidInput();
     const warning: PedagogicalWarning = { field: 'groupId', message: 'context warning', sourceType: 'authenticated_session' };
     const decWarning: PedagogicalWarning = { field: 'groupId', message: 'decision warning', sourceType: 'authenticated_session' };
-    
+
     const result = buildPedagogicalGenerationPlan({
       ...input,
       contextResolution: { ...input.contextResolution, warnings: [warning] },
@@ -180,7 +180,7 @@ describe('PedagogicalGenerationPlanner', () => {
     const input = createValidInput();
     const missingReq: MissingContextRequirement = { field: 'groupId', reason: 'reason 1', severity: 'low', remediation: '', blocksRecommendation: false };
     const decReq: MissingContextRequirement = { field: 'groupId', reason: 'reason 2', severity: 'low', remediation: '', blocksRecommendation: false };
-    
+
     const result = buildPedagogicalGenerationPlan({
       ...input,
       contextResolution: { ...input.contextResolution, missingRequirements: [missingReq] },
@@ -453,7 +453,7 @@ describe('PedagogicalGenerationPlanner', () => {
   });
 
   // NEW ADVERSARIAL TESTS
-  
+
   it('51. Adversarial: Missing context rejects honestly. Condition: missing pedagogicalIntent. Result: not_created', () => {
     const input = createValidInput();
     // ARCHITECTURAL JUSTIFICATION: Adversarial test forces structural bypass to verify runtime validation gate.
@@ -482,7 +482,7 @@ describe('PedagogicalGenerationPlanner', () => {
     expect(result.status).toBe('not_created');
     expect(result.generationDiagnostics).toContainEqual(expect.objectContaining({ code: 'INVALID_PLANNED_AT' }));
   });
-  
+
   it('54. Adversarial: Invalid leap day is rejected. Condition: 2026-02-29 (not a leap year). Result: not_created', () => {
     const input = createValidInput();
     const result = buildPedagogicalGenerationPlan({ ...input, plannedAt: '2026-02-29T12:00:00Z' }) as PedagogicalGenerationPlanNotCreated;

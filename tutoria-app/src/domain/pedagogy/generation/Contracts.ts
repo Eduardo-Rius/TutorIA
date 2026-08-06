@@ -19,7 +19,7 @@ export type GenerationPlanNotCreatedReason =
   | 'MISSING_TRACEABILITY'
   | 'UNSUPPORTED_RESTRICTION_TYPE';
 
-export type GenerationRuleCode = 
+export type GenerationRuleCode =
   | 'AUTHORIZATION_GATE_PASSED'
   | 'AUTHORIZATION_GATE_REJECTED'
   | 'REQUESTED_ACTION_PRESERVED'
@@ -113,12 +113,12 @@ export interface MissingTraceabilityDiagnostic { readonly code: 'MISSING_TRACEAB
 export interface InconsistentContextAndDecisionDiagnostic { readonly code: 'INCONSISTENT_CONTEXT_AND_DECISION'; readonly severity: 'error'; readonly field: 'contextCapabilities'; readonly receivedValue: Record<string, string | boolean | number | null | readonly string[]> | readonly import('../context/Contracts').PedagogicalWarning[] | readonly import('../context/Contracts').MissingContextRequirement[]; readonly messageCode: GenerationDiagnosticMessageCode; }
 export interface UnsupportedRestrictionTypeDiagnostic { readonly code: 'UNSUPPORTED_RESTRICTION_TYPE'; readonly severity: 'error'; readonly field: 'restrictions'; readonly receivedValue: string; readonly messageCode: GenerationDiagnosticMessageCode; }
 
-export type GenerationPlanDiagnostic = 
-  | InvalidPlannedAtDiagnostic 
-  | InconsistentDecisionStatusDiagnostic 
-  | RequestedActionNotAllowedDiagnostic 
-  | MissingRequiredContextSnapshotDiagnostic 
-  | MissingTraceabilityDiagnostic 
+export type GenerationPlanDiagnostic =
+  | InvalidPlannedAtDiagnostic
+  | InconsistentDecisionStatusDiagnostic
+  | RequestedActionNotAllowedDiagnostic
+  | MissingRequiredContextSnapshotDiagnostic
+  | MissingTraceabilityDiagnostic
   | InconsistentContextAndDecisionDiagnostic
   | UnsupportedRestrictionTypeDiagnostic;
 

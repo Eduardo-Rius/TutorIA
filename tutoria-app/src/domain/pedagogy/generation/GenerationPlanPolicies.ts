@@ -1,6 +1,6 @@
 import { PedagogicalAction } from '../decision/Contracts';
-import { 
-  PedagogicalPlanType, 
+import {
+  PedagogicalPlanType,
   PedagogicalReasoningStepCode,
   OutputSectionCode,
   GenerationValidationCode,
@@ -24,8 +24,8 @@ export const ActionToExpectedOutcomeMap: Record<PedagogicalAction, ExpectedOutco
 
 export const ActionToReasoningStepsMap: Record<PedagogicalAction, readonly PedagogicalReasoningStepCode[]> = {
   guidance: [
-    'ESTABLISH_OBJECTIVE', 
-    'APPLY_PEDAGOGICAL_INTENT', 
+    'ESTABLISH_OBJECTIVE',
+    'APPLY_PEDAGOGICAL_INTENT',
     'APPLY_DECISION_RESTRICTIONS',
     'SELECT_ALLOWED_KNOWLEDGE',
     'DEFINE_OUTPUT_STRUCTURE',
