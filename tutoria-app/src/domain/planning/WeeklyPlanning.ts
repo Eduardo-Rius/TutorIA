@@ -76,7 +76,7 @@ export class WeeklyPlanning {
     if (this.status !== 'DRAFT' && this.status !== 'REJECTED') {
       throw new Error(`Cannot edit planning in status: ${this.status}`);
     }
-    
+
     if (days.length !== 5) {
       throw new Error('WeeklyPlanning must contain exactly 5 days');
     }
@@ -120,7 +120,7 @@ export class WeeklyPlanning {
     if (!reason || reason.trim() === '') {
       throw new Error('Rejection reason cannot be empty');
     }
-    
+
     this.status = 'REJECTED';
     this.reviewHistory.push({
       reason: reason.trim(),

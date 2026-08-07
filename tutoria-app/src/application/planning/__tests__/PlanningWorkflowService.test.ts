@@ -9,7 +9,7 @@ describe('PlanningWorkflowService', () => {
   let repository: InMemoryWeeklyPlanningRepository;
   let service: PlanningWorkflowService;
   let recommendationSource: DeterministicPedagogicalRecommendationSource;
-  
+
   const TEACHER: PlanningActorRole = 'TEACHER';
   const DIRECTOR: PlanningActorRole = 'DIRECTOR';
   const SUPERVISOR: PlanningActorRole = 'SUPERVISOR';
@@ -38,7 +38,7 @@ describe('PlanningWorkflowService', () => {
     const planning = await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
     days.pop(); // Remove one day
-    
+
     await expect(service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER)).rejects.toThrow('exactly 5 days');
   });
 
@@ -46,7 +46,7 @@ describe('PlanningWorkflowService', () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
-    
+
     const saved = await service.getPlanning('p1');
     expect(saved?.observations).toBe('Obs');
     expect(saved?.version).toBe(2); // created at v1, edited to v2
@@ -57,7 +57,7 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
-    
+
     const saved = await service.getPlanning('p1');
     expect(saved?.status).toBe('IN_REVIEW');
   });
@@ -67,9 +67,9 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
-    
+
     await service.reject('p1', 'Needs more detail', 'd-1', DIRECTOR);
-    
+
     const saved = await service.getPlanning('p1');
     expect(saved?.status).toBe('REJECTED');
     expect(saved?.reviewHistory[0]?.reason).toBe('Needs more detail');
@@ -80,7 +80,7 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
-    
+
     await expect(service.reject('p1', '', 'd-1', DIRECTOR)).rejects.toThrow('Rejection reason cannot be empty');
   });
 
@@ -90,9 +90,9 @@ describe('PlanningWorkflowService', () => {
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.reject('p1', 'Reason', 'd-1', DIRECTOR);
-    
+
     await service.resubmit('p1', 'Obs corrected', 'Needs', [], days, TEACHER);
-    
+
     const saved = await service.getPlanning('p1');
     expect(saved?.status).toBe('IN_REVIEW');
     expect(saved?.observations).toBe('Obs corrected');
@@ -105,7 +105,7 @@ describe('PlanningWorkflowService', () => {
     await service.submit('p1', TEACHER);
     await service.reject('p1', 'First rejection', 'd-1', DIRECTOR);
     await service.resubmit('p1', 'Obs corrected', 'Needs', [], days, TEACHER);
-    
+
     const saved = await service.getPlanning('p1');
     expect(saved?.reviewHistory.length).toBe(1);
     expect(saved?.reviewHistory[0]?.reason).toBe('First rejection');
@@ -117,7 +117,7 @@ describe('PlanningWorkflowService', () => {
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.approve('p1', DIRECTOR);
-    
+
     const saved = await service.getPlanning('p1');
     expect(saved?.status).toBe('APPROVED');
   });
@@ -128,14 +128,14 @@ describe('PlanningWorkflowService', () => {
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.approve('p1', DIRECTOR);
-    
+
     await expect(service.saveDraft('p1', 'Obs2', 'Needs', [], days, TEACHER)).rejects.toThrow('Cannot edit planning in status: APPROVED');
   });
 
   it('Director cannot edit pedagogical content', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    
+
     await expect(service.saveDraft('p1', 'Obs', 'Needs', [], days, DIRECTOR)).rejects.toThrow('Only Teacher can save draft');
   });
 
@@ -151,12 +151,12 @@ describe('PlanningWorkflowService', () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER); // v2
-    
+
     const saved = await service.getPlanning('p1');
     if (saved) {
       saved.observations = 'HACK'; // Try to mutate the returned reference
     }
-    
+
     const savedAgain = await service.getPlanning('p1');
     expect(savedAgain?.observations).toBe('Obs'); // Should not be 'HACK'
   });
@@ -165,7 +165,7 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
-    
+
     await expect(service.reject('p1', '   ', 'd-1', DIRECTOR)).rejects.toThrow('Rejection reason cannot be empty');
   });
 
@@ -173,7 +173,7 @@ describe('PlanningWorkflowService', () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
     const duplicateDays = [days[0]!, days[0]!, days[2]!, days[3]!, days[4]!];
-    
+
     await expect(service.saveDraft('p1', 'Obs', 'Needs', [], duplicateDays, TEACHER)).rejects.toThrow('WeeklyPlanning missing day: TUESDAY');
   });
 
@@ -182,7 +182,7 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
-    
+
     await expect(service.saveDraft('p1', 'Hacked', 'Needs', [], days, TEACHER)).rejects.toThrow('Cannot edit planning in status: IN_REVIEW');
     const saved = await service.getPlanning('p1');
     expect(saved?.observations).toBe('Obs');
@@ -195,7 +195,7 @@ describe('PlanningWorkflowService', () => {
     await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.reject('p1', 'Reason', 'd-1', DIRECTOR);
-    
+
     await expect(service.approve('p1', DIRECTOR)).rejects.toThrow('Cannot approve planning in status: REJECTED');
     const saved = await service.getPlanning('p1');
     expect(saved?.status).toBe('REJECTED');

@@ -17,7 +17,7 @@ export class PlanningWorkflowService {
     role: PlanningActorRole
   ): Promise<WeeklyPlanning> {
     if (role !== 'TEACHER') throw new Error('Only Teacher can create planning');
-    
+
     const room = RoomCatalog.getRoom(roomId);
     if (!room) throw new Error('Invalid room');
 

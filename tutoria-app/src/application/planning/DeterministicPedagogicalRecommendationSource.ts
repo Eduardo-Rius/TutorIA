@@ -8,7 +8,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
     observations: string,
     identifiedNeeds: string
   ): Promise<PlanningDay[]> {
-    
+
     // DEMO DATA - NOT NORMATIVE
     return [
       {
