@@ -20,14 +20,14 @@ PER-5 consumes strictly the sealed upstream input boundary defined in PER-4 Prom
 | Orchestrator timeout fact | Orchestrator | orchestrator owns timeout |
 | Abort synthesis / precedence | Orchestrator | ExecutionAbortCoordinator |
 | Retry Classification | Orchestrator | RetryManager |
-| Single terminal winner | Orchestrator | TerminalStateLatch |
+| Single terminal winner | Orchestrator | TerminalStateLatch (single-winner authority only after attempt authority validation) |
 | Idempotency ownership | Orchestrator | IdempotencyStore + orchestrator-held lease token |
 | Circuit health state | Orchestrator | CircuitBreaker |
-| Circuit permit validity | Orchestrator | CircuitBreaker / orchestrator admission gate |
-| AttemptToken lifecycle | Orchestrator | AttemptExecutionAuthority |
+| Circuit permit identity/binding | Orchestrator | CircuitBreaker + orchestrator admission authority |
+| Attempt token identity/binding | Orchestrator | AttemptExecutionAuthority |
 | Normalization | Orchestrator | Pipeline normalizers |
 | Telemetry | Orchestrator | TelemetrySink receives only normalized event |
-| Provider adapter | Adapter | no authority to renew, extend, replace or reinterpret permits |
+| Provider adapter | Adapter | may return facts tagged to the request/attempt but owns no mutation authority |
 | Secure Diagnostics | Infrastructure | SecureProviderDiagnosticSink |
 
 ## 4. Contract Availability Matrix
@@ -145,6 +145,9 @@ export type ProviderExecutionErrorCode =
   | 'IDEMPOTENCY_COMPLETION_FAILED'
   | 'CIRCUIT_OPEN'
   | 'CIRCUIT_PERMIT_EXPIRED'
+  | 'CIRCUIT_PERMIT_OWNERSHIP_MISMATCH'
+  | 'ATTEMPT_TOKEN_OWNERSHIP_MISMATCH'
+  | 'ATTEMPT_TOKEN_INVALID'
   | 'EXECUTION_CANCELLED'
   | 'AUTHENTICATION_FAILED'
   | 'INVALID_PROVIDER_RESPONSE'
@@ -273,11 +276,17 @@ export type CircuitPermitLeaseToken = string & { readonly __brand: 'CircuitPermi
 export interface CircuitExecutionPermit {
   readonly permitId: CircuitPermitId;
   readonly leaseToken: CircuitPermitLeaseToken;
+  readonly executionId: ExecutionId;
   readonly circuitKey: CircuitKey;
   readonly admissionType: 'normal' | 'probe';
   readonly acquiredAt: string;
   readonly expiresAt: string;
 }
+
+export type CircuitPermitValidationResult =
+  | { readonly status: 'valid' }
+  | { readonly status: 'expired' }
+  | { readonly status: 'foreign_execution' };
 
 export type CircuitAcquisitionResult =
   | { readonly status: 'acquired'; readonly permit: CircuitExecutionPermit; }
@@ -285,7 +294,7 @@ export type CircuitAcquisitionResult =
   | { readonly status: 'rejected_probe_in_progress'; };
 
 export interface CircuitBreaker {
-  acquirePermit(key: CircuitKey): Promise<CircuitAcquisitionResult>;
+  acquirePermit(key: CircuitKey, executionId: ExecutionId): Promise<CircuitAcquisitionResult>;
   recordSuccess(key: CircuitKey, permit: CircuitExecutionPermit): Promise<void>;
   recordFailure(key: CircuitKey, permit: CircuitExecutionPermit, errorCode: ProviderExecutionErrorCode): Promise<void>;
   releasePermit(key: CircuitKey, permit: CircuitExecutionPermit): Promise<void>;
@@ -308,6 +317,29 @@ export interface CircuitBreaker {
   4. Adapter cannot renew or replace a permit.
 - **Authority Constraints:** An expired permit authorizes zero future dispatches, cannot call `recordSuccess()`, cannot call `recordFailure()`, cannot release/finalize a newer permit, cannot renew itself, cannot extend itself, cannot transfer ownership, cannot be replaced silently, cannot be interpreted as a provider failure, and cannot itself open the circuit.
 - **Resolution:** Yields `ProviderExecutionFailure` with errorCode `CIRCUIT_PERMIT_EXPIRED`. TerminalStateLatch is not invoked merely to validate the expired permit unless existing contracts assign ownership. Provider invocation is 0. Circuit mutation is 0. Idempotency cleanup follows existing pre-dispatch failure semantics. AttemptToken creation is 0 if validation occurs before creation.
+
+**CIRCUIT_PERMIT_OWNERSHIP_MISMATCH Contract:**
+- **Semantic meaning:** The presented `CircuitExecutionPermit` was issued to a different `ExecutionId` and therefore cannot authorize the current execution.
+- **Required behavior:** provider invocation = 0; circuit mutation = 0; permit mutation = 0.
+- **Retry classification:** `never_retry` for the current attempt.
+
+**Circuit Permit Immutability:**
+- `executionId` binding is immutable.
+- `circuitKey` binding is immutable.
+- `admissionType` is immutable.
+- Permit cannot be transferred.
+- Permit cannot be rebound.
+- Permit cannot authorize another `ExecutionId`.
+- Adapter cannot validate itself into ownership.
+- Only orchestrator/CircuitBreaker admission logic owns permit validation.
+
+**Circuit Callback Authority Gate Order:**
+Before `recordSuccess()`, `recordFailure()` or permit finalization:
+1. Validate current `ExecutionId` owns `CircuitExecutionPermit`.
+2. Validate `CircuitKey` matches.
+3. Validate permit has not expired.
+4. Validate permit remains current/active.
+Foreign or expired permit: zero circuit-health mutation.
 
 ## 9. Cancellation and Timeout Synthesis
 The orchestrator owns all abort logic and merges it into a single signal.
@@ -372,6 +404,9 @@ Mapping of `ProviderExecutionErrorCode` to exact retry disposition:
 - `IDEMPOTENCY_COMPLETION_FAILED`: `terminal_immediately`
 - `CIRCUIT_OPEN`: `never_retry`
 - `CIRCUIT_PERMIT_EXPIRED`: `never_retry`
+- `CIRCUIT_PERMIT_OWNERSHIP_MISMATCH`: `never_retry`
+- `ATTEMPT_TOKEN_OWNERSHIP_MISMATCH`: `never_retry`
+- `ATTEMPT_TOKEN_INVALID`: `never_retry`
 - `EXECUTION_CANCELLED`: `terminal_immediately`
 - `AUTHENTICATION_FAILED`: `never_retry`
 - `INVALID_PROVIDER_RESPONSE`: `never_retry`
@@ -438,14 +473,63 @@ export interface TelemetrySink {
 Every adapter invocation owns an explicit attempt token.
 
 ```typescript
-export type AttemptToken = string & { readonly __brand: 'AttemptToken' };
+export type AttemptTokenId = string & { readonly __brand: 'AttemptTokenId' };
+
+export interface AttemptToken {
+  readonly tokenId: AttemptTokenId;
+  readonly executionId: ExecutionId;
+  readonly attemptNumber: number;
+}
+
+export type AttemptValidationResult =
+  | { readonly status: 'valid' }
+  | { readonly status: 'inactive' }
+  | { readonly status: 'foreign_execution' }
+  | { readonly status: 'wrong_attempt' };
+
+export type AttemptInvalidationResult =
+  | { readonly status: 'invalidated' }
+  | { readonly status: 'already_inactive' };
+
+export interface AttemptExecutionAuthority {
+  createAttempt(executionId: ExecutionId, attemptNumber: number): AttemptToken;
+  validateAttempt(token: AttemptToken, executionId: ExecutionId, attemptNumber: number): AttemptValidationResult;
+  invalidateAttempt(token: AttemptToken): AttemptInvalidationResult;
+}
 ```
 **Policies:**
 1. Before any callback mutates circuit, idempotency, or terminal state, the `AttemptToken` is verified active.
 2. After timeout, cancellation, or latch acquisition, the `AttemptToken` becomes permanently inactive.
 3. Late successes and failures are neutrally discarded without side effects.
 
-## 15. Audit Trail Persistence Matrix
+**Attempt Token Mismatch Semantics:**
+- **STALE / INACTIVE TOKEN:** The token originally belonged to the same execution/attempt but lost authority because a retry or terminal winner invalidated it.
+- **FOREIGN TOKEN:** The token belongs to a different `ExecutionId`.
+- **WRONG ATTEMPT TOKEN:** The token belongs to the same execution but a different `attemptNumber`.
+*Required foreign-token semantics:* Provider callback may be mechanically received, but current execution receives zero mutation authority (no TerminalStateLatch acquisition, no idempotency mutation, no circuit mutation, no terminal telemetry mutation).
+
+**Late Callback Authority Gate Order:**
+Before an adapter callback may mutate terminal state:
+1. Validate `ExecutionId` binding.
+2. Validate `AttemptToken` execution binding.
+3. Validate `attemptNumber` binding.
+4. Validate token remains active.
+5. Only then may a `TerminalCandidate` be submitted to `TerminalStateLatch`.
+If any validation fails, the callback remains an observed infrastructure fact only.
+
+## 15. Mandatory Ownership Invariants
+1. `CircuitExecutionPermit` is permanently bound to one `ExecutionId`.
+2. Foreign execution cannot dispatch using another execution's circuit permit.
+3. Foreign execution cannot record circuit success/failure with another execution's permit.
+4. `AttemptToken` is permanently bound to one `ExecutionId` and `attemptNumber`.
+5. Retry creates a distinct attempt authority.
+6. Previous `AttemptToken` must be inactive before a new attempt becomes authoritative.
+7. Foreign `AttemptToken` grants zero mutation authority.
+8. Wrong-attempt token grants zero mutation authority.
+9. Inactive/stale token grants zero mutation authority.
+10. Adapter callback cannot reach `TerminalStateLatch` before `AttemptToken` validation succeeds.
+
+## 16. Audit Trail Persistence Matrix
 | Field/Data | Domain Resolution | Persistence | Telemetry | Secure Diagnostics | Prohibited |
 | --- | --- | --- | --- | --- | --- |
 | ExecutionId | allowed | allowed | allowed | allowed | none |
@@ -460,12 +544,12 @@ export type AttemptToken = string & { readonly __brand: 'AttemptToken' };
 | Sanitized ErrorCode | allowed | allowed | allowed | allowed | none |
 | Reconciliation Req. | allowed | allowed | allowed | allowed | none |
 
-## 16. Prohibited Dependencies and Constructs
+## 17. Prohibited Dependencies and Constructs
 - NO references to PER-1.1, PER-2, or PER-3 inside PER-5 logic.
 - NO automatic prompt rewriting.
 - NO semantic guessing or SDK magic defaulting in Adapters.
 
-## 17. Proposed File Inventory
+## 18. Proposed File Inventory
 - `src/domain/orchestration/ProviderExecutionInput.ts`
 - `src/domain/orchestration/ProviderExecutionProfile.ts`
 - `src/domain/orchestration/TerminalStateLatch.ts`
@@ -477,7 +561,7 @@ export type AttemptToken = string & { readonly __brand: 'AttemptToken' };
 - `src/infrastructure/telemetry/TelemetrySink.ts`
 - `src/infrastructure/diagnostics/SecureProviderDiagnosticSink.ts`
 
-## 18. Test Strategy
+## 19. Test Strategy
 The test matrix comprises exactly 120 unique, manually defined scenarios exercising the deterministic state machines.
 
 ### Test 001
