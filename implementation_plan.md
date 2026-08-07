@@ -16,15 +16,18 @@ PER-5 consumes strictly the sealed upstream input boundary defined in PER-4 Prom
 | --- | --- | --- |
 | Provider Selection Validation | Orchestrator | ProviderRegistry |
 | Execution Lifecycle | Orchestrator | ExecutionPipeline |
-| Timeout Enforcement | Orchestrator | ExecutionAbortCoordinator |
+| Caller cancellation fact | Caller | caller provides fact |
+| Orchestrator timeout fact | Orchestrator | orchestrator owns timeout |
+| Abort synthesis / precedence | Orchestrator | ExecutionAbortCoordinator |
 | Retry Classification | Orchestrator | RetryManager |
-| Cancellation | Orchestrator | ExecutionAbortCoordinator |
-| Idempotency Authority | Orchestrator | IdempotencyStore |
-| Circuit-Breaker Authority | Orchestrator | CircuitBreaker |
+| Single terminal winner | Orchestrator | TerminalStateLatch |
+| Idempotency ownership | Orchestrator | IdempotencyStore + orchestrator-held lease token |
+| Circuit health state | Orchestrator | CircuitBreaker |
+| Circuit permit validity | Orchestrator | CircuitBreaker / orchestrator admission gate |
+| AttemptToken lifecycle | Orchestrator | AttemptExecutionAuthority |
 | Normalization | Orchestrator | Pipeline normalizers |
-| Telemetry Projection | Orchestrator | TelemetrySink |
-| Terminal Race | Orchestrator | TerminalStateLatch |
-| Transport Translation | Adapter | AIProviderAdapter |
+| Telemetry | Orchestrator | TelemetrySink receives only normalized event |
+| Provider adapter | Adapter | no authority to renew, extend, replace or reinterpret permits |
 | Secure Diagnostics | Infrastructure | SecureProviderDiagnosticSink |
 
 ## 4. Contract Availability Matrix
@@ -141,6 +144,7 @@ export type ProviderExecutionErrorCode =
   | 'PROVIDER_EXECUTED_IDEMPOTENCY_UNCONFIRMED'
   | 'IDEMPOTENCY_COMPLETION_FAILED'
   | 'CIRCUIT_OPEN'
+  | 'CIRCUIT_PERMIT_EXPIRED'
   | 'EXECUTION_CANCELLED'
   | 'AUTHENTICATION_FAILED'
   | 'INVALID_PROVIDER_RESPONSE'
@@ -184,15 +188,20 @@ export interface TerminalStateLatch {
 }
 ```
 **Race Matrix:**
-- **success vs caller cancellation:** First to call `tryAcquire` wins. Loser receives `already_terminal` and drops context.
-- **success vs attempt timeout:** First to call `tryAcquire` wins.
-- **success vs overall timeout:** First to call `tryAcquire` wins.
-- **failure vs cancellation:** First to call wins. Cancellation ignores the failure.
-- **failure vs timeout:** Timeout ignores the failure if timeout wins.
-- **lease loss vs success:** Lease renewal failure acquires latch with `idempotency_lease_lost`. Success is discarded.
+- **provider_success vs caller_cancelled:** First to call `tryAcquire` wins. Loser receives `already_terminal` and drops context.
+- **provider_success vs attempt_timeout:** First to call `tryAcquire` wins.
+- **provider_success vs overall_timeout:** First to call `tryAcquire` wins.
+- **provider_failure vs caller_cancelled:** First to call wins. Cancellation ignores the failure.
+- **provider_failure vs overall_timeout:** Timeout ignores the failure if timeout wins.
+- **idempotency_lease_lost vs provider_success:** Lease renewal failure acquires latch with `idempotency_lease_lost`. Success is discarded.
 - **duplicate success:** Second adapter success receives `already_terminal` and drops.
 - **duplicate timeout:** Second timeout receives `already_terminal` and drops.
 - **late response:** After terminal state, adapter callback receives `already_terminal` and safely discards payload.
+
+**Mandatory Invariant (Winner Immutability):**
+If `TerminalStateLatch` has already acquired `overall_timeout` or `attempt_timeout`, a later `caller_cancelled` loses and final resolution remains the timeout resolution.
+If `TerminalStateLatch` has already acquired `caller_cancelled`, a later `overall_timeout` or `attempt_timeout` loses and final resolution remains EXECUTION_CANCELLED.
+If `provider_success` or another valid terminal candidate already owns the latch, later cancellation or timeout cannot replace it. The winning terminal state is immutable.
 
 ## 7. Idempotency State Machine and TTL
 Prevents duplicate execution and deadlocks using a branded lease.
@@ -286,16 +295,26 @@ export interface CircuitBreaker {
 1. Key granularity is strict: `providerId` + `modelId`.
 2. A half-open probe has a finite permit TTL.
 3. Only one active probe is admitted per `CircuitKey`.
-4. Expired probe permits are atomically invalidated, returning circuit to open.
-5. Crashed, cancelled, or timed-out probes return circuit to open.
-6. Successful probe closes circuit.
-7. Expired permits cannot record success/failure (late results discarded).
-8. Every transition is persisted deterministically.
+4. Crashed, cancelled, or timed-out valid probes return circuit to open.
+5. Successful probe closes circuit.
+6. Every transition is persisted deterministically.
+
+**CIRCUIT_PERMIT_EXPIRED Contract:**
+- **Semantic meaning:** A `CircuitExecutionPermit` that was legitimately issued to an execution has exceeded its validity window and can no longer authorize provider dispatch or circuit mutation.
+- **Mandatory Invariants:**
+  1. Expired `CircuitExecutionPermit` never authorizes dispatch.
+  2. Permit expiration does not mutate CircuitState. (It DOES NOT imply `closed -> open`, `half_open -> open`, or `open -> open`). Circuit health and permit validity are separate authorities.
+  3. Permit expiration is not a provider-health failure.
+  4. Adapter cannot renew or replace a permit.
+- **Authority Constraints:** An expired permit authorizes zero future dispatches, cannot call `recordSuccess()`, cannot call `recordFailure()`, cannot release/finalize a newer permit, cannot renew itself, cannot extend itself, cannot transfer ownership, cannot be replaced silently, cannot be interpreted as a provider failure, and cannot itself open the circuit.
+- **Resolution:** Yields `ProviderExecutionFailure` with errorCode `CIRCUIT_PERMIT_EXPIRED`. TerminalStateLatch is not invoked merely to validate the expired permit unless existing contracts assign ownership. Provider invocation is 0. Circuit mutation is 0. Idempotency cleanup follows existing pre-dispatch failure semantics. AttemptToken creation is 0 if validation occurs before creation.
 
 ## 9. Cancellation and Timeout Synthesis
 The orchestrator owns all abort logic and merges it into a single signal.
 
 ```typescript
+export type ExecutionAbortCause = 'caller_cancelled' | 'orchestrator_timeout';
+
 export interface ExecutionAbortCoordinator {
   createExecutionAbortContext(callerAbortSignal: AbortSignal, attemptDeadline: string, overallDeadline: string): ExecutionAbortContext;
 }
@@ -303,15 +322,21 @@ export interface ExecutionAbortCoordinator {
 export interface ExecutionAbortContext {
   readonly effectiveAbortSignal: AbortSignal;
   readonly dispose: () => void;
-  readonly getAbortCause: () => 'caller_cancelled' | 'attempt_timeout' | 'overall_timeout' | 'not_aborted';
+  readonly getAbortCause: () => ExecutionAbortCause | 'not_aborted';
 }
 ```
-**Policies:**
+**Policies & Arbitration:**
 1. Caller signal is NEVER passed directly to the adapter.
 2. The composed `effectiveAbortSignal` drops the network socket locally.
-3. Abort causes remain distinguishable and map to precise error codes: `EXECUTION_CANCELLED`, `PROVIDER_TIMEOUT`, `RETRY_BUDGET_EXHAUSTED`.
-4. Timers and listeners are disposed deterministically via `dispose()`.
-5. Late responses after abort are neutralized by the AttemptToken.
+3. Timers and listeners are disposed deterministically via `dispose()`.
+4. Late responses after abort are neutralized by the `AttemptToken`. AttemptToken must lose authority before late provider callbacks can mutate terminal state.
+5. **Deterministic Truth Table (Before Latch Acquisition):**
+   - `callerCancelled=false`, `orchestratorTimedOut=false` → no abort candidate
+   - `callerCancelled=true`, `orchestratorTimedOut=false` → `caller_cancelled`
+   - `callerCancelled=false`, `orchestratorTimedOut=true` → `orchestrator_timeout`
+   - `callerCancelled=true`, `orchestratorTimedOut=true` AND `TerminalStateLatch` has no winner → `caller_cancelled` (Caller cancellation is explicit revocation and takes precedence over operational timeouts when both are active before terminal ownership exists).
+6. **Terminal Cause Mapping:** `caller_cancelled` abort cause maps exactly to `caller_cancelled` ExecutionTerminalCause. `orchestrator_timeout` abort cause maps exactly to `attempt_timeout` or `overall_timeout` ExecutionTerminalCause.
+7. **No Scheduler-Timing Authority:** Abort precedence is semantic, not timing-based. The tie-break policy must NOT depend on `Date.now()`, event-loop order, promise resolution, or network timing.
 ## 10. Execution Pipeline and Fail-Fast Order
 1. Validate complete `ProviderExecutionInput` properties.
 2. Evaluate `ProviderRegistry` compatibility (checks models, profiles, safety).
@@ -323,7 +348,14 @@ export interface ExecutionAbortContext {
 8. Create `ExecutionAbortContext` (merging caller, attempt, overall deadlines).
 9. Dispatch `ProviderAdapterRequest` to Adapter.
 10. `TerminalStateLatch.tryAcquire` receives first terminal callback.
-11. Perform Token-Protected Cleanup (Abort disposal, Circuit release, Idempotency complete).
+11. Perform Outcome-Specific Token-Protected Cleanup.
+
+**Outcome-Specific Cleanup Semantics:**
+Cleanup varies by outcome; no universal cleanup sequence exists.
+- **A. SUCCESS:** Terminal winner acquired; `AttemptToken` invalidated; `ExecutionAbortContext` disposed; circuit success recorded/finalized using the owned permit; `IdempotencyStore.complete()` using the valid lease token; success telemetry emitted. Success uses `complete()`, not generic release.
+- **B. FAILURE AFTER OWNED PROVIDER ATTEMPT:** `AttemptToken` invalidated; `ExecutionAbortContext` disposed; circuit failure recorded only if this provider failure is circuit-recordable; idempotency release/finalization follows existing failure semantics; failure telemetry emitted; secure diagnostic only if contractually owned.
+- **C. CALLER CANCELLATION / ORCHESTRATOR TIMEOUT:** Terminal winner acquired exactly once; `AttemptToken` invalidated if it exists; `ExecutionAbortContext` disposed; circuit permit cleanup must NOT fabricate provider success/failure; IdempotencyStore release/finalization follows existing cancellation/timeout ownership semantics; exact terminal telemetry emitted.
+- **D. PRE-DISPATCH PERMIT EXPIRATION:** No provider invocation; no provider-health circuit mutation; no success/failure circuit recording; idempotency ownership cleanup follows existing pre-dispatch failure semantics; no `AttemptToken` cleanup if none was created.
 
 ## 11. Retry Classification Matrix
 Mapping of `ProviderExecutionErrorCode` to exact retry disposition:
@@ -339,6 +371,7 @@ Mapping of `ProviderExecutionErrorCode` to exact retry disposition:
 - `PROVIDER_EXECUTED_IDEMPOTENCY_UNCONFIRMED`: `terminal_immediately`
 - `IDEMPOTENCY_COMPLETION_FAILED`: `terminal_immediately`
 - `CIRCUIT_OPEN`: `never_retry`
+- `CIRCUIT_PERMIT_EXPIRED`: `never_retry`
 - `EXECUTION_CANCELLED`: `terminal_immediately`
 - `AUTHENTICATION_FAILED`: `never_retry`
 - `INVALID_PROVIDER_RESPONSE`: `never_retry`
