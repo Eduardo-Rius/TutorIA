@@ -23,7 +23,7 @@ export const PlanningReviewer: React.FC = () => {
           <Stack gap={6}>
             <Stack gap={2}>
               <Heading as="h3" size="lg">Detalles de la Planeación</Heading>
-              <Text>Autor: María Docente</Text>
+              <Text>Autor: Anita (Pedagoga)</Text>
               <Text>Ciclo: 2026-2027</Text>
             </Stack>
 

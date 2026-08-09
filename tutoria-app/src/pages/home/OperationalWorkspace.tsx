@@ -1,3 +1,4 @@
+import { personas } from '../../theme/personas';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell, LoadingState } from '../../components/layouts';
@@ -24,32 +25,36 @@ export const OperationalWorkspace: React.FC = () => {
       title: 'Nueva planeación',
       description: 'Crea una experiencia de aprendizaje',
       icon: Plus,
-      color: 'text-brandPrimary',
-      bgColor: 'bg-brandPrimary/10',
-      action: () => navigate('/workspace/planning/new')
+      color: 'text-[#3e524b]',
+      bgColor: 'bg-[#eaf0ed] border border-[#c7d8ce] group-hover:bg-[#dbe7df] group-hover:border-[#b4c9bf]',
+      iconBgColor: 'bg-[#c7d8ce]',
+      action: () => navigate('/workspace/planning')
     },
     {
       title: 'Registrar experiencia',
       description: 'Documenta un momento significativo',
       icon: Book,
-      color: 'text-brandSecondary',
-      bgColor: 'bg-brandSecondary/10',
+      color: 'text-sky-800',
+      bgColor: 'bg-sky-50 border border-sky-200 group-hover:bg-sky-100 group-hover:border-sky-300',
+      iconBgColor: 'bg-sky-200',
       action: () => {}
     },
     {
       title: 'Consultar conocimiento',
       description: 'Explora lo que la institución recuerda',
       icon: Search,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10',
+      color: 'text-amber-800',
+      bgColor: 'bg-amber-50 border border-amber-200 group-hover:bg-amber-100 group-hover:border-amber-300',
+      iconBgColor: 'bg-amber-200',
       action: () => {}
     },
     {
       title: 'Ver analítica',
       description: 'Descubre insights de tu comunidad',
       icon: BarChart2,
-      color: 'text-[#8B5CF6]', // Purple
-      bgColor: 'bg-[#8B5CF6]/10',
+      color: 'text-purple-800',
+      bgColor: 'bg-purple-50 border border-purple-200 group-hover:bg-purple-100 group-hover:border-purple-300',
+      iconBgColor: 'bg-purple-200',
       action: () => {}
     }
   ];
@@ -121,22 +126,22 @@ export const OperationalWorkspace: React.FC = () => {
         </section>
 
         {/* Secondary Navigation / Exploration */}
-        <section className="mt-4">
+        <section className="mt-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {secondaryActions.map((action, idx) => (
               <button
                 key={idx}
                 onClick={action.action}
-                className="bg-white p-6 rounded-[24px] border border-gray-100 text-left hover:shadow-xl hover:shadow-gray-200/50 hover:border-gray-200 transition-all duration-300 group flex items-start gap-5 hover:-translate-y-1"
+                className={`p-8 rounded-[24px] text-left hover:shadow-xl transition-all duration-300 group flex items-start gap-6 hover:-translate-y-2 hover:shadow-2xl ${action.bgColor}`}
               >
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${action.bgColor} group-hover:scale-105 transition-transform duration-300`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${action.iconBgColor} group-hover:scale-105 transition-transform duration-300`}>
                   <action.icon size={26} className={action.color} />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-lg font-bold text-gray-900 mb-1 font-poppins">{action.title}</h4>
-                  <p className="text-sm text-gray-500 leading-relaxed">{action.description}</p>
+                  <h4 className={`text-lg font-bold mb-1 font-poppins ${action.color}`}>{action.title}</h4>
+                  <p className="text-sm text-gray-700 leading-relaxed">{action.description}</p>
                 </div>
-                <ArrowRight size={20} className="text-gray-300 opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300 mt-4" />
+                <ArrowRight size={20} className={`${action.color} opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300 mt-8`} />
               </button>
             ))}
           </div>

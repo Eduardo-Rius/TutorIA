@@ -66,20 +66,7 @@ function App() {
             </AuthorizationBoundary>
           } />
 
-          <Route path="/workspace/planning/new" element={
-            <AuthorizationBoundary
-              unauthorized={<Navigate to="/login" replace />}
-              loading={<LoadingState text="Cargando aplicación..." />}
-            >
-              <ContextBoundary
-                loading={<LoadingState text="Cargando contexto institucional..." />}
-                noMemberships={<Navigate to="/workspace" replace />}
-                selector={<ContextSelector />}
-              >
-                <FirstInstitutionalExperience />
-              </ContextBoundary>
-            </AuthorizationBoundary>
-          } />
+          <Route path="/workspace/planning/new" element={<Navigate to="/workspace/planning" replace />} />
 
           <Route path="/home" element={<Navigate to="/workspace" replace />} />
           <Route path="/" element={<Navigate to="/workspace" replace />} />

@@ -1,3 +1,4 @@
+import { personas } from '../../theme/personas';
 import React from 'react';
 import { Home, NotebookPen, Lightbulb, Library, BookOpen, LineChart, Users, Settings, ChevronDown } from 'lucide-react';
 import robotLogo from '../../assets/brand/logos/imagotype/TutorIA_Imagotype_Transparent.png';
@@ -41,10 +42,7 @@ export const Sidebar: React.FC = () => {
     <div className="flex flex-col h-full w-[280px] bg-brandDark shadow-lg overflow-y-auto">
       {/* Header (Logo) */}
       <div className="flex flex-col items-center justify-center pt-8 pb-6">
-        <img src={robotLogo} alt="Robot TutorIA" className="h-16 w-auto mb-2 object-contain" />
-        <h2 className="text-white text-2xl font-poppins font-bold tracking-tight">
-          Tutor<span className="text-brandPrimary">IA</span>
-        </h2>
+        <img src={robotLogo} alt="Robot TutorIA" className="h-32 w-auto mb-1 object-contain" />
       </div>
 
       {/* Navegación */}
@@ -72,16 +70,16 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* Perfil (Inferior) */}
-      <div className="p-4 mt-auto">
-        <button className="w-full flex items-center gap-3.5 p-3 rounded-[12px] hover:bg-white/5 transition-all duration-300 text-left group border border-transparent hover:border-white/5">
-          <div className="w-11 h-11 shrink-0 overflow-hidden rounded-full bg-white/10 flex items-center justify-center border-2 border-white/10 shadow-sm relative">
-            <InstitutionalPresenceRenderer resolution={resolution} variant="avatar" className="w-full h-full" />
+      <div className="p-6 mt-auto border-t border-white/5 pt-8">
+        <button className="w-full flex flex-col items-center justify-center gap-4 p-5 rounded-2xl hover:bg-white/5 transition-all duration-300 group border border-transparent hover:border-white/10 shadow-sm">
+          <div className="w-[104px] h-[104px] shrink-0 flex items-center justify-center relative group-hover:scale-105 transition-transform duration-300">
+            <img src={personas.anita} alt="Anita" className="w-full h-full object-contain" />
           </div>
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <p className="text-[15px] font-semibold text-white truncate font-poppins tracking-tight leading-tight">Docente</p>
-            <p className="text-[13px] text-brandPrimary truncate font-inter font-medium leading-tight mt-0.5">Maternal B</p>
+          <div className="flex flex-col items-center text-center">
+            <p className="text-lg font-bold text-white font-poppins tracking-tight leading-tight mb-1">Anita</p>
+            <p className="text-sm text-brandPrimary font-inter font-medium leading-tight mb-1">Pedagoga</p>
+            <p className="text-xs text-textLight font-inter font-medium leading-tight">Lactantes C</p>
           </div>
-          <ChevronDown size={18} className="text-textLight group-hover:text-white transition-colors opacity-50 group-hover:opacity-100" />
         </button>
       </div>
     </div>

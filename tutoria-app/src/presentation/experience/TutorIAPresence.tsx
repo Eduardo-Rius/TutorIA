@@ -52,7 +52,7 @@ export function TutorIAPresence({ context, resolution, onAction }: TutorIAPresen
           <div className="pt-4">
             <button
               disabled={!presentation.primaryAction.enabled}
-              className="px-7 py-4 bg-brandPrimary text-white rounded-full font-semibold hover:bg-[#008F82] transition-all shadow-lg shadow-brandPrimary/30 hover:shadow-brandPrimary/50 flex items-center gap-2 group hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none w-full sm:w-auto justify-center"
+              className="px-10 py-5 bg-brandPrimary text-white rounded-full font-bold hover:bg-[#008F82] transition-all duration-300 shadow-xl shadow-brandPrimary/30 hover:shadow-brandPrimary/50 flex items-center gap-3 group hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none w-full sm:min-w-[280px] justify-center text-lg"
               onClick={() => {
                 if (presentation.primaryAction?.enabled && onAction) {
                   onAction(presentation.primaryAction);

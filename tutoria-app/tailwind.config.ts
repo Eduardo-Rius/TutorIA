@@ -15,7 +15,7 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    colors: colors,
+
     spacing: spacing,
     borderRadius: radius,
     boxShadow: shadows,
@@ -24,6 +24,7 @@ export default {
     fontWeight: typography.weights,
     zIndex: zIndex,
     extend: {
+      colors: colors,
       backgroundImage: gradients,
       transitionDuration: motion.durations,
       transitionTimingFunction: motion.curves,

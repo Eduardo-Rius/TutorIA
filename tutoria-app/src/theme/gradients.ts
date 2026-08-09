@@ -4,8 +4,8 @@ import { colors } from './colors';
 export const gradients = {
   primary: `linear-gradient(to right, ${colors.brandPrimary}, ${colors.brandSecondary})`,
   secondary: `linear-gradient(to right, ${colors.brandSecondary}, ${colors.brandPrimary})`,
-  hero: `linear-gradient(to bottom right, ${colors.brandPrimary}, ${colors.brandSecondary}, ${colors.brandAccent})`,
-  accent: `linear-gradient(to right, ${colors.brandAccent}, ${colors.brandSecondary})`,
+  hero: `linear-gradient(to bottom right, ${colors.brandPrimary}, ${colors.brandSecondary}, ${colors.brandPrimary})`,
+  accent: `linear-gradient(to right, ${colors.brandPrimary}, ${colors.brandSecondary})`,
 } as const;
 
 export type Gradients = typeof gradients;
