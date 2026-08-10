@@ -137,6 +137,78 @@ const TeacherList = ({ service, onNew, onSelect, refreshKey }: { service: Planni
   );
 };
 
+const WeekDayTabs = ({ days, activeIndex, onSelect }: { days: PlanningDay[], activeIndex: number, onSelect: (idx: number) => void }) => (
+  <div className="max-w-4xl mx-auto flex justify-between gap-3 mb-10 overflow-x-auto pb-4 px-2" role="tablist">
+    {days.map((d, idx) => {
+      const isActive = idx === activeIndex;
+      const label = d.dayOfWeek === 'MONDAY' ? 'Lunes' :
+                    d.dayOfWeek === 'TUESDAY' ? 'Martes' :
+                    d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' :
+                    d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
+      return (
+        <button
+          key={d.dayOfWeek}
+          role="tab"
+          aria-selected={isActive}
+          aria-controls={`panel-${d.dayOfWeek}`}
+          onClick={() => onSelect(idx)}
+          className={`flex-1 min-w-[140px] px-6 py-4 rounded-full font-bold text-lg transition border whitespace-nowrap outline-none focus:ring-4 focus:ring-brand-primary/30 ${isActive ? 'bg-brand-primary text-white border-brand-primary shadow-md ring-4 ring-brand-primary/20' : 'bg-white text-text-muted border-border-default hover:border-brand-primary/50 hover:text-brand-dark hover:bg-surface-ivory shadow-sm'}`}
+        >
+          {label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const normalizeMaterial = (m: string) => m.trim().toLowerCase();
+
+const getCommonWeeklyMaterials = (days: PlanningDay[]): string[] => {
+  if (days.length !== 5) return [];
+
+  const dayMaterialSets = days.map(d => {
+    const set = new Set<string>();
+    const originalNames = new Map<string, string>();
+    d.activities.forEach(a => {
+      a.materials.forEach(m => {
+        if (!m.trim()) return;
+        const norm = normalizeMaterial(m);
+        set.add(norm);
+        if (!originalNames.has(norm)) {
+          originalNames.set(norm, m.trim());
+        }
+      });
+    });
+    return { set, originalNames };
+  });
+
+  const firstDay = dayMaterialSets[0];
+  if (!firstDay) return [];
+
+  const commonNormalized = Array.from(firstDay.set).filter(norm =>
+    dayMaterialSets.every(d => d.set.has(norm))
+  );
+
+  return commonNormalized.map(norm => firstDay.originalNames.get(norm)!);
+};
+
+const getDaySpecificMaterials = (day: PlanningDay, commonMaterials: string[]): string[] => {
+  const commonSet = new Set(commonMaterials.map(normalizeMaterial));
+  const uniqueDayMaterials = new Map<string, string>();
+
+  day.activities.forEach(a => {
+    a.materials.forEach(m => {
+      if (!m.trim()) return;
+      const norm = normalizeMaterial(m);
+      if (!commonSet.has(norm) && !uniqueDayMaterials.has(norm)) {
+        uniqueDayMaterials.set(norm, m.trim());
+      }
+    });
+  });
+
+  return Array.from(uniqueDayMaterials.values());
+};
+
 const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, planId: string | null, onBack: () => void, onSaved: () => void }) => {
   const [stage, setStage] = useState<1 | 1.5 | 2 | 3>(1);
   const [obs, setObs] = useState('');
@@ -146,6 +218,9 @@ const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: 
   const [days, setDays] = useState<PlanningDay[]>([]);
   const [status, setStatus] = useState<string>('DRAFT');
   const [rejection, setRejection] = useState('');
+
+  const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
 
   const stableIdRef = useRef(`p-demo-${Date.now()}`);
   const currentPlanId = planId || stableIdRef.current;
@@ -392,87 +467,156 @@ const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: 
             </p>
           </div>
 
-          <div className="space-y-12 pb-8 max-w-4xl mx-auto">
-            {days.map((d, dIdx) => (
-              <div key={d.dayOfWeek} className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
-                 <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
-                   {d.dayOfWeek === 'MONDAY' && 'Lunes'}
-                   {d.dayOfWeek === 'TUESDAY' && 'Martes'}
-                   {d.dayOfWeek === 'WEDNESDAY' && 'Miércoles'}
-                   {d.dayOfWeek === 'THURSDAY' && 'Jueves'}
-                   {d.dayOfWeek === 'FRIDAY' && 'Viernes'}
-                 </h4>
+          <div className="space-y-8 pb-8 max-w-4xl mx-auto">
+            {days.length > 0 && (
+              <>
+                <WeekDayTabs
+                  days={days}
+                  activeIndex={activeDayIndex}
+                  onSelect={(idx) => {
+                    setActiveDayIndex(idx);
+                    setExpandedActivityId(null);
+                  }}
+                />
 
-                 <p className="text-center text-teal-700 font-medium italic mb-6 border-b-2 border-teal-50 pb-6">
-                   {d.dayOfWeek === 'MONDAY' && 'Comenzamos con indicaciones sencillas y modelado.'}
-                   {d.dayOfWeek === 'TUESDAY' && 'Reforzamos la respuesta mediante juego e imitación.'}
-                   {d.dayOfWeek === 'WEDNESDAY' && 'Incorporamos movimiento y desplazamiento.'}
-                   {d.dayOfWeek === 'THURSDAY' && 'Combinamos indicaciones con exploración de materiales.'}
-                   {d.dayOfWeek === 'FRIDAY' && 'Cerramos retomando lo trabajado durante la semana.'}
-                 </p>
+                {(() => {
+                  const d = days[activeDayIndex];
+                  if (!d) return null;
+                  const dIdx = activeDayIndex;
 
-                 <div className="space-y-6">
-                   {d.activities.map((a, j) => (
-                      <div key={a.activityId} className="bg-surface-soft rounded-xl p-6 border border-border-soft focus-within:border-teal-200 transition">
-                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">{a.category} • {a.durationMinutes} min</p>
+                  const commonWeeklyMaterials = getCommonWeeklyMaterials(days);
+                  const dailyMaterials = getDaySpecificMaterials(d, commonWeeklyMaterials);
 
-                        <div className="mb-6 bg-surface-ivory p-4 rounded-xl border border-brand-primary/20">
-                          <p className="text-brand-dark text-sm italic font-medium">Esta actividad apoya el propósito de la semana al buscar favorecer {needs ? needs.toLowerCase() : 'el aprendizaje'}.</p>
-                        </div>
+                  const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes' :
+                                  d.dayOfWeek === 'TUESDAY' ? 'Martes' :
+                                  d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' :
+                                  d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
 
-                        <div className="mb-6">
-                          <label className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Objetivo</label>
-                          <p className="font-bold text-text-primary text-lg">{a.objective}</p>
-                        </div>
+                  return (
+                    <div key={d.dayOfWeek} id={`panel-${d.dayOfWeek}`} role="tabpanel" className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
+                       <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
+                         {dayName}
+                       </h4>
 
-                        <div className="mb-6">
-                          <label htmlFor={`desc-${d.dayOfWeek}-${a.activityId}`} className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Actividad</label>
-                          <textarea id={`desc-${d.dayOfWeek}-${a.activityId}`} disabled={readOnly} value={a.description} onChange={e => {
-                              const newDays = days.map((day, ix) => {
-                                 if (ix !== dIdx) return day;
-                                 const newActivities = day.activities.map((act, ax) => {
-                                    if (ax !== j) return act;
-                                    return { ...act, description: e.target.value };
-                                 });
-                                 return { ...day, activities: newActivities };
-                              });
-                              setDays(newDays);
-                              setIsDirty(true);
-                           }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary focus:ring-2 focus:ring-teal-100 rounded-lg outline-none min-h-[160px] resize-y disabled:opacity-50 transition" />
-                        </div>
+                       <p className="text-center text-teal-700 font-medium italic mb-10 border-b-2 border-teal-50 pb-6">
+                         {d.dayOfWeek === 'MONDAY' && 'Comenzamos con indicaciones sencillas y modelado.'}
+                         {d.dayOfWeek === 'TUESDAY' && 'Reforzamos la respuesta mediante juego e imitación.'}
+                         {d.dayOfWeek === 'WEDNESDAY' && 'Incorporamos movimiento y desplazamiento.'}
+                         {d.dayOfWeek === 'THURSDAY' && 'Combinamos indicaciones con exploración de materiales.'}
+                         {d.dayOfWeek === 'FRIDAY' && 'Cerramos retomando lo trabajado durante la semana.'}
+                       </p>
 
-                        <div>
-                          <label htmlFor={`mat-${d.dayOfWeek}-${a.activityId}`} className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Materiales</label>
-                          <input id={`mat-${d.dayOfWeek}-${a.activityId}`} disabled={readOnly} value={a.materials.join(', ')} onChange={e => {
-                              const newDays = days.map((day, ix) => {
-                                 if (ix !== dIdx) return day;
-                                 const newActivities = day.activities.map((act, ax) => {
-                                    if (ax !== j) return act;
-                                    return { ...act, materials: e.target.value.split(',').map(s=>s.trim()).filter(s=>s.length > 0) };
-                                 });
-                                 return { ...day, activities: newActivities };
-                              });
-                              setDays(newDays);
-                              setIsDirty(true);
-                           }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary focus:ring-2 focus:ring-teal-100 rounded-lg outline-none disabled:opacity-50 transition" />
-                        </div>
-                      </div>
-                   ))}
-                 </div>
-              </div>
-            ))}
+                       <div className="space-y-4">
+                         {d.activities.map((a, j) => {
+                            const isExpanded = expandedActivityId === a.activityId;
+                            return (
+                              <div key={a.activityId} className="bg-surface-soft rounded-xl border border-border-soft overflow-hidden transition">
+                                <button
+                                  onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)}
+                                  aria-expanded={isExpanded}
+                                  aria-controls={`editor-${a.activityId}`}
+                                  className="w-full text-left p-6 hover:bg-surface-ivory transition flex justify-between items-center group outline-none focus:ring-4 focus:ring-brand-primary/30"
+                                >
+                                  <div>
+                                    <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
+                                    <p className="font-bold text-text-primary text-xl group-hover:text-teal-800 transition">{a.objective}</p>
+                                  </div>
+                                  <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition group-hover:bg-teal-50">
+                                    {isExpanded ? 'Ocultar' : 'Editar'}
+                                  </div>
+                                </button>
+
+                                {isExpanded && (
+                                  <div id={`editor-${a.activityId}`} className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white animate-fade-in">
+                                    <div className="mb-6 bg-surface-ivory p-4 rounded-xl border border-brand-primary/20 mt-4">
+                                      <p className="text-brand-dark text-sm italic font-medium">Esta actividad apoya el propósito de la semana al buscar favorecer {needs ? needs.toLowerCase() : 'el aprendizaje'}.</p>
+                                    </div>
+
+                                    <div className="mb-6">
+                                      <label htmlFor={`desc-${d.dayOfWeek}-${a.activityId}`} className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Actividad</label>
+                                      <textarea id={`desc-${d.dayOfWeek}-${a.activityId}`} disabled={readOnly} value={a.description} onChange={e => {
+                                          const newDays = days.map((day, ix) => {
+                                             if (ix !== dIdx) return day;
+                                             const newActivities = day.activities.map((act, ax) => {
+                                                if (ax !== j) return act;
+                                                return { ...act, description: e.target.value };
+                                             });
+                                             return { ...day, activities: newActivities };
+                                          });
+                                          setDays(newDays);
+                                          setIsDirty(true);
+                                       }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 rounded-lg outline-none min-h-[160px] resize-y disabled:opacity-50 transition" />
+                                    </div>
+
+                                    <div>
+                                      <label htmlFor={`mat-${d.dayOfWeek}-${a.activityId}`} className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Materiales</label>
+                                      <input id={`mat-${d.dayOfWeek}-${a.activityId}`} disabled={readOnly} value={a.materials.join(', ')} onChange={e => {
+                                          const newDays = days.map((day, ix) => {
+                                             if (ix !== dIdx) return day;
+                                             const newActivities = day.activities.map((act, ax) => {
+                                                if (ax !== j) return act;
+                                                return { ...act, materials: e.target.value.split(',').map(s=>s.trim()).filter(s=>s.length > 0) };
+                                             });
+                                             return { ...day, activities: newActivities };
+                                          });
+                                          setDays(newDays);
+                                          setIsDirty(true);
+                                       }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 rounded-lg outline-none disabled:opacity-50 transition" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                         })}
+                       </div>
+
+                       <div className="mt-12 border-t border-border-soft pt-10">
+                         {commonWeeklyMaterials.length > 0 && (
+                           <div className="mb-10">
+                             <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                               <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
+                               Materiales de uso diario
+                             </h5>
+                             <ul className="list-none space-y-3">
+                               {commonWeeklyMaterials.map((m, i) => (
+                                 <li key={`${m}-${i}`} className="text-lg text-text-primary font-medium flex items-start gap-3">
+                                   <span className="text-brand-primary mt-1">•</span>
+                                   <span>{m}</span>
+                                 </li>
+                               ))}
+                             </ul>
+                           </div>
+                         )}
+
+                         <div>
+                           <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                             <span className="w-2 h-2 rounded-full bg-brand-secondary"></span>
+                             Materiales para el {dayName.toLowerCase()}
+                           </h5>
+                           {dailyMaterials.length > 0 ? (
+                             <ul className="list-none space-y-3">
+                               {dailyMaterials.map((m, i) => (
+                                 <li key={`${m}-${i}`} className="text-lg text-text-primary font-medium flex items-start gap-3">
+                                   <span className="text-brand-secondary mt-1">•</span>
+                                   <span>{m}</span>
+                                 </li>
+                               ))}
+                             </ul>
+                           ) : commonWeeklyMaterials.length > 0 ? (
+                             <p className="text-text-muted italic text-base bg-surface-warm p-4 rounded-lg border border-border-soft">Para este día se utilizarán los materiales de uso diario.</p>
+                           ) : (
+                             <p className="text-text-muted italic text-base bg-surface-warm p-4 rounded-lg border border-border-soft">No hay materiales registrados para este día.</p>
+                           )}
+                         </div>
+                       </div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 max-w-4xl mx-auto mb-10 mt-12">
-             <h4 className="text-3xl font-bold text-teal-900 border-b-2 border-teal-50 pb-4 mb-6 uppercase tracking-widest text-center">Materiales de la semana</h4>
-             {Array.from(new Set(days.flatMap(d => d.activities.flatMap(a => a.materials)))).length > 0 ? (
-               <ul className="list-disc pl-5 space-y-2 text-xl text-gray-800 font-medium">
-                 {Array.from(new Set(days.flatMap(d => d.activities.flatMap(a => a.materials)))).map(m => <li key={m}>{m}</li>)}
-               </ul>
-             ) : (
-               <p className="text-text-muted italic text-center text-lg">No hay materiales especiales registrados.</p>
-             )}
-          </div>
+
 
           <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 max-w-4xl mx-auto mb-10">
              <h4 className="text-3xl font-bold text-teal-900 border-b-2 border-teal-50 pb-4 mb-6 uppercase tracking-widest text-center">Evaluación de la semana</h4>

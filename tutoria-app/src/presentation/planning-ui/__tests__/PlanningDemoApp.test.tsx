@@ -93,7 +93,7 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
     expect(await screen.findByText(/Revisar sugerencias de la Directora/i)).toBeDefined();
   });
 
-  it('5. Five Spanish weekdays render with emotional context (no artificial latency)', async () => {
+  it('5. Five Spanish weekdays render as tabs and Lunes is initially visible', async () => {
     const { service, source } = createTestDeps();
     await renderApp(service, source);
     await act(async () => {
@@ -109,13 +109,64 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
       fireEvent.click(screen.getByText(/Sí, construyamos la semana/i));
     });
 
-    // No artificial 5500ms delay needed anymore
-    expect(screen.getAllByText('Lunes').length).toBeGreaterThan(0);
+    // Check tabs
+    expect(screen.getByRole('tab', { name: 'Lunes' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Martes' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Miércoles' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Jueves' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Viernes' })).toBeDefined();
+
+    // Check active day content (Lunes is active)
     expect(screen.getByText(/Comenzamos con indicaciones sencillas/i)).toBeDefined();
-    expect(screen.getByText('Martes')).toBeDefined();
-    expect(screen.getByText('Miércoles')).toBeDefined();
-    expect(screen.getByText('Jueves')).toBeDefined();
-    expect(screen.getByText('Viernes')).toBeDefined();
+    // Verify Martes content is not visible
+    expect(screen.queryByText(/Reforzamos la respuesta mediante juego e imitación/i)).toBeNull();
+  });
+
+  it('5.1 Teacher can change weekdays, expand categories, and edits survive switching', async () => {
+    const { service, source } = createTestDeps();
+    await renderApp(service, source);
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Comenzar nuestra semana/i));
+    });
+
+    fireEvent.change(screen.getByLabelText(/¿Qué observaste en tu grupo\?/i), { target: { value: 'obs' } });
+    fireEvent.change(screen.getByLabelText(/¿Qué necesitas fortalecer esta semana\?/i), { target: { value: 'needs' } });
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Crear propuesta juntas/i));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Sí, construyamos la semana/i));
+    });
+
+    // 5. A category can expand
+    const editButtons = screen.getAllByText('Editar');
+    expect(editButtons.length).toBeGreaterThan(0);
+    await act(async () => {
+      fireEvent.click(editButtons[0]!);
+    });
+    // Check that textarea appears
+    const textarea = screen.getByLabelText('Actividad');
+    expect(textarea).toBeDefined();
+
+    // 8. An edit survives category switching
+    fireEvent.change(textarea, { target: { value: 'EDITED_TEXT' } });
+
+    // Switch to Martes
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Martes' }));
+    });
+    expect(screen.queryByText('EDITED_TEXT')).toBeNull(); // Should be unmounted
+
+    // Return to Lunes
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Lunes' }));
+    });
+
+    // Expand again
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Editar')[0]!);
+    });
+    expect((screen.getByLabelText('Actividad') as HTMLTextAreaElement).value).toBe('EDITED_TEXT');
   });
 
   it('6. Director has no edit fields but sees specific texts', async () => {
@@ -239,11 +290,11 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
       fireEvent.click(screen.getByText(/Sí, construyamos la semana/i));
     });
 
-    const lunesElements = screen.getAllByText('Lunes');
-    const container = lunesElements[0]!.parentElement!.parentElement!;
-    expect(container.className).not.toContain('overflow-x-auto');
+    const tabs = screen.getAllByRole('tablist');
+    expect(tabs.length).toBeGreaterThan(0);
+    const container = tabs[0]!.parentElement!;
+    expect(container.className).toContain('space-y-8');
     expect(container.className).not.toContain('snap-x');
-    expect(container.className).toContain('space-y-12');
   });
 
   it('13. Teacher can choose "Quiero ajustar algo" and go back to editing', async () => {
@@ -286,8 +337,26 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
     expect(purposeContainer?.textContent).toContain('TEST_OBSERVATION');
   });
 
-  it('15. Material summary uses only generated materials', async () => {
+  it('15. Teacher materials are logically derived for active day and common weekly use', async () => {
     const { service, source } = createTestDeps();
+    source.generateRecommendation = vi.fn().mockResolvedValue([
+      { dayOfWeek: 'MONDAY', activities: [
+          { activityId: 'a1', category: 'Exploración', objective: '', description: '', materials: ['Crayolas', ' Hojas ', 'crayolas'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+      { dayOfWeek: 'TUESDAY', date: '', complementaryActivities: [], materials: [], activities: [
+          { activityId: 'a2', category: 'Arte', objective: '', description: '', materials: ['Crayolas', 'Pintura'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+      { dayOfWeek: 'WEDNESDAY', date: '', complementaryActivities: [], materials: [], activities: [
+          { activityId: 'a3', category: 'Arte', objective: '', description: '', materials: ['Crayolas'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+      { dayOfWeek: 'THURSDAY', date: '', complementaryActivities: [], materials: [], activities: [
+          { activityId: 'a4', category: 'Arte', objective: '', description: '', materials: ['Crayolas', 'Hojas'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+      { dayOfWeek: 'FRIDAY', date: '', complementaryActivities: [], materials: [], activities: [
+          { activityId: 'a5', category: 'Arte', objective: '', description: '', materials: ['Crayolas', 'Música'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+    ] as PlanningDay[]);
+
     await renderApp(service, source);
     await act(async () => {
       fireEvent.click(screen.getByText(/Comenzar nuestra semana/i));
@@ -301,9 +370,50 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
       fireEvent.click(screen.getByText(/Sí, construyamos la semana/i));
     });
 
-    const materialsHeader = screen.getAllByText(/Materiales de la semana/i)[0];
-    const container = materialsHeader!.parentElement;
-    expect(container?.textContent).toContain('m1'); // from mock
+    // 5. Present in all five days -> Uso diario
+    expect(screen.getByText(/Materiales de uso diario/i)).toBeDefined();
+    // Get all li elements in common materials
+    const commonSection = screen.getByText(/Materiales de uso diario/i).parentElement;
+    expect(commonSection?.textContent).toContain('Crayolas'); // common
+
+    // 1. Monday derives only Monday, 4. Duplicates render once (' Hojas ' and 'crayolas' in MONDAY)
+    // 6. Common (Crayolas) is not duplicated in day specific
+    expect(screen.getByText(/Materiales para el lunes/i)).toBeDefined();
+    const daySection = screen.getByText(/Materiales para el lunes/i).parentElement;
+    expect(daySection?.textContent).toContain('Hojas');
+    expect(daySection?.textContent).not.toContain('Crayolas');
+
+    // 2. Tuesday materials (Pintura) not visible when Monday is active
+    expect(screen.queryByText('Pintura')).toBeNull();
+
+    // 3. Switching to Tuesday updates materials
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Martes' })); });
+    expect(screen.getByText(/Materiales para el martes/i)).toBeDefined();
+    const tuesdaySection = screen.getByText(/Materiales para el martes/i).parentElement;
+    expect(tuesdaySection?.textContent).toContain('Pintura');
+    expect(screen.queryByText('Hojas')).toBeNull();
+  });
+
+  it('15.1 Empty common intersection does not render false common section', async () => {
+    const { service, source } = createTestDeps();
+    source.generateRecommendation = vi.fn().mockResolvedValue([
+      { dayOfWeek: 'MONDAY', activities: [{ activityId: 'a1', category: 'Cat', objective: '', description: '', materials: ['LunesMat'], durationMinutes: 10, curricularTraceability: [] }] },
+      { dayOfWeek: 'TUESDAY', activities: [{ activityId: 'a2', category: 'Cat', objective: '', description: '', materials: ['MartesMat'], durationMinutes: 10, curricularTraceability: [] }] },
+      { dayOfWeek: 'WEDNESDAY', activities: [] },
+      { dayOfWeek: 'THURSDAY', activities: [] },
+      { dayOfWeek: 'FRIDAY', activities: [] },
+    ] as unknown as PlanningDay[]);
+
+    await renderApp(service, source);
+    await act(async () => { fireEvent.click(screen.getByText(/Comenzar nuestra semana/i)); });
+    fireEvent.change(screen.getByLabelText(/¿Qué observaste en tu grupo\?/i), { target: { value: 'obs' } });
+    fireEvent.change(screen.getByLabelText(/¿Qué necesitas fortalecer esta semana\?/i), { target: { value: 'needs' } });
+    await act(async () => { fireEvent.click(screen.getByText(/Crear propuesta juntas/i)); });
+    await act(async () => { fireEvent.click(screen.getByText(/Sí, construyamos la semana/i)); });
+
+    expect(screen.queryByText(/Materiales de uso diario/i)).toBeNull();
+    expect(screen.getByText(/Materiales para el lunes/i)).toBeDefined();
+    expect(screen.getByText('LunesMat')).toBeDefined();
   });
 
   it('16. Evaluation is not falsely completed', async () => {
@@ -363,7 +473,7 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
     });
     await act(async () => {
       const anitaElements = await screen.findAllByText('Anita');
-      fireEvent.click(anitaElements[anitaElements.length - 1]);
+      fireEvent.click(anitaElements[anitaElements.length - 1]!);
       await new Promise(r => setTimeout(r, 50));
     });
 
