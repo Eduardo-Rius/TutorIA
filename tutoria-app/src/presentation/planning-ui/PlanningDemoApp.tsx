@@ -682,8 +682,9 @@ const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWork
 
 const DirectorReview = ({ service, planId, onBack, onSaved }: { service: PlanningWorkflowService, planId: string, onBack: () => void, onSaved: () => void }) => {
   const [plan, setPlan] = useState<WeeklyPlanning | null>(null);
-  const [reason, setReason] = useState('');
-  const [showReject, setShowReject] = useState(false);
+  const [activeDayIndex, setActiveDayIndex] = useState(0);
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
+  const [activityObservations, setActivityObservations] = useState<Record<string, string>>({});
   const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service]);
@@ -728,51 +729,156 @@ const DirectorReview = ({ service, planId, onBack, onSaved }: { service: Plannin
 
       <h3 className="text-3xl font-bold mb-8 text-text-primary text-center">Desarrollo de las acciones pedagógicas</h3>
 
-      <div className="space-y-12 pb-8">
-        {plan.days.map((d) => (
-          <div key={d.dayOfWeek} className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12">
-             <h4 className="text-3xl font-bold text-teal-900 border-b-2 border-brand-primary/20 pb-4 mb-6 uppercase tracking-widest text-center">
-               {d.dayOfWeek === 'MONDAY' && 'Lunes'}
-               {d.dayOfWeek === 'TUESDAY' && 'Martes'}
-               {d.dayOfWeek === 'WEDNESDAY' && 'Miércoles'}
-               {d.dayOfWeek === 'THURSDAY' && 'Jueves'}
-               {d.dayOfWeek === 'FRIDAY' && 'Viernes'}
-             </h4>
-             <p className="text-center text-teal-700 font-medium italic mb-6">
-               {DAY_CONTEXT[d.dayOfWeek]}
-             </p>
-             <div className="space-y-6">
-               {d.activities.map((a) => (
-                  <div key={a.activityId} className="bg-surface-soft rounded-xl p-6 border border-border-soft">
-                    <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">{a.category} • {a.durationMinutes} min</p>
-                    <div className="mb-5">
-                      <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Objetivo</p>
-                      <p className="font-bold text-text-primary text-lg">{a.objective}</p>
-                    </div>
-                    <div className="mb-5">
-                      <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Actividad</p>
-                      <p className="text-base text-gray-800 leading-relaxed">{a.description}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">Materiales</p>
-                      <p className="text-base font-bold text-text-primary">{a.materials.join(', ')}</p>
-                    </div>
-                  </div>
-               ))}
-             </div>
-          </div>
-        ))}
-      </div>
+      <div className="space-y-8 pb-8 max-w-4xl mx-auto">
+        <WeekDayTabs
+          days={plan.days}
+          activeIndex={activeDayIndex}
+          onSelect={(idx) => {
+            setActiveDayIndex(idx);
+            setExpandedActivityId(null);
+          }}
+        />
 
-      <div className="bg-white rounded-xl shadow-sm border border-border-soft p-10 mb-12">
-         <h4 className="text-2xl font-bold text-teal-900 border-b-2 border-teal-50 pb-4 mb-6 uppercase tracking-widest text-center">Materiales de la semana</h4>
-         {Array.from(new Set(plan.days.flatMap(d => d.activities.flatMap(a => a.materials)))).length > 0 ? (
-           <ul className="list-disc pl-5 space-y-2 text-xl text-gray-800 font-medium">
-             {Array.from(new Set(plan.days.flatMap(d => d.activities.flatMap(a => a.materials)))).map(m => <li key={m}>{m}</li>)}
-           </ul>
-         ) : (
-           <p className="text-text-muted italic text-center">No hay materiales especiales registrados.</p>
-         )}
+        {(() => {
+          const d = plan.days[activeDayIndex];
+          if (!d) return null;
+
+          const commonWeeklyMaterials = getCommonWeeklyMaterials(plan.days);
+          const dailyMaterials = getDaySpecificMaterials(d, commonWeeklyMaterials);
+
+          const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes' :
+                          d.dayOfWeek === 'TUESDAY' ? 'Martes' :
+                          d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' :
+                          d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
+
+          return (
+            <div key={d.dayOfWeek} id={`panel-${d.dayOfWeek}`} role="tabpanel" className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
+               <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
+                 {dayName}
+               </h4>
+               <p className="text-center text-teal-700 font-medium italic mb-10 border-b-2 border-teal-50 pb-6">
+                 {DAY_CONTEXT[d.dayOfWeek]}
+               </p>
+
+               <div className="space-y-4">
+                 {d.activities.map((a) => {
+                    const isExpanded = expandedActivityId === a.activityId;
+                    return (
+                      <div key={a.activityId} className="bg-surface-soft rounded-xl border border-border-soft overflow-hidden transition">
+                        <button
+                          onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`review-${a.activityId}`}
+                          className="w-full text-left p-6 hover:bg-surface-ivory transition flex justify-between items-center group outline-none focus:ring-4 focus:ring-brand-primary/30"
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
+                            <p className="font-bold text-text-primary text-xl group-hover:text-teal-800 transition">{a.objective}</p>
+                          </div>
+                          <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition group-hover:bg-teal-50">
+                            {isExpanded ? 'Ocultar' : 'Revisar'}
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div id={`review-${a.activityId}`} className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white animate-fade-in">
+                            <div className="mb-5">
+                              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 mt-4 block">Objetivo</p>
+                              <p className="font-bold text-text-primary text-lg">{a.objective}</p>
+                            </div>
+                            <div className="mb-5">
+                              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Actividad</p>
+                              <p className="text-base text-gray-800 leading-relaxed">{a.description}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Materiales</p>
+                              <p className="text-base font-bold text-text-primary">{a.materials.length > 0 ? a.materials.join(', ') : 'Ninguno registrado'}</p>
+                            </div>
+
+                            <div className="mt-8 border-t border-teal-50 pt-6">
+                              {activityObservations[`${d.dayOfWeek}-${a.activityId}`] !== undefined ? (
+                                <div className="bg-orange-50 p-5 rounded-xl border border-orange-200">
+                                  <label htmlFor={`obs-${a.activityId}`} className="block text-sm font-bold text-orange-900 uppercase tracking-wider mb-3">
+                                    Observación para Anita sobre esta actividad
+                                  </label>
+                                  <textarea
+                                    id={`obs-${a.activityId}`}
+                                    value={activityObservations[`${d.dayOfWeek}-${a.activityId}`]}
+                                    onChange={e => setActivityObservations({ ...activityObservations, [`${d.dayOfWeek}-${a.activityId}`]: e.target.value })}
+                                    className="w-full text-base p-4 bg-white border border-orange-300 focus:border-orange-500 rounded-lg outline-none transition min-h-[100px] resize-none mb-3"
+                                    placeholder="Escribe aquí tu observación..."
+                                  />
+                                  <div className="flex justify-end">
+                                    <button
+                                      onClick={() => {
+                                        const newObs = { ...activityObservations };
+                                        delete newObs[`${d.dayOfWeek}-${a.activityId}`];
+                                        setActivityObservations(newObs);
+                                      }}
+                                      className="text-orange-700 hover:text-orange-900 font-bold text-sm underline"
+                                    >
+                                      Quitar observación
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setActivityObservations({ ...activityObservations, [`${d.dayOfWeek}-${a.activityId}`]: '' })}
+                                  className="text-orange-700 hover:text-orange-900 font-bold text-sm flex items-center gap-2 px-5 py-2.5 rounded-full hover:bg-orange-50 transition border border-transparent hover:border-orange-200"
+                                >
+                                  + Agregar observación
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                 })}
+               </div>
+
+               <div className="mt-12 border-t border-border-soft pt-10">
+                 {commonWeeklyMaterials.length > 0 && (
+                   <div className="mb-10">
+                     <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                       <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
+                       Materiales de uso diario
+                     </h5>
+                     <ul className="list-none space-y-3">
+                       {commonWeeklyMaterials.map(m => (
+                         <li key={m} className="flex items-center gap-3 text-lg text-gray-800 font-medium">
+                           <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+                           {m}
+                         </li>
+                       ))}
+                     </ul>
+                   </div>
+                 )}
+
+                 <div>
+                   <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                     <span className="w-2 h-2 rounded-full bg-brand-accent"></span>
+                     Materiales previstos para el {dayName.toLowerCase()}
+                   </h5>
+                   {dailyMaterials.length > 0 ? (
+                     <ul className="list-none space-y-3">
+                       {dailyMaterials.map(m => (
+                         <li key={m} className="flex items-center gap-3 text-lg text-gray-800 font-medium">
+                           <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                           {m}
+                         </li>
+                       ))}
+                     </ul>
+                   ) : (
+                     <p className="text-text-muted italic bg-surface-soft p-4 rounded-lg inline-block">
+                       Para este día se utilizarán los materiales de uso diario.
+                     </p>
+                   )}
+                 </div>
+               </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-border-soft p-10 mb-12">
@@ -782,25 +888,53 @@ const DirectorReview = ({ service, planId, onBack, onSaved }: { service: Plannin
          </p>
       </div>
 
-      {plan.status !== 'APPROVED' && (
-        <div className="mt-16 flex justify-center">
-          {showReject ? (
-            <div className="bg-white border-2 border-orange-200 p-10 rounded-xl shadow-sm max-w-2xl w-full text-center">
-              <label htmlFor="reason" className="block text-3xl font-bold mb-6 text-text-primary">¿Qué te gustaría aportarle a esta propuesta?</label>
-              <textarea id="reason" value={reason} onChange={e => setReason(e.target.value)} className="w-full text-xl p-6 bg-surface-soft border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-lg outline-none transition min-h-[160px] resize-none mb-8" placeholder="Le sugeriré a Anita que..."></textarea>
-              <div className="flex flex-col gap-4">
-                <button disabled={!reason.trim()} onClick={async () => { await service.reject(planId, reason, 'd1', 'DIRECTOR'); onSaved(); setToastMessage('✓ Le enviamos tu sugerencia a la docente'); setTimeout(() => { setToastMessage(''); onBack(); }, 2000); }} className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-10 py-5 rounded-full shadow-sm transition disabled:opacity-50 text-xl">Revisémosla juntas</button>
-                <button onClick={() => setShowReject(false)} className="px-8 py-4 font-bold text-text-muted hover:bg-status-draft/30 rounded-full transition text-lg">Mejor no</button>
-              </div>
+      {plan.status !== 'APPROVED' && (() => {
+        const obsCount = Object.keys(activityObservations).length;
+        return (
+          <div className="mt-16 flex justify-center">
+            <div className="flex flex-col gap-6 max-w-2xl w-full text-center">
+              {obsCount > 0 && (
+                <div className="bg-orange-50 p-6 rounded-xl border-2 border-orange-200 mb-4 text-left shadow-sm">
+                  <h4 className="font-bold text-orange-900 text-lg mb-3">
+                    Has registrado {obsCount} {obsCount === 1 ? 'observación' : 'observaciones'} en esta planeación.
+                  </h4>
+                  <ul className="list-disc pl-5 text-orange-800 space-y-1 font-medium">
+                    {Object.keys(activityObservations).map(key => {
+                      const [day, actId] = key.split('-');
+                      const dayName = day === 'MONDAY' ? 'Lunes' : day === 'TUESDAY' ? 'Martes' : day === 'WEDNESDAY' ? 'Miércoles' : day === 'THURSDAY' ? 'Jueves' : 'Viernes';
+                      const act = plan.days.find(d => d.dayOfWeek === day)?.activities.find(a => a.activityId === actId);
+                      return <li key={key}>{dayName} · {act?.category}</li>;
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              <button onClick={async () => { await service.approve(planId, 'DIRECTOR'); onSaved(); setToastMessage('🌟 ¡Qué bien! Propuesta aprobada.'); setTimeout(() => { setToastMessage(''); onBack(); }, 2500); }} className="bg-brand-primary hover:bg-brand-dark text-white font-bold text-2xl px-12 py-6 rounded-full shadow-sm transition w-full">
+                ✓ Aprobar planeación
+              </button>
+
+              {obsCount === 0 ? (
+                 <div className="mt-2 text-center">
+                   <button disabled className="bg-white text-orange-300 font-bold px-8 py-5 rounded-full w-full border-2 border-orange-100 text-xl cursor-not-allowed">
+                     Solicitar ajustes
+                   </button>
+                   <p className="text-orange-600 mt-4 font-medium">Agrega al menos una observación en la actividad que requiere ajuste.</p>
+                 </div>
+              ) : (
+                 <button onClick={async () => {
+                   const summaryReason = `Has recibido ${obsCount} ${obsCount === 1 ? 'observación' : 'observaciones'} en actividades específicas.`;
+                   await service.reject(planId, summaryReason, 'd1', 'DIRECTOR');
+                   onSaved();
+                   setToastMessage('✓ Le enviamos tu sugerencia a la docente');
+                   setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
+                 }} className="bg-white text-orange-700 font-bold px-8 py-5 rounded-full hover:bg-orange-50 transition w-full border-2 border-orange-200 text-xl shadow-sm">
+                   Solicitar ajustes
+                 </button>
+              )}
             </div>
-          ) : (
-            <div className="flex flex-col gap-6 max-w-md w-full">
-              <button onClick={async () => { await service.approve(planId, 'DIRECTOR'); onSaved(); setToastMessage('🌟 ¡Qué bien! Propuesta aprobada.'); setTimeout(() => { setToastMessage(''); onBack(); }, 2500); }} className="bg-brand-primary hover:bg-brand-dark text-white font-bold text-2xl px-12 py-6 rounded-full shadow-sm transition w-full">✓ ¡Me parece excelente!</button>
-              <button onClick={() => setShowReject(true)} className="bg-white text-orange-700 font-bold px-8 py-5 rounded-full hover:bg-orange-50 transition w-full border-2 border-orange-100 text-xl">Sugerir algo</button>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

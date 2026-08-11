@@ -169,14 +169,117 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
     expect((screen.getByLabelText('Actividad') as HTMLTextAreaElement).value).toBe('EDITED_TEXT');
   });
 
-  it('6. Director has no edit fields but sees specific texts', async () => {
+  it('6. Director review 5x5 UX', async () => {
     const { service, source } = createTestDeps();
+
+    // Seed a plan so Director has something to review
+    await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2026-08-10', '2026-08-14', 'TEACHER');
+    const days = [
+      { dayOfWeek: 'MONDAY', date: '', complementaryActivities: [], materials: [], activities: [
+          { activityId: 'a1', category: 'Arte', objective: 'Obj1', description: 'Desc1', materials: ['Crayolas', 'Hojas'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+      { dayOfWeek: 'TUESDAY', date: '', complementaryActivities: [], materials: [], activities: [
+          { activityId: 'a2', category: 'Arte', objective: 'Obj2', description: 'Desc2', materials: ['Crayolas', 'Pintura'], durationMinutes: 20, curricularTraceability: [] }
+      ] },
+      { dayOfWeek: 'WEDNESDAY', date: '', complementaryActivities: [], materials: [], activities: [{ activityId: 'a3', category: 'Arte', objective: 'Obj3', description: 'Desc3', materials: ['Crayolas'], durationMinutes: 20, curricularTraceability: [] }] },
+      { dayOfWeek: 'THURSDAY', date: '', complementaryActivities: [], materials: [], activities: [{ activityId: 'a4', category: 'Arte', objective: 'Obj4', description: 'Desc4', materials: ['Crayolas'], durationMinutes: 20, curricularTraceability: [] }] },
+      { dayOfWeek: 'FRIDAY', date: '', complementaryActivities: [], materials: [], activities: [{ activityId: 'a5', category: 'Arte', objective: 'Obj5', description: 'Desc5', materials: ['Crayolas'], durationMinutes: 20, curricularTraceability: [] }] },
+    ] as unknown as PlanningDay[];
+    await service.saveDraft('p1', 'obs', 'needs', [], days, 'TEACHER');
+    await service.submit('p1', 'TEACHER');
+
     await renderApp(service, source);
     await act(async () => {
       fireEvent.click(screen.getByText('Ceci (Directora)'));
       await new Promise(r => setTimeout(r, 50));
     });
-    expect(screen.queryByLabelText(/¿Qué observaste en tu grupo\?/i)).toBeNull();
+
+    // 1. Director selects the plan to review
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Lista para conversar/i));
+    });
+
+    // 2. Director sees weekday navigation and Lunes is default
+    expect(screen.getByRole('tablist')).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Lunes' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Martes' }).getAttribute('aria-selected')).toBe('false');
+
+    // 3. Exactly five categories/activities are shown for the active day (in this case 1 because of mock)
+    // Wait, the mock only has 1 activity for Monday. We check that it renders correctly.
+    expect(screen.getByText('Obj1')).toBeDefined();
+    expect(screen.queryByText('Obj2')).toBeNull(); // Tuesday's objective not shown
+
+    // 4. Director sees day-specific materials
+    expect(screen.getByText(/Materiales previstos para el lunes/i)).toBeDefined();
+    const mondaySection = screen.getByText(/Materiales previstos para el lunes/i).parentElement;
+    expect(mondaySection?.textContent).toContain('Hojas');
+    expect(mondaySection?.textContent).not.toContain('Crayolas'); // Crayolas is common
+
+    // 5. Director can expand one category (Revisar)
+    const reviewBtn = screen.getByText('Revisar').closest('button');
+    expect(reviewBtn).toBeDefined();
+    await act(async () => { fireEvent.click(reviewBtn!); });
+
+    // 6. Expanded Director category is read-only. No textareas.
+    expect(screen.queryByLabelText('Actividad')).toBeNull(); // No editable input
+    // The description "Desc1" should just be text on screen
+    expect(screen.getByText('Desc1')).toBeDefined();
+
+    // 7. Clicking Martes changes Director active day
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Martes' }));
+    });
+    expect(screen.getByRole('tab', { name: 'Martes' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByText('Obj1')).toBeNull(); // Monday's gone
+    expect(screen.getByText('Obj2')).toBeDefined(); // Tuesday's here
+
+    // Tuesday materials
+    expect(screen.getByText(/Materiales previstos para el martes/i)).toBeDefined();
+    const tuesdaySection = screen.getByText(/Materiales previstos para el martes/i).parentElement;
+    expect(tuesdaySection?.textContent).toContain('Pintura');
+    expect(tuesdaySection?.textContent).not.toContain('Hojas'); // No Monday leakage
+
+    // 8. Test Activity-Level Feedback Isolation & Final Summary
+    // Solicitar ajustes should be disabled (actually it is rendered as a disabled button in the empty state)
+    const disabledAdjustBtn = screen.getByText('Solicitar ajustes').closest('button');
+    expect(disabledAdjustBtn?.disabled).toBe(true);
+
+    // Return to Lunes
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Lunes' }));
+    });
+    await act(async () => { fireEvent.click(screen.getByText('Revisar').closest('button')!); });
+
+    // Add observation
+    await act(async () => { fireEvent.click(screen.getByText('+ Agregar observación')); });
+    const obsInput = screen.getByLabelText(/Observación para Anita/i);
+    expect(obsInput).toBeDefined();
+    fireEvent.change(obsInput, { target: { value: 'TEST_OBSERVATION_MONDAY' } });
+
+    // Check summary updates at the bottom
+    expect(screen.getByText(/Has registrado 1 observación en esta planeación/i)).toBeDefined();
+    expect(screen.getByText(/Lunes · Arte/i)).toBeDefined();
+
+    // Check Solicitar ajustes is enabled now (rendered as active button instead of disabled wrapper)
+    const activeAdjustBtn = screen.getByText('Solicitar ajustes').closest('button');
+    expect(activeAdjustBtn?.disabled).toBe(false);
+
+    // Switch to Martes to verify isolation
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Martes' }));
+    });
+    await act(async () => { fireEvent.click(screen.getByText('Revisar').closest('button')!); });
+    expect(screen.queryByText('TEST_OBSERVATION_MONDAY')).toBeNull(); // isolated to Monday
+
+    // Go back to Lunes, remove observation
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Lunes' }));
+    });
+    // Re-expand Lunes activity
+    await act(async () => { fireEvent.click(screen.getByText('Revisar').closest('button')!); });
+    await act(async () => { fireEvent.click(screen.getByText('Quitar observación')); });
+    expect(screen.queryByText(/Has registrado 1 observación/i)).toBeNull();
+    expect(screen.getByText('Solicitar ajustes').closest('button')?.disabled).toBe(true);
   });
 
   it('7. Supervisor has no mutation actions', async () => {
@@ -481,7 +584,7 @@ describe('PlanningDemoApp UX Requirements (UX Iteration 5)', () => {
     expect(pageText).toContain('obs_director');
     expect(pageText).toContain('needs_director');
     expect(pageText).toContain('Propósito de la semana');
-    expect(pageText).toContain('Materiales de la semana');
+    expect(pageText).toContain('Materiales previstos para el lunes');
     expect(pageText).toContain('m_director');
   });
 
