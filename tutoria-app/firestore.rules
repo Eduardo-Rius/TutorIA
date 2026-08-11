@@ -1,0 +1,132 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // Rule Helper Functions
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && userProfile().role == role;
+    }
+
+    function isTeacher() {
+      return hasRole('TEACHER');
+    }
+
+    function isDirector() {
+      return hasRole('DIRECTOR');
+    }
+
+    function isSupervisor() {
+      return hasRole('SUPERVISOR');
+    }
+
+    function belongsToDaycare(daycareId) {
+      let profile = userProfile();
+      // Director/Teacher typically have a single daycareId
+      // Supervisor might have an array in authorizedDaycareIds
+      let singleMatch = ('daycareId' in profile) && profile.daycareId == daycareId;
+      let arrayMatch = ('authorizedDaycareIds' in profile) && (daycareId in profile.authorizedDaycareIds);
+      return singleMatch || arrayMatch;
+    }
+
+    // -------------------------------------------------------------------------
+    // Users Collection
+    // -------------------------------------------------------------------------
+    match /users/{uid} {
+      // Users can read their own profile
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      
+      // Client users MUST NOT elevate their own authorization.
+      // Deny client writes entirely as requested for this stage.
+      allow write: if false; 
+    }
+
+    // -------------------------------------------------------------------------
+    // Weekly Plannings Collection
+    // -------------------------------------------------------------------------
+    match /weeklyPlannings/{planningId} {
+      
+      function isPlanOwner() {
+        return resource.data.teacherId == request.auth.uid;
+      }
+      
+      function isNewPlanOwner() {
+        return request.resource.data.teacherId == request.auth.uid;
+      }
+
+      function isPedagogicalUpdateOnly() {
+        // Only allow changes to pedagogical content, not ownership or status fields.
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return !affected.hasAny(['teacherId', 'daycareId', 'roomId', 'status', 'reviewHistory']);
+      }
+
+      function isReviewUpdateOnly() {
+        // Directors can only change review/status fields
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return affected.hasOnly(['status', 'reviewHistory', 'version', 'identifiedNeeds', 'observations']);
+      }
+
+      allow read: if isSignedIn() && (
+        (isTeacher() && isPlanOwner() && belongsToDaycare(resource.data.daycareId)) ||
+        (isDirector() && belongsToDaycare(resource.data.daycareId)) ||
+        (isSupervisor() && belongsToDaycare(resource.data.daycareId) && resource.data.status == 'APPROVED')
+      );
+
+      allow create: if isSignedIn() && isTeacher() && isNewPlanOwner() && belongsToDaycare(request.resource.data.daycareId);
+
+      // Note: If safe field-level review transitions cannot yet be expressed completely, 
+      // we fail closed rather than grant broad update access. We permit limited field diffs here.
+      allow update: if isSignedIn() && (
+        (isTeacher() && isPlanOwner() && isPedagogicalUpdateOnly() && resource.data.daycareId == request.resource.data.daycareId) ||
+        (isDirector() && belongsToDaycare(resource.data.daycareId) && isReviewUpdateOnly())
+      );
+      
+      allow delete: if false;
+
+      // -----------------------------------------------------------------------
+      // Review Observations Subcollection
+      // -----------------------------------------------------------------------
+      match /reviewObservations/{observationId} {
+        
+        function getParentPlan() {
+          return get(/databases/$(database)/documents/weeklyPlannings/$(planningId)).data;
+        }
+
+        allow read: if isSignedIn() && (
+          (isTeacher() && getParentPlan().teacherId == request.auth.uid) ||
+          (isDirector() && belongsToDaycare(getParentPlan().daycareId)) ||
+          (isSupervisor() && belongsToDaycare(getParentPlan().daycareId) && getParentPlan().status == 'APPROVED')
+        );
+
+        allow create: if isSignedIn() 
+          && isDirector() 
+          && belongsToDaycare(getParentPlan().daycareId)
+          && request.resource.data.createdBy == request.auth.uid;
+
+        allow update: if isSignedIn()
+          && isDirector()
+          && belongsToDaycare(getParentPlan().daycareId)
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdBy == request.auth.uid;
+          
+        allow delete: if false;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal Connectivity
+    // -------------------------------------------------------------------------
+    // Fail closed as requested; emulator tests will prove access denial
+    match /_internalConnectivityChecks/{documentId} {
+      allow read, write: if false;
+    }
+  }
+}
