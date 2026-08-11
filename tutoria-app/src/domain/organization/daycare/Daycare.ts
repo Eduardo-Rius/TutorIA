@@ -6,7 +6,8 @@ export interface DaycareImportMetadata {
 }
 
 export interface DaycareProps {
-  daycareNumber: string; // The COMPLETE official IMSS number (e.g., 'G-0001')
+  id: string; // TutorIA canonical identity (UUID)
+  daycareNumber: string; // The COMPLETE official IMSS number (e.g., 'G-0001'). NON-UNIQUE searchable alias.
   daycareName: string;
   type?: string | null;
   state?: string | null;
@@ -30,6 +31,10 @@ export interface DaycareProps {
 export class Daycare {
   private constructor(public readonly props: DaycareProps) {}
 
+  public get daycareId(): string {
+    return this.props.id;
+  }
+
   public get daycareNumber(): string {
     return this.props.daycareNumber;
   }
@@ -42,9 +47,10 @@ export class Daycare {
     return this.props.metadata?.recordHash;
   }
 
-  public static create(props: Omit<DaycareProps, 'metadata'>, metadata: DaycareImportMetadata): Daycare {
+  public static create(props: Omit<DaycareProps, 'metadata' | 'id'>, metadata: DaycareImportMetadata): Daycare {
     const normalizedProps = Daycare.normalize(props);
     return new Daycare({
+      id: crypto.randomUUID(), // TutorIA-generated opaque UUID
       ...normalizedProps,
       metadata
     });
@@ -54,7 +60,7 @@ export class Daycare {
     return new Daycare(props);
   }
 
-  private static normalize(props: Omit<DaycareProps, 'metadata'>): Omit<DaycareProps, 'metadata'> {
+  private static normalize(props: Omit<DaycareProps, 'metadata' | 'id'>): Omit<DaycareProps, 'metadata' | 'id'> {
     const cleanStr = (val: string | null | undefined): string | null => {
       if (val === undefined || val === null) return null;
       const trimmed = val.trim();
@@ -67,7 +73,7 @@ export class Daycare {
     };
 
     return {
-      daycareNumber: props.daycareNumber.trim(), // Keep exact prefix
+      daycareNumber: props.daycareNumber.trim(), // Keep exact prefix, do not parse as int
       daycareName: cleanStr(props.daycareName) || '',
       type: cleanStr(props.type),
       state: cleanStr(props.state),

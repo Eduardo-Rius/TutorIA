@@ -6,13 +6,12 @@ export interface ImporterReport {
   validRows: number;
   invalidRows: number;
   missingDaycareNumbers: number;
-  duplicateDaycareNumbers: number;
   updatedRecords: number;
   unchangedRecords: number;
   errors: string[];
 }
 
-export type RawDaycareRow = Partial<Omit<DaycareProps, 'metadata' | 'active'>> & { active?: boolean | string };
+export type RawDaycareRow = Partial<Omit<DaycareProps, 'metadata' | 'active' | 'id'>> & { active?: boolean | string };
 
 export class DaycareDirectoryImporter {
   constructor(private readonly repository: DaycareRepository) {}
@@ -27,13 +26,10 @@ export class DaycareDirectoryImporter {
       validRows: 0,
       invalidRows: 0,
       missingDaycareNumbers: 0,
-      duplicateDaycareNumbers: 0,
       updatedRecords: 0,
       unchangedRecords: 0,
       errors: []
     };
-
-    const seenNumbers = new Set<string>();
 
     for (const [index, row] of rows.entries()) {
       const rowNum = index + 1; // 1-indexed for human readability in logs
@@ -45,14 +41,6 @@ export class DaycareDirectoryImporter {
         continue;
       }
 
-      if (seenNumbers.has(rawNumber)) {
-        report.duplicateDaycareNumbers++;
-        report.invalidRows++;
-        report.errors.push(`Row ${rowNum}: Duplicate daycare number '${rawNumber}' detected in source.`);
-        continue;
-      }
-      seenNumbers.add(rawNumber);
-
       let active = true;
       if (typeof row.active === 'boolean') {
         active = row.active;
@@ -61,7 +49,7 @@ export class DaycareDirectoryImporter {
       }
 
       try {
-        const daycareData: Omit<DaycareProps, 'metadata'> = {
+        const daycareData: Omit<DaycareProps, 'metadata' | 'id'> = {
           daycareNumber: rawNumber,
           daycareName: row.daycareName || '',
           type: row.type ?? null,
@@ -92,18 +80,21 @@ export class DaycareDirectoryImporter {
         };
 
         const newDaycare = Daycare.create(daycareData, metadata);
-        // Lookup existing to compare hash
-        const existing = await this.repository.findByDaycareNumber(rawNumber);
-        if (existing) {
-          if (existing.recordHash === newDaycare.recordHash) {
-            report.unchangedRecords++;
-          } else {
-            await this.repository.save(newDaycare);
-            report.updatedRecords++;
-          }
+
+        // Find existing daycares with the exact same daycareNumber
+        const existingList = await this.repository.findByDaycareNumber(rawNumber);
+
+        // Find if one of them is the EXACT same physical record (exact hash)
+        const identical = existingList.find(d => d.recordHash === newDaycare.recordHash);
+
+        if (identical) {
+          report.unchangedRecords++;
         } else {
+          // It's either a brand new daycare sharing the same number,
+          // or an update to an existing one. We just save it as new because
+          // we do not invent a reconciliation heuristic in this stage.
           await this.repository.save(newDaycare);
-          report.updatedRecords++; // Or a separate 'createdRecords' counter, but updated maps to upserts
+          report.updatedRecords++;
         }
 
         report.validRows++;
@@ -116,9 +107,9 @@ export class DaycareDirectoryImporter {
     return report;
   }
 
-  public static async computeInstitutionalHash(props: Omit<DaycareProps, 'metadata'>): Promise<string> {
+  public static async computeInstitutionalHash(props: Omit<DaycareProps, 'metadata' | 'id'>): Promise<string> {
     // Deterministic string representation of strictly institutional data.
-    // EXCLUDES: active, metadata
+    // EXCLUDES: active, metadata, id
     const cleanStr = (val: string | null | undefined): string | null => {
       if (val === undefined || val === null) return null;
       const trimmed = val.trim();

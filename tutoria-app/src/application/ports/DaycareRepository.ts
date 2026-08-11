@@ -1,6 +1,7 @@
-import { Daycare } from '../../domain/organization/daycare/Daycare';
+import { Daycare } from '../../../domain/organization/daycare/Daycare';
 
 export interface DaycareRepository {
-  findByDaycareNumber(daycareNumber: string): Promise<Daycare | null>;
+  findById(daycareId: string): Promise<Daycare | null>;
+  findByDaycareNumber(daycareNumber: string): Promise<Daycare[]>;
   save(daycare: Daycare): Promise<void>;
 }

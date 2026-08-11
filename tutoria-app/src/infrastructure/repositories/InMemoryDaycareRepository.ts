@@ -2,19 +2,24 @@ import { DaycareRepository } from '../../application/ports/DaycareRepository';
 import { Daycare } from '../../domain/organization/daycare/Daycare';
 
 export class InMemoryDaycareRepository implements DaycareRepository {
-  private readonly store = new Map<string, Daycare>();
+  private daycares: Map<string, Daycare> = new Map();
 
-  public async findByDaycareNumber(daycareNumber: string): Promise<Daycare | null> {
-    const rawNumber = daycareNumber.trim();
-    return this.store.get(rawNumber) || null;
+  async findById(daycareId: string): Promise<Daycare | null> {
+    const daycare = this.daycares.get(daycareId);
+    return daycare ? Daycare.reconstitute(daycare.props) : null;
   }
 
-  public async save(daycare: Daycare): Promise<void> {
-    this.store.set(daycare.daycareNumber, daycare);
+  async findByDaycareNumber(daycareNumber: string): Promise<Daycare[]> {
+    const matches: Daycare[] = [];
+    for (const daycare of this.daycares.values()) {
+      if (daycare.daycareNumber === daycareNumber) {
+        matches.push(Daycare.reconstitute(daycare.props));
+      }
+    }
+    return matches;
   }
 
-  // Helper for testing
-  public async _clear(): Promise<void> {
-    this.store.clear();
+  async save(daycare: Daycare): Promise<void> {
+    this.daycares.set(daycare.daycareId, Daycare.reconstitute(daycare.props));
   }
 }
