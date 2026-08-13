@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "guarderiasimss-5cb09"
+    "default": "tutoria-identity-lab",
+    "lab": "tutoria-identity-lab",
+    "prod": "guarderiasimss-5cb09"
   }
 }
