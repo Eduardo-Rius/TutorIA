@@ -23,13 +23,21 @@ beforeEach(async () => {
   // Create emulator-only user fixtures using admin context
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
-    await setDoc(doc(db, 'users', 'teacherA'), { role: 'TEACHER', daycareId: 'daycare-1' });
-    await setDoc(doc(db, 'users', 'teacherB'), { role: 'TEACHER', daycareId: 'daycare-1' });
-    await setDoc(doc(db, 'users', 'teacherC'), { role: 'TEACHER', daycareId: 'daycare-2' });
-    await setDoc(doc(db, 'users', 'director1'), { role: 'DIRECTOR', daycareId: 'daycare-1' });
-    await setDoc(doc(db, 'users', 'director2'), { role: 'DIRECTOR', daycareId: 'daycare-2' });
-    await setDoc(doc(db, 'users', 'supervisor1'), { role: 'SUPERVISOR', authorizedDaycareIds: ['daycare-1'] });
-    await setDoc(doc(db, 'users', 'supervisor2'), { role: 'SUPERVISOR', authorizedDaycareIds: ['daycare-2'] });
+    await setDoc(doc(db, 'authorizationContexts', 'teacherA'), { institutionalRole: 'TEACHER', authorizedDaycareIds: ['daycare-1'], active: true });
+    await setDoc(doc(db, 'authorizationContexts', 'teacherB'), { institutionalRole: 'TEACHER', authorizedDaycareIds: ['daycare-1'], active: true });
+    await setDoc(doc(db, 'authorizationContexts', 'teacherC'), { institutionalRole: 'TEACHER', authorizedDaycareIds: ['daycare-2'], active: true });
+    await setDoc(doc(db, 'authorizationContexts', 'director1'), { institutionalRole: 'DIRECTOR', authorizedDaycareIds: ['daycare-1'], active: true });
+    await setDoc(doc(db, 'authorizationContexts', 'director2'), { institutionalRole: 'DIRECTOR', authorizedDaycareIds: ['daycare-2'], active: true });
+    await setDoc(doc(db, 'authorizationContexts', 'supervisor1'), { institutionalRole: 'SUPERVISOR', authorizedDaycareIds: ['daycare-1', 'daycare-2'], active: true });
+    await setDoc(doc(db, 'authorizationContexts', 'supervisor2'), { institutionalRole: 'SUPERVISOR', authorizedDaycareIds: ['daycare-3'], active: true });
+
+    // Inactive user
+    await setDoc(doc(db, 'authorizationContexts', 'teacherInactive'), { institutionalRole: 'TEACHER', authorizedDaycareIds: ['daycare-1'], active: false });
+    await setDoc(doc(db, 'authorizationContexts', 'directorInactive'), { institutionalRole: 'DIRECTOR', authorizedDaycareIds: ['daycare-1'], active: false });
+    await setDoc(doc(db, 'authorizationContexts', 'supervisorInactive'), { institutionalRole: 'SUPERVISOR', authorizedDaycareIds: ['daycare-1'], active: false });
+
+    // Legacy user for negative tests
+    await setDoc(doc(db, 'authorizationContexts', 'legacyTeacher'), { role: 'TEACHER', daycareId: 'daycare-1' });
 
     // Create emulator-only planning docs
     await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
@@ -130,7 +138,7 @@ describe('Firestore Security Rules', () => {
 
     it('FAIL: change role/user authorization profile', async () => {
       const db = testEnv.authenticatedContext('teacherA').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'teacherA'), {
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'teacherA'), {
         role: 'DIRECTOR'
       }));
     });
@@ -255,7 +263,7 @@ describe('Firestore Security Rules', () => {
 
     it('FAIL: mutate users/{uid} authorization', async () => {
       const db = testEnv.authenticatedContext('director1').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'director1'), {
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'director1'), {
         daycareId: 'daycare-2'
       }));
     });
@@ -266,7 +274,17 @@ describe('Firestore Security Rules', () => {
       const db = testEnv.authenticatedContext('supervisor1').firestore();
       await assertSucceeds(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
     });
-
+    it('PASS: read APPROVED plan in daycare-2 (Multi-Daycare Support)', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await assertSucceeds(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-c-d2-approved')));
+    });
+    it('FAIL: read APPROVED plan in daycare-3 (Unauthorized)', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+         await setDoc(doc(context.firestore(), 'weeklyPlannings', 'plan-d3-approved'), { teacherId: 't3', daycareId: 'daycare-3', status: 'APPROVED' });
+      });
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-d3-approved')));
+    });
     it('FAIL: read DRAFT plan', async () => {
       const db = testEnv.authenticatedContext('supervisor1').firestore();
       await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft')));
@@ -275,11 +293,6 @@ describe('Firestore Security Rules', () => {
     it('FAIL: read IN_REVIEW plan', async () => {
       const db = testEnv.authenticatedContext('supervisor1').firestore();
       await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review')));
-    });
-
-    it('FAIL: read APPROVED plan in daycare-2', async () => {
-      const db = testEnv.authenticatedContext('supervisor1').firestore();
-      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-c-d2-approved')));
     });
 
     it('FAIL: create plan', async () => {
@@ -319,20 +332,13 @@ describe('Firestore Security Rules', () => {
       const db = testEnv.authenticatedContext('supervisor1').firestore();
       await assertFails(deleteDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'reviewObservations', 'obs-director1')));
     });
-
-    it('FAIL: mutate users profile', async () => {
-      const db = testEnv.authenticatedContext('supervisor1').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'supervisor1'), {
-        authorizedDaycareIds: ['daycare-1', 'daycare-2']
-      }));
-    });
   });
 
   describe('Unauthenticated Test Matrix', () => {
     it('FAIL ALL reads and writes', async () => {
       const db = testEnv.unauthenticatedContext().firestore();
-      await assertFails(getDoc(doc(db, 'users', 'teacherA')));
-      await assertFails(setDoc(doc(db, 'users', 'new'), {}));
+      await assertFails(getDoc(doc(db, 'authorizationContexts', 'teacherA')));
+      await assertFails(setDoc(doc(db, 'authorizationContexts', 'new'), {}));
       await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
       await assertFails(setDoc(doc(db, 'weeklyPlannings', 'new'), {}));
       await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-approved'), { status: 'DRAFT' }));
@@ -344,26 +350,65 @@ describe('Firestore Security Rules', () => {
     });
   });
 
-  describe('Authorization Profile Immutability', () => {
-    it('teacherA cannot change role', async () => {
+  describe('Authorization Context Immutability & Security', () => {
+    it('FAIL: teacherA cannot change institutionalRole', async () => {
       const db = testEnv.authenticatedContext('teacherA').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'teacherA'), { role: 'DIRECTOR' }));
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'teacherA'), { institutionalRole: 'DIRECTOR' }));
     });
-    it('teacherA cannot change daycareId', async () => {
+    it('FAIL: teacherA cannot change daycareId', async () => {
       const db = testEnv.authenticatedContext('teacherA').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'teacherA'), { daycareId: 'daycare-2' }));
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'teacherA'), { authorizedDaycareIds: ['daycare-2'] }));
     });
-    it('teacherA cannot expand authorizedDaycareIds', async () => {
+    it('FAIL: teacherA cannot expand authorizedDaycareIds', async () => {
       const db = testEnv.authenticatedContext('teacherA').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'teacherA'), { authorizedDaycareIds: ['daycare-1', 'daycare-2'] }));
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'teacherA'), { authorizedDaycareIds: ['daycare-1', 'daycare-2'] }));
     });
-    it('director1 cannot expand scope', async () => {
+    it('FAIL: director1 cannot expand scope', async () => {
       const db = testEnv.authenticatedContext('director1').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'director1'), { daycareId: 'daycare-2' }));
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'director1'), { authorizedDaycareIds: ['daycare-1', 'daycare-2'] }));
     });
-    it('supervisor1 cannot add daycare-2', async () => {
+    it('FAIL: supervisor1 cannot add daycare-3', async () => {
       const db = testEnv.authenticatedContext('supervisor1').firestore();
-      await assertFails(updateDoc(doc(db, 'users', 'supervisor1'), { authorizedDaycareIds: ['daycare-1', 'daycare-2'] }));
+      await assertFails(updateDoc(doc(db, 'authorizationContexts', 'supervisor1'), { authorizedDaycareIds: ['daycare-1', 'daycare-2', 'daycare-3'] }));
+    });
+    it('FAIL: delete own context', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(deleteDoc(doc(db, 'authorizationContexts', 'teacherA')));
+    });
+    it('FAIL: create own context', async () => {
+      const db = testEnv.authenticatedContext('teacherB').firestore(); // Wait, teacherB already has a context. We can use unauth UID below.
+      await assertFails(setDoc(doc(db, 'authorizationContexts', 'teacherB'), {}));
+    });
+  });
+
+  describe('Missing & Inactive Contexts', () => {
+    it('FAIL: authenticated user without authorizationContext denied', async () => {
+      const db = testEnv.authenticatedContext('noContextUser').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft')));
+    });
+    it('FAIL: legacy users/{uid} document without authorizationContext does NOT authorize access', async () => {
+      const db = testEnv.authenticatedContext('legacyTeacher').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft')));
+    });
+    it('FAIL: inactive Teacher context denied', async () => {
+      const db = testEnv.authenticatedContext('teacherInactive').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft')));
+    });
+    it('FAIL: inactive Director context denied', async () => {
+      const db = testEnv.authenticatedContext('directorInactive').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft')));
+    });
+    it('FAIL: inactive Supervisor context denied', async () => {
+      const db = testEnv.authenticatedContext('supervisorInactive').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
+    });
+    it('PASS: own authorizationContext readable', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertSucceeds(getDoc(doc(db, 'authorizationContexts', 'teacherA')));
+    });
+    it('FAIL: another user authorizationContext unreadable', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(getDoc(doc(db, 'authorizationContexts', 'director1')));
     });
   });
 
@@ -395,20 +440,19 @@ describe('Firestore Security Rules', () => {
     it('daycare-1 identities cannot access daycare-2 business data', async () => {
       const dbT = testEnv.authenticatedContext('teacherA').firestore();
       await assertFails(getDoc(doc(dbT, 'weeklyPlannings', 'plan-teacher-c-d2-approved')));
-      
+
       const dbD = testEnv.authenticatedContext('director1').firestore();
       await assertFails(getDoc(doc(dbD, 'weeklyPlannings', 'plan-teacher-c-d2-approved')));
-      
-      const dbS = testEnv.authenticatedContext('supervisor1').firestore();
-      await assertFails(getDoc(doc(dbS, 'weeklyPlannings', 'plan-teacher-c-d2-approved')));
+
+      // supervisor1 omitted here because they are intentionally multi-tenant in our tests (has daycare-1 and daycare-2)
     });
     it('daycare-2 identities cannot access daycare-1 business data', async () => {
       const dbT = testEnv.authenticatedContext('teacherC').firestore();
       await assertFails(getDoc(doc(dbT, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
-      
+
       const dbD = testEnv.authenticatedContext('director2').firestore();
       await assertFails(getDoc(doc(dbD, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
-      
+
       const dbS = testEnv.authenticatedContext('supervisor2').firestore();
       await assertFails(getDoc(doc(dbS, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
     });

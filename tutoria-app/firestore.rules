@@ -8,12 +8,20 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid != null;
     }
 
-    function userProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function authorizationContextExists() {
+      return isSignedIn() && exists(/databases/$(database)/documents/authorizationContexts/$(request.auth.uid));
+    }
+
+    function authorizationContext() {
+      return get(/databases/$(database)/documents/authorizationContexts/$(request.auth.uid)).data;
+    }
+
+    function hasActiveAuthorizationContext() {
+      return authorizationContextExists() && authorizationContext().active == true;
     }
 
     function hasRole(role) {
-      return isSignedIn() && userProfile().role == role;
+      return hasActiveAuthorizationContext() && authorizationContext().institutionalRole == role;
     }
 
     function isTeacher() {
@@ -29,24 +37,25 @@ service cloud.firestore {
     }
 
     function belongsToDaycare(daycareId) {
-      let profile = userProfile();
-      // Director/Teacher typically have a single daycareId
-      // Supervisor might have an array in authorizedDaycareIds
-      let singleMatch = ('daycareId' in profile) && profile.daycareId == daycareId;
-      let arrayMatch = ('authorizedDaycareIds' in profile) && (daycareId in profile.authorizedDaycareIds);
-      return singleMatch || arrayMatch;
+      return hasActiveAuthorizationContext() && (daycareId in authorizationContext().authorizedDaycareIds);
     }
 
     // -------------------------------------------------------------------------
-    // Users Collection
+    // Authorization Context Collection (V2)
     // -------------------------------------------------------------------------
-    match /users/{uid} {
-      // Users can read their own profile
-      allow read: if isSignedIn() && request.auth.uid == uid;
+    match /authorizationContexts/{authUid} {
+      // Users can read their own projection
+      allow read: if isSignedIn() && request.auth.uid == authUid;
       
       // Client users MUST NOT elevate their own authorization.
-      // Deny client writes entirely as requested for this stage.
       allow write: if false; 
+    }
+
+    // -------------------------------------------------------------------------
+    // Users Collection (Legacy V1 - Deprecated)
+    // -------------------------------------------------------------------------
+    match /users/{uid} {
+      allow read, write: if false;
     }
 
     // -------------------------------------------------------------------------
@@ -55,10 +64,12 @@ service cloud.firestore {
     match /weeklyPlannings/{planningId} {
       
       function isPlanOwner() {
+        // TEMPORARY V1 OWNERSHIP COMPATIBILITY
         return resource.data.teacherId == request.auth.uid;
       }
       
       function isNewPlanOwner() {
+        // TEMPORARY V1 OWNERSHIP COMPATIBILITY
         return request.resource.data.teacherId == request.auth.uid;
       }
 
