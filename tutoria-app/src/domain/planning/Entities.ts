@@ -1,7 +1,7 @@
 import { SystemClock } from '../../shared/kernel/Clock';
 import { Entity } from '../../shared/kernel/Entity';
 import { EntityId } from '../../shared/ids/EntityId';
-import { PedagogicalContent } from './ValueObjects';
+import { PedagogicalContent, InstitutionalContractRef, CurricularFrameworkRef } from './ValueObjects';
 
 // Temp generic id for internal entities until we have specific ones
 class InternalEntityId extends EntityId {
@@ -76,19 +76,25 @@ export class PlanningIntent extends Entity<InternalEntityId> {
 export class PlanningVersion {
   private _intents: PlanningIntent[];
   private _content: PedagogicalContent;
+  public readonly institutionalContractRef?: InstitutionalContractRef | undefined;
+  public readonly curricularFrameworkRef?: CurricularFrameworkRef | undefined;
 
   constructor(
     public readonly versionId: string,
     intents: PlanningIntent[],
     public readonly createdAt: Date,
-    content?: PedagogicalContent
+    content?: PedagogicalContent,
+    institutionalContractRef?: InstitutionalContractRef,
+    curricularFrameworkRef?: CurricularFrameworkRef
   ) {
     this._intents = intents;
     this._content = content || PedagogicalContent.createEmpty();
+    this.institutionalContractRef = institutionalContractRef;
+    this.curricularFrameworkRef = curricularFrameworkRef;
   }
 
-  public static create(versionId: string): PlanningVersion {
-    return new PlanningVersion(versionId, [], new SystemClock().now(), PedagogicalContent.createEmpty());
+  public static create(versionId: string, institutionalContractRef?: InstitutionalContractRef, curricularFrameworkRef?: CurricularFrameworkRef): PlanningVersion {
+    return new PlanningVersion(versionId, [], new SystemClock().now(), PedagogicalContent.createEmpty(), institutionalContractRef, curricularFrameworkRef);
   }
 
   get intents(): ReadonlyArray<PlanningIntent> {
@@ -108,6 +114,6 @@ export class PlanningVersion {
   }
 
   public cloneForAmendment(newVersionId: string): PlanningVersion {
-    return new PlanningVersion(newVersionId, [...this._intents], new SystemClock().now(), this._content);
+    return new PlanningVersion(newVersionId, [...this._intents], new SystemClock().now(), this._content, this.institutionalContractRef, this.curricularFrameworkRef);
   }
 }

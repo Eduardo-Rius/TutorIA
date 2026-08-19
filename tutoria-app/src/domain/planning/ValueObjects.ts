@@ -104,6 +104,78 @@ export class DailyPedagogicalPlan extends ValueObject<DailyPedagogicalPlanProps>
 
 import { Result } from '../../shared/result/Result';
 
+import { ProvisionModality } from '../organization/daycare/value-objects/ProvisionModality';
+
+export type PlanningInstrumentTypeEnum = 'GROUP_PLANNING';
+
+export interface PlanningInstrumentTypeProps {
+  value: PlanningInstrumentTypeEnum;
+}
+
+export class PlanningInstrumentType extends ValueObject<PlanningInstrumentTypeProps> {
+  private constructor(props: PlanningInstrumentTypeProps) { super(props); }
+  public static create(value: string): Result<PlanningInstrumentType> {
+    if (value !== 'GROUP_PLANNING') {
+      return Result.fail('Invalid instrument type. Must be GROUP_PLANNING.');
+    }
+    return Result.ok(new PlanningInstrumentType({ value: value as PlanningInstrumentTypeEnum }));
+  }
+  get value() { return this.props.value; }
+}
+
+export interface InstitutionalContractRefProps {
+  provisionModality: ProvisionModality;
+  instrumentType: PlanningInstrumentType;
+  documentCode: string;
+  contractVersion: string;
+}
+
+export class InstitutionalContractRef extends ValueObject<InstitutionalContractRefProps> {
+  private constructor(props: InstitutionalContractRefProps) { super(props); }
+  public static create(props: InstitutionalContractRefProps): Result<InstitutionalContractRef> {
+    if (!props.documentCode || props.documentCode.trim() === '') {
+      return Result.fail('Document code is required');
+    }
+    if (!props.contractVersion || props.contractVersion.trim() === '') {
+      return Result.fail('Contract version is required');
+    }
+    return Result.ok(new InstitutionalContractRef({
+      ...props,
+      documentCode: props.documentCode.trim(),
+      contractVersion: props.contractVersion.trim()
+    }));
+  }
+  get provisionModality() { return this.props.provisionModality; }
+  get instrumentType() { return this.props.instrumentType; }
+  get documentCode() { return this.props.documentCode; }
+  get contractVersion() { return this.props.contractVersion; }
+}
+
+export interface CurricularFrameworkRefProps {
+  frameworkId: string;
+  frameworkVersion: string;
+}
+
+export class CurricularFrameworkRef extends ValueObject<CurricularFrameworkRefProps> {
+  private constructor(props: CurricularFrameworkRefProps) { super(props); }
+  public static create(props: CurricularFrameworkRefProps): Result<CurricularFrameworkRef> {
+    if (!props.frameworkId || props.frameworkId.trim() === '') {
+      return Result.fail('Framework ID is required');
+    }
+    if (!props.frameworkVersion || props.frameworkVersion.trim() === '') {
+      return Result.fail('Framework version is required');
+    }
+    return Result.ok(new CurricularFrameworkRef({
+      ...props,
+      frameworkId: props.frameworkId.trim(),
+      frameworkVersion: props.frameworkVersion.trim()
+    }));
+  }
+  get frameworkId() { return this.props.frameworkId; }
+  get frameworkVersion() { return this.props.frameworkVersion; }
+}
+
+
 export interface PedagogicalContentProps {
   dailyPlans: ReadonlyArray<DailyPedagogicalPlan>;
 }
