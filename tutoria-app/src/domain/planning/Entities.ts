@@ -1,6 +1,7 @@
 import { SystemClock } from '../../shared/kernel/Clock';
 import { Entity } from '../../shared/kernel/Entity';
 import { EntityId } from '../../shared/ids/EntityId';
+import { PedagogicalContent } from './ValueObjects';
 
 // Temp generic id for internal entities until we have specific ones
 class InternalEntityId extends EntityId {
@@ -74,17 +75,20 @@ export class PlanningIntent extends Entity<InternalEntityId> {
 
 export class PlanningVersion {
   private _intents: PlanningIntent[];
+  private _content: PedagogicalContent;
 
   constructor(
     public readonly versionId: string,
     intents: PlanningIntent[],
-    public readonly createdAt: Date
+    public readonly createdAt: Date,
+    content?: PedagogicalContent
   ) {
     this._intents = intents;
+    this._content = content || PedagogicalContent.createEmpty();
   }
 
   public static create(versionId: string): PlanningVersion {
-    return new PlanningVersion(versionId, [], new SystemClock().now());
+    return new PlanningVersion(versionId, [], new SystemClock().now(), PedagogicalContent.createEmpty());
   }
 
   get intents(): ReadonlyArray<PlanningIntent> {
@@ -95,7 +99,15 @@ export class PlanningVersion {
     this._intents.push(intent);
   }
 
+  get content(): PedagogicalContent {
+    return this._content;
+  }
+
+  public updateContent(newContent: PedagogicalContent): void {
+    this._content = newContent;
+  }
+
   public cloneForAmendment(newVersionId: string): PlanningVersion {
-    return new PlanningVersion(newVersionId, [...this._intents], new SystemClock().now());
+    return new PlanningVersion(newVersionId, [...this._intents], new SystemClock().now(), this._content);
   }
 }

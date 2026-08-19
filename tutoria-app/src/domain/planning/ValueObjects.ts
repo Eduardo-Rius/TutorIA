@@ -87,3 +87,62 @@ export class ApprovalSignature extends ValueObject<SignatureProps> {
   }
   get signerId() { return this.props.signerId; }
 }
+
+export type PlanningDay = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY';
+
+export interface DailyPedagogicalPlanProps {
+  day: PlanningDay;
+}
+
+export class DailyPedagogicalPlan extends ValueObject<DailyPedagogicalPlanProps> {
+  private constructor(props: DailyPedagogicalPlanProps) { super(props); }
+  public static create(props: DailyPedagogicalPlanProps): DailyPedagogicalPlan {
+    return new DailyPedagogicalPlan(props);
+  }
+  get day() { return this.props.day; }
+}
+
+import { Result } from '../../shared/result/Result';
+
+export interface PedagogicalContentProps {
+  dailyPlans: ReadonlyArray<DailyPedagogicalPlan>;
+}
+
+export class PedagogicalContent extends ValueObject<PedagogicalContentProps> {
+  private constructor(props: PedagogicalContentProps) { super(props); }
+
+  public static create(dailyPlans: DailyPedagogicalPlan[]): Result<PedagogicalContent> {
+    if (dailyPlans.length !== 5) {
+      return Result.fail('Pedagogical content must contain exactly 5 daily plans.');
+    }
+
+    const days = dailyPlans.map(dp => dp.day);
+    const uniqueDays = new Set(days);
+    if (uniqueDays.size !== 5) {
+      return Result.fail('Pedagogical content must not contain duplicate days.');
+    }
+
+    const expectedDays: PlanningDay[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+    for (const expected of expectedDays) {
+      if (!uniqueDays.has(expected)) {
+        return Result.fail(`Pedagogical content is missing day: ${expected}`);
+      }
+    }
+
+    return Result.ok(new PedagogicalContent({ dailyPlans: Object.freeze([...dailyPlans]) as ReadonlyArray<DailyPedagogicalPlan> }));
+  }
+
+  public static createEmpty(): PedagogicalContent {
+    return new PedagogicalContent({
+      dailyPlans: Object.freeze([
+        DailyPedagogicalPlan.create({ day: 'MONDAY' }),
+        DailyPedagogicalPlan.create({ day: 'TUESDAY' }),
+        DailyPedagogicalPlan.create({ day: 'WEDNESDAY' }),
+        DailyPedagogicalPlan.create({ day: 'THURSDAY' }),
+        DailyPedagogicalPlan.create({ day: 'FRIDAY' })
+      ]) as ReadonlyArray<DailyPedagogicalPlan>
+    });
+  }
+
+  get dailyPlans() { return this.props.dailyPlans; }
+}

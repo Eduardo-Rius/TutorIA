@@ -84,4 +84,51 @@ describe('PedagogicalPlan Aggregate', () => {
     expect(result.isFailure).toBe(true);
     expect(result.error).toMatch(/Author cannot reject/);
   });
+
+  it('G. PedagogicalPlan owns pedagogical content through activeVersion', () => {
+    const authorId = UserId.restore('11111111-1111-4111-8111-111111111111');
+    const centerId = CenterId.restore('22222222-2222-4222-8222-222222222222');
+    const groupId = GroupId.restore('33333333-3333-4333-8333-333333333333');
+    const cycleId = '2023-2024';
+    const plan = PedagogicalPlan.create(authorId, centerId, groupId, cycleId, new Date(), new Date());
+    expect(plan.activeVersion.content!).toBeDefined();
+    expect(plan.activeVersion.content!.dailyPlans).toHaveLength(5);
+  });
+
+  it('H, I, J. Amendment preserves version behavior and keeps prior content immutable', () => {
+    const authorId = UserId.restore('11111111-1111-4111-8111-111111111111');
+    const centerId = CenterId.restore('22222222-2222-4222-8222-222222222222');
+    const groupId = GroupId.restore('33333333-3333-4333-8333-333333333333');
+    const cycleId = '2023-2024';
+    const plan = PedagogicalPlan.create(authorId, centerId, groupId, cycleId, new Date(), new Date());
+
+    // Simulate approval workflow
+    plan.readyForReview(authorId);
+    plan.submitForReview();
+    plan.approve({
+      approverId: UserId.restore('22222222-2222-4222-8222-222222222222'),
+      contextId: centerId,
+      normativeVersion: '1.0',
+      curriculumVersion: '1.0',
+      templateVersion: '1.0'
+    });
+
+    // Attempt silent mutation (J)
+    expect(() => {
+      (plan.activeVersion.content!.dailyPlans as any).push({});
+    }).toThrow();
+
+    // Amend
+    plan.amend({ authorId, reason: 'Test amend' });
+
+    // H & I
+    expect(plan.versionHistory).toHaveLength(1);
+    const priorVersion = plan.versionHistory[0];
+    if (!priorVersion) throw new Error('Prior version missing');
+
+    expect(priorVersion.versionId).toBe('v1');
+    expect(priorVersion.content!).toBeDefined();
+    expect(plan.activeVersion.versionId).toBe('v2');
+    expect(plan.activeVersion.content!.equals(priorVersion.content!)).toBe(true);
+  });
 });
