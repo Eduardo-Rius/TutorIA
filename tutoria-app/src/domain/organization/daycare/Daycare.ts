@@ -1,3 +1,4 @@
+import { ProvisionModality, ProvisionModalityType } from './value-objects/ProvisionModality';
 export interface DaycareImportMetadata {
   sourceFile: string;
   sourceVersion: string;
@@ -25,6 +26,7 @@ export interface DaycareProps {
   latitude?: number | null;
   longitude?: number | null;
   active: boolean;
+  modality?: ProvisionModalityType | null;
   metadata?: DaycareImportMetadata;
 }
 
@@ -43,6 +45,13 @@ export class Daycare {
     return this.props.active;
   }
 
+  public get modality(): ProvisionModality | undefined {
+    if (!this.props.modality) return undefined;
+    const result = ProvisionModality.create(this.props.modality);
+    return result.isSuccess ? result.getValue() : undefined;
+  }
+
+
   public get recordHash(): string | undefined {
     return this.props.metadata?.recordHash;
   }
@@ -56,7 +65,13 @@ export class Daycare {
     });
   }
 
-  public static reconstitute(props: DaycareProps): Daycare {
+    public static reconstitute(props: DaycareProps): Daycare {
+    if (props.modality) {
+      const result = ProvisionModality.create(props.modality);
+      if (result.isFailure) {
+        throw new Error(`Invalid provision modality in persisted data: ${props.modality}`);
+      }
+    }
     return new Daycare(props);
   }
 
@@ -70,6 +85,15 @@ export class Daycare {
     const cleanNum = (val: number | null | undefined): number | null => {
       if (val === undefined || val === null || isNaN(val)) return null;
       return val;
+    };
+
+    const cleanModality = (val: string | null | undefined): ProvisionModalityType | null => {
+      if (!val) return null;
+      const result = ProvisionModality.create(val);
+      if (result.isFailure) {
+        throw new Error(`Invalid provision modality: ${val}`);
+      }
+      return result.getValue().value;
     };
 
     return {
@@ -91,6 +115,7 @@ export class Daycare {
       latitude: cleanNum(props.latitude),
       longitude: cleanNum(props.longitude),
       active: props.active,
+      modality: cleanModality(props.modality),
     };
   }
 }
