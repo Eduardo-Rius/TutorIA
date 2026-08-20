@@ -58,11 +58,14 @@ body {
   }
 
   #documento-planeacion,
-  #documento-planeacion * {
+  #documento-planeacion *,
+  #printable-document-root,
+  #printable-document-root * {
     visibility: visible;
   }
 
-  #documento-planeacion {
+  #documento-planeacion,
+  #printable-document-root {
     position: absolute;
     left: 0;
     top: 0;

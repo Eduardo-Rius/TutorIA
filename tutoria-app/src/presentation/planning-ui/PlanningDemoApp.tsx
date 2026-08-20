@@ -1066,9 +1066,114 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
   if (!plan) return null;
 
   const isDirect = modality === 'DIRECT';
-  const title = isDirect ? 'Planeación de Actividades Pedagógicas' : 'Planeación de Acciones Pedagógicas';
-  const docCode = isDirect ? '3D11-009-003' : 'DPES/CG/2020/PDG/04';
 
+  if (isDirect) {
+    return (
+      <div className="bg-white font-serif w-full text-black">
+        <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
+          <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-lg">← Volver</button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
+            <button onClick={() => {
+              const printWindow = window.open('', '_blank');
+              if (printWindow) {
+                  printWindow.document.write('<html><head><title>Imprimir Planeación</title>');
+                  const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('');
+                  printWindow.document.write(styles);
+                  printWindow.document.write('</head><body class="bg-white">');
+                  const root = document.getElementById('printable-document-root');
+                  printWindow.document.write(root ? root.outerHTML : '');
+                  printWindow.document.write('</body></html>');
+                  printWindow.document.close();
+                  printWindow.focus();
+
+                  // Wait for styles/fonts to apply, then print
+                  setTimeout(() => {
+                      printWindow.print();
+                  }, 1000);
+
+                  // Only close the window AFTER the native print dialog is closed
+                  printWindow.onafterprint = () => {
+                      printWindow.close();
+                  };
+              }
+            }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
+          </div>
+        </div>
+
+        <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none">
+          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-2 print:mb-3">
+            <div>
+              <h1 className="text-4xl print:text-xl font-bold text-black mb-1 tracking-tight">Planeación de Actividades Pedagógicas</h1>
+              <p className="text-lg print:text-sm text-gray-700 uppercase tracking-widest font-bold">Código: 3D11-009-003</p>
+            </div>
+            <div className="text-right">
+              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-xs print:px-2 print:py-1 print:border-2 rounded-lg">{plan.status === 'APPROVED' ? 'Aprobada' : 'Borrador'}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-12 text-lg print:text-sm print:mb-8">
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">10 al 14 de agosto de 2026</p></div>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+            <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 uppercase border-b-2 border-black print:mb-1 mb-4">Programa Sintético de la Fase 1 para educación inicial</h3>
+            <p className="text-base print:text-sm text-black italic">Campos Formativos: Lenguajes, Saberes y Pensamiento Científico, Ética, Naturaleza y Sociedades, De lo Humano y lo Comunitario</p>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 uppercase border-b-2 border-black print:mb-1 mb-4">Observaciones de las y los niños</h3>
+             <p className="text-lg print:text-[11px] text-black print:leading-snug">{plan.observations || 'N/A'}</p>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 uppercase border-b-2 border-black print:mb-1 mb-4">Planteamiento de actividades a realizar durante su estancia</h3>
+             <div className="space-y-12 print:space-y-6">
+               {plan.days.map((d: any) => (
+                 <div key={d.dayOfWeek} className="print:break-inside-avoid">
+                    <h4 className="text-2xl print:text-[11px] font-bold border-b border-black pb-2 mb-4 print:pb-0 print:mb-1 uppercase text-black">
+                      {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                    </h4>
+                    {(!d.activities || d.activities.length === 0) ? (
+                      <p className="text-black italic print:text-[10px]">Pendiente de planeación.</p>
+                    ) : (
+                      <div className="space-y-6 print:space-y-1">
+                        {d.activities.map((a: any) => (
+                          <div key={a.activityId} className="print:break-inside-avoid">
+                            <p className="font-bold text-lg print:text-[10px] mb-1 print:mb-0">{a.objective} <span className="font-bold">({a.durationMinutes} min)</span></p>
+                            <p className="text-black mb-2 print:text-[10px] font-normal print:mb-0 print:leading-tight">{a.description}</p>
+                            <p className="text-sm print:text-xs font-normal"><strong>Materiales requeridos para las Actividades Pedagógicas:</strong> {a.materials.join(', ')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
+               ))}
+             </div>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Evaluación</h3>
+             <p className="text-black italic print:text-sm">Espacio para la evaluación posterior a la implementación.</p>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Actividades complementarias de otros programas</h3>
+             <p className="text-black italic print:text-sm">Pendiente</p>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Práctica(s) Priorizada(s) a implementar</h3>
+             <p className="text-black italic print:text-sm">Pendiente</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // INDIRECT VIEW
   return (
     <div className="bg-white font-serif w-full text-black">
       <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
@@ -1087,90 +1192,129 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
                 printWindow.document.write('</body></html>');
                 printWindow.document.close();
                 printWindow.focus();
-                setTimeout(() => { printWindow.print(); printWindow.close(); }, 750);
+                setTimeout(() => { printWindow.print(); }, 1000); printWindow.onafterprint = () => { printWindow.close(); };
             }
           }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
         </div>
       </div>
 
       <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none">
-        <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-4 print:mb-8">
-          <div>
-            <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">{title}</h1>
-            <p className="text-lg print:text-sm text-gray-700 uppercase tracking-widest font-bold">Código: {docCode}</p>
+        {/* --- ANVERSO --- */}
+        <div className="print:break-after-page mb-16 print:mb-0">
+          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-4 print:mb-8">
+            <div>
+              <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">Planeación de Acciones Pedagógicas<br/><span className="text-2xl print:text-sm">(Anverso)</span></h1>
+            </div>
+            <div className="text-right">
+              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-sm print:border-2 rounded-lg">{plan.status === 'APPROVED' ? 'Aprobada' : 'Borrador'}</span>
+            </div>
           </div>
-          <div className="text-right">
-            <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-sm print:border-2 rounded-lg">{plan.status === 'APPROVED' ? 'Aprobada' : 'Borrador'}</span>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 border-b-2 border-black mb-1">Referentes curriculares: Aprendizajes clave para niños de 0 a 3 años de edad</h3>
+             <ul className="list-disc pl-6 text-base print:text-[10px] text-black print:leading-snug print:space-y-0">
+               <li>Establecer vínculos afectivos y apegos seguros</li>
+               <li>Construir una base de seguridad y confianza en sí mismo y en los otros, que favorezca el desarrollo de un psiquismo sano</li>
+               <li>Desarrollar autonomía y autorregulación crecientes</li>
+               <li>Desarrollar la curiosidad, la exploración, la imaginación y la creatividad</li>
+               <li>Acceder al lenguaje en un sentido pleno, comunicacional y creador</li>
+               <li>Descubrir en los libros y la lectura el gozo y la riqueza de la ficción</li>
+               <li>Descubrir el propio cuerpo desde la libertad de movimiento y la expresividad motriz</li>
+               <li>Convivir con otros y compartir el aprendizaje, el juego, el arte y la cultura</li>
+             </ul>
+          </div>
+
+          <div className="grid grid-cols-3 gap-y-6 gap-x-12 mb-12 text-lg print:text-xs print:mb-3 print:gap-y-2">
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">10 al 14 de agosto de 2026</p></div>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Observaciones de los niños</h3>
+             <p className="text-lg print:text-sm text-black">{plan.observations || 'N/A'}</p>
+          </div>
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Planteamiento de acciones pedagógicas (propuesta, organización y desarrollo)</h3>
+             <div className="space-y-12 print:space-y-1 border p-4 print:p-1 min-h-[300px] print:min-h-0">
+               {plan.days.map((d: any) => (
+                 <div key={d.dayOfWeek} className="print:break-inside-avoid">
+                    <h4 className="text-2xl print:text-[11px] font-bold border-b border-black pb-2 mb-4 print:pb-0 print:mb-1 uppercase text-black">
+                      {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                    </h4>
+                    {(!d.activities || d.activities.length === 0) ? (
+                      <p className="text-black italic print:text-sm">Pendiente de planeación.</p>
+                    ) : (
+                      <div className="space-y-6 print:space-y-4">
+                        {d.activities.map((a: any) => (
+                          <div key={a.activityId} className="print:break-inside-avoid">
+                            <p className="font-bold text-lg print:text-[10px] mb-1 print:mb-0">{a.objective} <span className="font-bold">({a.durationMinutes} min)</span></p>
+                            <p className="text-black mb-2 print:text-[10px] font-normal print:mb-0 print:leading-tight">{a.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
+               ))}
+             </div>
+          </div>
+
+          <div className="mt-8 text-right">
+             <p className="text-lg print:text-sm text-gray-700 font-bold">DPES/CG/2020/PDG/04</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-12 text-lg print:text-sm print:mb-8">
-          <div><span className="text-gray-600 font-bold block text-sm print:text-xs uppercase tracking-wider mb-1">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
-          <div><span className="text-gray-600 font-bold block text-sm print:text-xs uppercase tracking-wider mb-1">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
-          <div><span className="text-gray-600 font-bold block text-sm print:text-xs uppercase tracking-wider mb-1">Periodo</span><p className="font-bold text-black">10 al 14 de agosto de 2026</p></div>
-        </div>
-
-        {isDirect && (
-          <div className="mb-12 print:mb-8">
-            <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Programa Sintético de la Fase 1 para educación inicial</h3>
-            <p className="text-base print:text-sm text-black italic">Campos Formativos: Lenguajes, Saberes y Pensamiento Científico, Ética, Naturaleza y Sociedades, De lo Humano y lo Comunitario</p>
+        {/* --- REVERSO --- */}
+        <div className="print:pt-8">
+          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-4 print:mb-8">
+            <div>
+              <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">Planeación de Acciones Pedagógicas<br/><span className="text-2xl print:text-lg">(Reverso)</span></h1>
+            </div>
           </div>
-        )}
 
-        {!isDirect && (
-          <div className="mb-12 print:mb-8">
-            <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Referentes curriculares</h3>
-            <p className="text-base print:text-sm text-black italic">No implementado en esta versión demo.</p>
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Evaluación:</h3>
+             <p className="text-black italic print:text-sm border p-4 min-h-[100px] print:min-h-[60px]">Espacio para la evaluación posterior a la implementación.</p>
           </div>
-        )}
 
-        <div className="mb-12 print:mb-8">
-           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">{isDirect ? 'Observaciones de las y los niños' : 'Observaciones de los niños'}</h3>
-           <p className="text-lg print:text-sm text-black">{plan.observations || 'N/A'}</p>
-        </div>
-
-        <div className="mb-12 print:mb-8">
-           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">{isDirect ? 'Planteamiento de actividades a realizar durante su estancia' : 'Planeación / acciones pedagógicas'}</h3>
-           <div className="space-y-12 print:space-y-6">
-             {plan.days.map((d: any) => (
-               <div key={d.dayOfWeek} className="print:break-inside-avoid">
-                  <h4 className="text-2xl print:text-base font-bold border-b border-black pb-2 mb-4 uppercase text-black">
-                    {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
-                  </h4>
-                  {(!d.activities || d.activities.length === 0) ? (
-                    <p className="text-black italic print:text-sm">Pendiente de planeación.</p>
-                  ) : (
-                    <div className="space-y-6 print:space-y-4">
-                      {d.activities.map((a: any) => (
-                        <div key={a.activityId} className="print:break-inside-avoid">
-                          <p className="font-bold text-lg print:text-sm mb-1">{a.objective} <span className="font-bold">({a.durationMinutes} min)</span></p>
-                          <p className="text-black mb-2 print:text-sm font-normal">{a.description}</p>
-                          <p className="text-sm print:text-xs font-normal"><strong>{isDirect ? 'Materiales requeridos para las Actividades Pedagógicas' : 'Materiales para ambientes de aprendizaje'}:</strong> {a.materials.join(', ')}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-               </div>
-             ))}
-           </div>
-        </div>
-
-        <div className="mb-12 print:mb-8">
-           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Evaluación</h3>
-           <p className="text-black italic print:text-sm">Espacio para la evaluación posterior a la implementación.</p>
-        </div>
-
-        <div className="mb-12 print:mb-8">
-           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Actividades complementarias de otros programas</h3>
-           <p className="text-black italic print:text-sm">Pendiente</p>
-        </div>
-
-        {isDirect && (
-          <div className="mb-12 print:mb-8">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Práctica(s) Priorizada(s) a implementar</h3>
-             <p className="text-black italic print:text-sm">Pendiente</p>
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Actividades complementarias de otros programas</h3>
+             <p className="text-black italic print:text-sm border p-4 min-h-[100px] print:min-h-[60px]">Pendiente</p>
           </div>
-        )}
+
+          <div className="mb-12 print:mb-3">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Materiales para ambientes de aprendizaje</h3>
+             <div className="space-y-4 print:space-y-2 border p-4 min-h-[100px] print:min-h-[60px]">
+               {plan.days.map((d: any) => d.activities && d.activities.map((a: any) =>
+                 a.materials.length > 0 && (
+                   <p key={a.activityId} className="text-black print:text-sm">
+                     <strong>{d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'} - {a.objective}:</strong> {a.materials.join(', ')}
+                   </p>
+                 )
+               ))}
+               {!plan.days.some((d: any) => d.activities && d.activities.some((a: any) => a.materials.length > 0)) && (
+                 <p className="text-black italic print:text-sm">Sin materiales planeados.</p>
+               )}
+             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-12 mt-16 print:mt-12 text-center pt-8 border-t-2 border-black">
+             <div>
+                <div className="border-b border-black mb-2 mx-12 h-16"></div>
+                <p className="font-bold text-black print:text-sm">Educadora/Coordinadora del área para apoyo terapéutico</p>
+                <p className="text-gray-600 text-sm print:text-xs">Nombre y firma</p>
+             </div>
+             <div>
+                <div className="border-b border-black mb-2 mx-12 h-16"></div>
+                <p className="font-bold text-black print:text-sm">Asistente educativa</p>
+                <p className="text-gray-600 text-sm print:text-xs">Nombre y Firma</p>
+             </div>
+          </div>
+          <p className="text-xs print:text-[10px] text-gray-500 mt-8 print:mt-4 text-justify">
+             Nota: El lenguaje empleado en el presente documento no busca generar distinción alguna entre hombres y mujeres, por lo que las referencias o alusiones en la redacción hechas a un género representan a ambos sexos.
+          </p>
+        </div>
 
       </div>
     </div>
