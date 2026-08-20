@@ -41,13 +41,26 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, sourc
   const [view, setView] = useState<'LIST' | 'CREATE' | 'REVIEW' | 'PRINT'>('LIST');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [modality, setModality] = useState<'DIRECT' | 'INDIRECT'>('DIRECT');
 
   const triggerRefresh = () => setRefreshKey(k => k + 1);
 
+  if (view === 'PRINT') {
+    return (
+      <div className="bg-white">
+        <PrintableView service={service} planId={selectedPlanId!} modality={modality} onBack={() => setView(role === 'SUPERVISOR' ? 'REVIEW' : (role === 'DIRECTOR' ? 'REVIEW' : 'CREATE'))} />
+      </div>
+    );
+  }
+
   return (
-    <div className="font-poppins text-text-primary min-h-screen bg-surface-soft pb-20">
+    <div className="font-poppins text-text-primary min-h-screen bg-surface-soft pb-20 print:hidden">
       <div className="bg-[#f8f9fa] py-1.5 px-4 text-center text-xs print:hidden flex items-center justify-center gap-4 border-b border-gray-200/60">
         <span className="font-medium text-gray-400 uppercase tracking-widest text-[10px]">Modo Demo</span>
+        <select value={modality} onChange={(e) => setModality(e.target.value as 'DIRECT' | 'INDIRECT')} className="text-xs bg-white border border-gray-300 rounded px-2 py-1 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary">
+          <option value="DIRECT">Prestación Directa (LAB)</option>
+          <option value="INDIRECT">Prestación Indirecta (LAB)</option>
+        </select>
         <button onClick={() => { setRole('TEACHER'); setView('LIST'); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'TEACHER' ? 'bg-role-teacher text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
           <img src={personas.anita} alt="Anita" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Anita (Pedagoga)
@@ -85,19 +98,20 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, sourc
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto w-full px-4 print:p-0">
-        {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} />}
-        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard service={service} source={source} planId={selectedPlanId} onBack={() => setView('LIST')} onSaved={triggerRefresh} />}
+      <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
+        {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
+        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} planId={selectedPlanId} modality={modality} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
-        {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} />}
-        {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('PRINT'); }} refreshKey={refreshKey} />}
-        {view === 'PRINT' && <PrintableView service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} />}
+        {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
+        {role === 'SUPERVISOR' && view === 'REVIEW' && <SupervisorReview service={service} planId={selectedPlanId!} modality={modality} onBack={() => setView('LIST')} onViewOfficial={() => setView('PRINT')} />}
+
       </div>
     </div>
   );
 };
 
-const TeacherList = ({ service, onNew, onSelect, refreshKey }: { service: PlanningWorkflowService, onNew: () => void, onSelect: (id: string) => void, refreshKey: number }) => {
+const TeacherList = ({ service, onNew, onSelect, refreshKey, modality }: { service: PlanningWorkflowService, onNew: () => void, onSelect: (id: string) => void, refreshKey: number, modality: string }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   useEffect(() => { service.listTeacherPlanning('t1').then(setPlans); }, [refreshKey, service]);
 
@@ -106,7 +120,7 @@ const TeacherList = ({ service, onNew, onSelect, refreshKey }: { service: Planni
       <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola Anita 👋</h2>
       <p className="text-2xl text-text-muted mb-8 max-w-xl leading-relaxed">
         Vamos a preparar tu semana.<br/>
-        Del 10 al 14 de agosto para <span className="font-bold text-text-primary">Lactantes C</span>.
+        Del 10 al 14 de agosto para <span className="font-bold text-text-primary">Lactantes C</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
       </p>
 
       <p className="text-sm font-medium text-brand-primary bg-surface-ivory px-6 py-3 rounded-full mb-10 shadow-sm border border-brand-primary/20">
@@ -209,15 +223,18 @@ const getDaySpecificMaterials = (day: PlanningDay, commonMaterials: string[]): s
   return Array.from(uniqueDayMaterials.values());
 };
 
-const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, planId: string | null, onBack: () => void, onSaved: () => void }) => {
-  const [stage, setStage] = useState<1 | 1.5 | 2 | 3>(1);
+
+
+
+const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, role, onViewOfficial }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void }) => {
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
-  const [specialConsiderations, setSpecialConsiderations] = useState('');
+  const [specialSituations, setSpecialSituations] = useState('');
   const [availableMaterials, setAvailableMaterials] = useState('');
+
   const [days, setDays] = useState<PlanningDay[]>([]);
   const [status, setStatus] = useState<string>('DRAFT');
-  const [rejection, setRejection] = useState('');
+  const [granularObservations, setGranularObservations] = useState<any[]>([]);
 
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
@@ -226,74 +243,86 @@ const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: 
   const currentPlanId = planId || stableIdRef.current;
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
-  const [generationDone, setGenerationDone] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [mondayProposal, setMondayProposal] = useState<PlanningDay | null>(null);
+  const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     if (planId) {
-      service.getPlanning(planId).then(p => {
+      service.getPlanning(planId).then((p: any) => {
         if (p) {
-          setObs(p.observations);
-          setNeeds(p.identifiedNeeds);
-          setDays(p.days);
+          setObs(p.observations || '');
+          setNeeds(p.identifiedNeeds || '');
+          setSpecialSituations(p.specialSituations || '');
+          setAvailableMaterials(p.availableMaterials || '');
+          setGranularObservations(p.granularObservations || []);
+
+          if (p.days.length === 0) {
+            setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
+              date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], materials: []
+            })));
+          } else {
+            setDays(p.days);
+          }
           setStatus(p.status);
-          if (p.status === 'REJECTED') {
-            setRejection(p.reviewHistory[p.reviewHistory.length - 1]?.reason || '');
-          }
-          if (p.days.length > 0) {
-            setGenerationDone(true);
-          }
         }
       });
     } else {
-      service.createPlanning(currentPlanId, 'd1', 'lactantes-c', 't1', MOCK_START, MOCK_END, 'TEACHER');
+      if (role === 'TEACHER') {
+        service.createPlanning(currentPlanId, 'd1', 'lactantes-c', 't1', MOCK_START, MOCK_END, 'TEACHER').then(() => {
+          setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
+            date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], materials: []
+          })));
+        });
+      }
     }
-  }, [planId, currentPlanId, service]);
+  }, [planId, currentPlanId, service, role]);
 
-  useEffect(() => {
-    if (isGenerating) {
-      const interval = setInterval(() => {
-        setLoadingMsgIdx(i => (i + 1) % LOADING_MESSAGES.length);
-      }, 2500);
-      return () => clearInterval(interval);
+  const handleRecommendMonday = async () => {
+    setIsGenerating(true);
+    const recommended = await source.generateRecommendation(RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
+    const mondayRec = recommended.find(d => d.dayOfWeek === 'MONDAY');
+    if (mondayRec) {
+      setTimeout(() => {
+        setMondayProposal(mondayRec);
+        setIsGenerating(false);
+      }, process.env.NODE_ENV === 'test' ? 0 : 2000);
     }
-  }, [isGenerating]);
-
-  const handleActiveListening = () => {
-    setStage(1.5);
   };
 
-  const handleRecommend = async () => {
-    setIsGenerating(true);
-    const recommended = await source.generateRecommendation(RoomCatalog.getRoom('lactantes-c')!, obs, needs);
-    setDays(recommended);
-    setIsGenerating(false);
-    setGenerationDone(true);
-    setIsDirty(true);
-    setStage(2);
+  const handleAcceptProposal = () => {
+    if (mondayProposal) {
+      setDays(d => d.map(day => day.dayOfWeek === 'MONDAY' ? mondayProposal : day));
+      setMondayProposal(null);
+    }
+  };
+
+  const handleDiscardProposal = () => {
+    setMondayProposal(null);
   };
 
   const handleSaveDraft = async () => {
     if (days.length === 5) {
-      await service.saveDraft(currentPlanId, obs, needs, [], days, 'TEACHER');
+      await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
+
+      // Auto-update local status for UX so color changes to yellow
+      const updated = await service.getPlanning(currentPlanId);
+      if (updated) setGranularObservations(updated.granularObservations || []);
     }
-    setIsDirty(false);
     onSaved();
-    setToastMessage('✓ Tu avance está protegido.');
+    setToastMessage('✓ Avance del día guardado.');
     setTimeout(() => setToastMessage(''), 3000);
   };
 
   const handleSubmit = async () => {
     if (status === 'REJECTED') {
-      await service.resubmit(currentPlanId, obs, needs, [], days, 'TEACHER');
+      await service.resubmit(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
     } else {
-      if (days.length === 5) await service.saveDraft(currentPlanId, obs, needs, [], days, 'TEACHER');
+      if (days.length === 5) await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
       await service.submit(currentPlanId, 'TEACHER');
     }
     setStatus('IN_REVIEW');
-    setToastMessage('🎉 ¡Listo! La Directora ya tiene nuestra propuesta.');
+    setToastMessage('🎉 ¡Listo! Planeación enviada.');
     onSaved();
     setTimeout(() => {
       setToastMessage('');
@@ -301,12 +330,10 @@ const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: 
     }, 2500);
   };
 
-  const readOnly = status === 'IN_REVIEW' || status === 'APPROVED';
-  const showCorrections = status === 'REJECTED';
-  const currentVisualStep = readOnly ? 4 : (stage === 1.5 ? 2 : Math.floor(stage));
+  const readOnly = status === 'IN_REVIEW' || status === 'APPROVED' || role !== 'TEACHER';
 
   return (
-    <div className="flex flex-col relative animate-fade-in pb-20">
+    <div className="flex flex-col relative animate-fade-in pb-20 max-w-4xl mx-auto">
       {toastMessage && (
         <div role="status" aria-live="polite" className="fixed top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-4 rounded-full shadow-2xl z-50 font-bold flex items-center gap-3 text-lg">
           {toastMessage}
@@ -314,349 +341,176 @@ const TeacherWizard = ({ service, source, planId, onBack, onSaved }: { service: 
       )}
 
       <div className="flex items-center justify-between mb-10">
-        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al inicio</button>
-      </div>
-
-      <div className="flex justify-between items-center max-w-3xl mx-auto mb-16 relative w-full px-4">
-        <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1 bg-gray-200 -z-10"></div>
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 h-1 bg-surface-ivory0 -z-10 transition-all duration-500" style={{ width: `calc(${((currentVisualStep - 1) / 3) * 100}% - 2rem)` }}></div>
-
-        {VISUAL_STEPS.map((s, i) => {
-           const stepNum = i + 1;
-           const active = currentVisualStep >= stepNum;
-           const current = currentVisualStep === stepNum;
-           return (
-             <div key={s} className="flex flex-col items-center gap-3 bg-surface-soft px-3">
-               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${active ? 'bg-brand-primary text-white' : 'bg-gray-200 text-text-muted'} ${current ? 'ring-4 ring-teal-100' : ''}`}>
-                 {stepNum}
-               </div>
-               <span className={`text-sm font-bold ${active ? 'text-teal-900' : 'text-gray-400'}`}>{s}</span>
-             </div>
-           )
-        })}
-      </div>
-
-      {showCorrections && stage === 1 && (
-        <div className="max-w-2xl mx-auto mb-10 bg-orange-50 border-2 border-orange-200 p-8 rounded-xl w-full">
-          <p className="font-bold text-orange-900 mb-3 text-lg">La Directora dejó una sugerencia para fortalecer esta propuesta.</p>
-          <p className="text-orange-900 mb-6 text-base">Revisémosla juntas:</p>
-          <p className="text-status-adjustment text-xl font-medium italic bg-white p-6 rounded-lg">"{rejection}"</p>
-        </div>
-      )}
-
-      {stage === 1 && (
-        <div className="max-w-2xl mx-auto w-full">
-          <div className="bg-white p-10 rounded-xl shadow-sm border border-border-soft">
-            <div className="mb-10 focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-50 rounded-lg transition p-2">
-              <label htmlFor="obs" className="block text-2xl font-bold mb-4 text-brand-dark">¿Qué observaste en tu grupo?</label>
-
-              <div className="text-text-muted mb-6 text-base font-medium bg-surface-soft p-6 rounded-lg">
-                <p>Puedes contarme qué llamó tu atención, cómo participaron, qué les interesó o dónde necesitaron más acompañamiento.</p>
-              </div>
-
-              <textarea id="obs" disabled={readOnly} value={obs} onChange={e => {setObs(e.target.value); setIsDirty(true);}} placeholder="Te escucho..." className="w-full text-xl p-4 bg-surface-soft border border-border-default rounded-lg outline-none min-h-[140px] disabled:opacity-50 focus:border-brand-primary focus:bg-white transition resize-none" />
-            </div>
-
-            <div className="w-full h-px bg-status-draft/30 my-8"></div>
-
-            <div className="mb-10 focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-50 rounded-lg transition p-2">
-              <label htmlFor="needs" className="block text-2xl font-bold mb-4 text-brand-dark">¿Qué necesitas fortalecer esta semana?</label>
-              <textarea id="needs" disabled={readOnly} value={needs} onChange={e => {setNeeds(e.target.value); setIsDirty(true);}} placeholder="Por ejemplo: el seguimiento de indicaciones..." className="w-full text-xl p-4 bg-surface-soft border border-border-default rounded-lg outline-none min-h-[120px] disabled:opacity-50 focus:border-brand-primary focus:bg-white transition resize-none" />
-            </div>
-
-            <div className="w-full h-px bg-status-draft/30 my-8"></div>
-
-            <div className="mb-10 focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-50 rounded-lg transition p-2">
-              <label htmlFor="specialConsiderations" className="block text-2xl font-bold mb-4 text-brand-dark">Algo que quiero tener presente</label>
-              <div className="text-text-muted mb-6 text-base font-medium">
-                <p>Opcional. Por ahora esta información te sirve solo como referencia durante la edición (no se guarda en el sistema).</p>
-              </div>
-              <textarea id="specialConsiderations" disabled={readOnly} value={specialConsiderations} onChange={e => {setSpecialConsiderations(e.target.value); setIsDirty(true);}} placeholder="Ej. Cambio de rutina, simulacro..." className="w-full text-xl p-4 bg-surface-soft border border-border-default rounded-lg outline-none min-h-[100px] disabled:opacity-50 focus:border-brand-primary focus:bg-white transition resize-none" />
-            </div>
-
-            <div className="w-full h-px bg-status-draft/30 my-8"></div>
-
-            <div className="focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-50 rounded-lg transition p-2">
-              <label htmlFor="availableMaterials" className="block text-2xl font-bold mb-4 text-brand-dark">Materiales que tengo a la mano</label>
-              <div className="text-text-muted mb-6 text-base font-medium">
-                <p>Opcional. Te servirá como referencia al revisar las actividades propuestas (no se guarda en el sistema ni altera la propuesta).</p>
-              </div>
-              <textarea id="availableMaterials" disabled={readOnly} value={availableMaterials} onChange={e => {setAvailableMaterials(e.target.value); setIsDirty(true);}} placeholder="Ej. Sonajas, pelotas, bloques suaves..." className="w-full text-xl p-4 bg-surface-soft border border-border-default rounded-lg outline-none min-h-[100px] disabled:opacity-50 focus:border-brand-primary focus:bg-white transition resize-none" />
-            </div>
-          </div>
-
-          {!readOnly && (
-            <div className="mt-12 text-center flex flex-col items-center">
-               <button onClick={handleActiveListening} disabled={!obs || !needs} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-2xl px-12 py-6 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto mb-6">
-                 Crear propuesta juntas
-               </button>
-
-               {isDirty && (
-                 <button onClick={handleSaveDraft} className="text-teal-700 font-bold hover:bg-surface-ivory px-6 py-3 rounded-full transition text-lg mt-4">Guardar mi avance por hoy</button>
-               )}
-            </div>
-          )}
-
-          {readOnly && days.length === 5 && (
-            <div className="mt-12 text-center flex flex-col items-center">
-               <button onClick={() => setStage(2)} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-12 py-5 rounded-full shadow-sm transition w-full max-w-sm mx-auto mb-6">
-                 Ver nuestra propuesta semanal
-               </button>
-            </div>
+        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-bold text-teal-700 bg-teal-50 px-4 py-2 rounded-full border border-teal-200">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
+          {(status === 'APPROVED' || role === 'SUPERVISOR') && (
+            <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
+              Versión Oficial IMSS
+            </button>
           )}
         </div>
-      )}
+      </div>
 
-      {stage === 1.5 && (
-        <div className="max-w-2xl mx-auto w-full bg-white p-12 rounded-xl shadow-sm border border-brand-primary/20 mt-10">
-           <h3 className="text-3xl font-bold mb-8 text-brand-dark text-center">Lo que entendí de tu grupo</h3>
+      <h3 className="text-4xl font-bold text-text-primary mb-8 text-center">Planeación Semanal</h3>
+      {role === 'SUPERVISOR' && <p className="text-center text-text-muted font-bold mb-8 uppercase tracking-widest text-sm">Vista de solo lectura (Supervisión)</p>}
 
-           <div className="bg-surface-soft p-6 rounded-lg mb-8 space-y-6 text-left">
-             <div>
-               <p className="text-sm font-bold text-text-muted uppercase tracking-wider mb-2">Observé que:</p>
-               <p className="text-xl text-gray-800 font-medium">{obs || 'El grupo responde bien a indicaciones, pero requiere modelado.'}</p>
-             </div>
-             <div>
-               <p className="text-sm font-bold text-text-muted uppercase tracking-wider mb-2">Esta semana quieres fortalecer:</p>
-               <p className="text-xl text-gray-800 font-medium">{needs || 'El seguimiento de indicaciones sencillas.'}</p>
-             </div>
-             <div>
-               <p className="text-sm font-bold text-text-muted uppercase tracking-wider mb-2">Grupo:</p>
-               <p className="text-xl text-gray-800 font-medium">Lactantes C</p>
-             </div>
-             <div>
-               <p className="text-sm font-bold text-text-muted uppercase tracking-wider mb-2">Edad:</p>
-               <p className="text-xl text-gray-800 font-medium">13–18 meses</p>
-             </div>
-           </div>
+      <div className="space-y-8 pb-8">
+        {days.length > 0 && (
+          <>
+            <WeekDayTabs days={days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} />
 
-           <p className="text-xl text-gray-700 font-bold mb-10 text-center">
-             Con esto puedo preparar una primera propuesta para la semana.
-           </p>
+            {(() => {
+              const d = days[activeDayIndex];
+              if (!d) return null;
+              const isMonday = d.dayOfWeek === 'MONDAY';
+              const hasActivities = d.activities && d.activities.length > 0;
 
-           {!isGenerating ? (
-             <div className="flex flex-col gap-4">
-               <button onClick={handleRecommend} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-2xl px-12 py-6 rounded-full shadow-sm transition w-full text-center">
-                 Sí, construyamos la semana
-               </button>
-               <button onClick={() => setStage(1)} className="text-teal-700 font-bold hover:bg-surface-ivory px-6 py-4 rounded-full transition text-lg w-full text-center">
-                 Quiero ajustar algo
-               </button>
-             </div>
-           ) : (
-             <div className="text-teal-700 font-bold text-xl h-8 text-center mt-6">
-               {LOADING_MESSAGES[loadingMsgIdx]}
-             </div>
-           )}
-        </div>
-      )}
+              if (!isMonday && !hasActivities) {
+                return (
+                  <div key={d.dayOfWeek} className="w-full bg-surface-soft rounded-xl border border-border-soft p-12 text-center text-text-muted font-medium animate-fade-in">
+                    <p className="text-xl">Día pendiente de planeación.</p>
+                    <p className="text-sm mt-2">(Marcador de posición para pruebas de progreso diario)</p>
+                  </div>
+                );
+              }
 
-      {stage === 2 && (
-        <div className="w-full">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-4xl font-bold text-text-primary">Nuestra propuesta pedagógica</h3>
-            {!readOnly && (
-              <button onClick={handleSaveDraft} className="text-teal-700 font-bold hover:bg-surface-ivory px-6 py-3 rounded-full transition text-lg border-2 border-transparent hover:border-brand-primary/20">Proteger mi avance</button>
-            )}
-          </div>
+              return (
+                <div key={d.dayOfWeek} className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
+                  <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
+                    {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                  </h4>
 
-          <div className="bg-surface-ivory border-2 border-brand-primary/20 rounded-xl p-8 mb-10 text-teal-900 max-w-4xl mx-auto">
-            <h4 className="font-bold text-sm uppercase tracking-wider mb-2 text-teal-700">Propósito de la semana</h4>
-            <p className="text-2xl font-medium leading-relaxed italic">
-              "Favorecer {needs ? needs.toLowerCase() : 'el aprendizaje'} a través de experiencias basadas en: {obs ? obs : 'las observaciones de esta semana'}."
-            </p>
-          </div>
+                  {!hasActivities && isMonday && !mondayProposal && !isGenerating && (
+                    <div className="mt-8 space-y-6">
+                      <div className="bg-surface-ivory p-6 rounded-xl border border-teal-100 shadow-sm">
+                        <h4 className="text-xl font-bold text-teal-900 mb-4 border-b border-teal-50 pb-2">Contexto Pedagógico de tu Grupo</h4>
 
-          <div className="space-y-8 pb-8 max-w-4xl mx-auto">
-            {days.length > 0 && (
-              <>
-                <WeekDayTabs
-                  days={days}
-                  activeIndex={activeDayIndex}
-                  onSelect={(idx) => {
-                    setActiveDayIndex(idx);
-                    setExpandedActivityId(null);
-                  }}
-                />
+                        <div className="space-y-5">
+                          <div>
+                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">1. ¿Qué observaste en el grupo?</label>
+                            <textarea disabled={readOnly} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ej: Los niños muestran interés en los sonidos..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">2. ¿Qué necesitan fortalecer?</label>
+                            <textarea disabled={readOnly} value={needs} onChange={e => setNeeds(e.target.value)} placeholder="Ej: Control postural, atención conjunta..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">3. ¿Hay situaciones a considerar?</label>
+                            <textarea disabled={readOnly} value={specialSituations} onChange={e => setSpecialSituations(e.target.value)} placeholder="Ej: Dos niños nuevos en adaptación..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">4. ¿Qué materiales tienes disponibles?</label>
+                            <textarea disabled={readOnly} value={availableMaterials} onChange={e => setAvailableMaterials(e.target.value)} placeholder="Ej: Sonajas, colchonetas, pintura dactilar..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                          </div>
+                        </div>
+                      </div>
 
-                {(() => {
-                  const d = days[activeDayIndex];
-                  if (!d) return null;
-                  const dIdx = activeDayIndex;
-
-                  const commonWeeklyMaterials = getCommonWeeklyMaterials(days);
-                  const dailyMaterials = getDaySpecificMaterials(d, commonWeeklyMaterials);
-
-                  const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes' :
-                                  d.dayOfWeek === 'TUESDAY' ? 'Martes' :
-                                  d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' :
-                                  d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
-
-                  return (
-                    <div key={d.dayOfWeek} id={`panel-${d.dayOfWeek}`} role="tabpanel" className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
-                       <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
-                         {dayName}
-                       </h4>
-
-                       <p className="text-center text-teal-700 font-medium italic mb-10 border-b-2 border-teal-50 pb-6">
-                         {d.dayOfWeek === 'MONDAY' && 'Comenzamos con indicaciones sencillas y modelado.'}
-                         {d.dayOfWeek === 'TUESDAY' && 'Reforzamos la respuesta mediante juego e imitación.'}
-                         {d.dayOfWeek === 'WEDNESDAY' && 'Incorporamos movimiento y desplazamiento.'}
-                         {d.dayOfWeek === 'THURSDAY' && 'Combinamos indicaciones con exploración de materiales.'}
-                         {d.dayOfWeek === 'FRIDAY' && 'Cerramos retomando lo trabajado durante la semana.'}
-                       </p>
-
-                       <div className="space-y-4">
-                         {d.activities.map((a, j) => {
-                            const isExpanded = expandedActivityId === a.activityId;
-                            return (
-                              <div key={a.activityId} className="bg-surface-soft rounded-xl border border-border-soft overflow-hidden transition">
-                                <button
-                                  onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)}
-                                  aria-expanded={isExpanded}
-                                  aria-controls={`editor-${a.activityId}`}
-                                  className="w-full text-left p-6 hover:bg-surface-ivory transition flex justify-between items-center group outline-none focus:ring-4 focus:ring-brand-primary/30"
-                                >
-                                  <div>
-                                    <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
-                                    <p className="font-bold text-text-primary text-xl group-hover:text-teal-800 transition">{a.objective}</p>
-                                  </div>
-                                  <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition group-hover:bg-teal-50">
-                                    {isExpanded ? 'Ocultar' : 'Editar'}
-                                  </div>
-                                </button>
-
-                                {isExpanded && (
-                                  <div id={`editor-${a.activityId}`} className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white animate-fade-in">
-                                    <div className="mb-6 bg-surface-ivory p-4 rounded-xl border border-brand-primary/20 mt-4">
-                                      <p className="text-brand-dark text-sm italic font-medium">Esta actividad apoya el propósito de la semana al buscar favorecer {needs ? needs.toLowerCase() : 'el aprendizaje'}.</p>
-                                    </div>
-
-                                    <div className="mb-6">
-                                      <label htmlFor={`desc-${d.dayOfWeek}-${a.activityId}`} className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Actividad</label>
-                                      <textarea id={`desc-${d.dayOfWeek}-${a.activityId}`} disabled={readOnly} value={a.description} onChange={e => {
-                                          const newDays = days.map((day, ix) => {
-                                             if (ix !== dIdx) return day;
-                                             const newActivities = day.activities.map((act, ax) => {
-                                                if (ax !== j) return act;
-                                                return { ...act, description: e.target.value };
-                                             });
-                                             return { ...day, activities: newActivities };
-                                          });
-                                          setDays(newDays);
-                                          setIsDirty(true);
-                                       }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 rounded-lg outline-none min-h-[160px] resize-y disabled:opacity-50 transition" />
-                                    </div>
-
-                                    <div>
-                                      <label htmlFor={`mat-${d.dayOfWeek}-${a.activityId}`} className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Materiales</label>
-                                      <input id={`mat-${d.dayOfWeek}-${a.activityId}`} disabled={readOnly} value={a.materials.join(', ')} onChange={e => {
-                                          const newDays = days.map((day, ix) => {
-                                             if (ix !== dIdx) return day;
-                                             const newActivities = day.activities.map((act, ax) => {
-                                                if (ax !== j) return act;
-                                                return { ...act, materials: e.target.value.split(',').map(s=>s.trim()).filter(s=>s.length > 0) };
-                                             });
-                                             return { ...day, activities: newActivities };
-                                          });
-                                          setDays(newDays);
-                                          setIsDirty(true);
-                                       }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 rounded-lg outline-none disabled:opacity-50 transition" />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                         })}
-                       </div>
-
-                       <div className="mt-12 border-t border-border-soft pt-10">
-                         {commonWeeklyMaterials.length > 0 && (
-                           <div className="mb-10">
-                             <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                               <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
-                               Materiales de uso diario
-                             </h5>
-                             <ul className="list-none space-y-3">
-                               {commonWeeklyMaterials.map((m, i) => (
-                                 <li key={`${m}-${i}`} className="text-lg text-text-primary font-medium flex items-start gap-3">
-                                   <span className="text-brand-primary mt-1">•</span>
-                                   <span>{m}</span>
-                                 </li>
-                               ))}
-                             </ul>
-                           </div>
-                         )}
-
-                         <div>
-                           <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                             <span className="w-2 h-2 rounded-full bg-brand-secondary"></span>
-                             Materiales para el {dayName.toLowerCase()}
-                           </h5>
-                           {dailyMaterials.length > 0 ? (
-                             <ul className="list-none space-y-3">
-                               {dailyMaterials.map((m, i) => (
-                                 <li key={`${m}-${i}`} className="text-lg text-text-primary font-medium flex items-start gap-3">
-                                   <span className="text-brand-secondary mt-1">•</span>
-                                   <span>{m}</span>
-                                 </li>
-                               ))}
-                             </ul>
-                           ) : commonWeeklyMaterials.length > 0 ? (
-                             <p className="text-text-muted italic text-base bg-surface-warm p-4 rounded-lg border border-border-soft">Para este día se utilizarán los materiales de uso diario.</p>
-                           ) : (
-                             <p className="text-text-muted italic text-base bg-surface-warm p-4 rounded-lg border border-border-soft">No hay materiales registrados para este día.</p>
-                           )}
-                         </div>
-                       </div>
+                      <div className="text-center mt-8">
+                        <button onClick={handleRecommendMonday} disabled={!obs || readOnly} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
+                          ✨ Ayúdame con TutorIA
+                        </button>
+                        <p className="text-xs text-text-muted mt-3 uppercase tracking-wider font-bold">Asistente IA (Mock / Demo)</p>
+                      </div>
                     </div>
-                  );
-                })()}
-              </>
-            )}
-          </div>
+                  )}
 
+                  {isGenerating && (
+                    <div className="mt-12 text-center text-brand-primary font-bold text-xl animate-pulse">
+                      Consultando referencias curriculares y adaptando propuesta...
+                    </div>
+                  )}
 
+                  {mondayProposal && (
+                    <div className="mt-8 bg-purple-50 border-2 border-purple-200 rounded-xl p-8 animate-fade-in shadow-sm">
+                      <div className="flex justify-between items-center mb-6">
+                        <h5 className="font-bold text-purple-900 text-xl flex items-center gap-2">
+                          <span className="text-2xl">✨</span> PROPUESTA DE TUTORIA
+                        </h5>
+                        <span className="text-xs font-bold bg-purple-200 text-purple-800 px-3 py-1 rounded-full uppercase tracking-wider">Borrador IA</span>
+                      </div>
+                      <div className="bg-white p-6 rounded-lg mb-6 shadow-sm border border-purple-100">
+                        {mondayProposal.activities.map(a => (
+                          <div key={a.activityId} className="mb-4 last:mb-0 border-b last:border-b-0 pb-4 last:pb-0 border-purple-50">
+                            <p className="font-bold text-purple-900">{a.category}</p>
+                            <p className="text-gray-800 text-sm mt-1">{a.objective}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-4 justify-center">
+                        <button onClick={handleAcceptProposal} className="bg-purple-700 hover:bg-purple-800 text-white font-bold px-6 py-3 rounded-full transition shadow-sm">
+                          Aceptar / Usar propuesta
+                        </button>
+                        <button onClick={handleDiscardProposal} className="bg-white text-purple-700 border border-purple-300 hover:bg-purple-100 font-bold px-6 py-3 rounded-full transition">
+                          Descartar
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 max-w-4xl mx-auto mb-10">
-             <h4 className="text-3xl font-bold text-teal-900 border-b-2 border-teal-50 pb-4 mb-6 uppercase tracking-widest text-center">Evaluación de la semana</h4>
-             <p className="text-xl text-text-muted text-center italic">
-               "Este espacio estará disponible para registrar cómo respondió el grupo una vez realizadas las actividades."
-             </p>
-          </div>
+                  {hasActivities && (
+                    <div className="space-y-4 mt-8">
+                      {d.activities.map((a, j) => {
+                         const isExpanded = expandedActivityId === a.activityId;
+                         const gObs = granularObservations.find(o => o.targetId === a.activityId);
 
-          <div className="mt-12 text-center flex flex-col items-center">
-             <button onClick={() => setStage(3)} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-12 py-5 rounded-full shadow-sm transition w-full max-w-sm mx-auto mb-6">
-               Ver resumen y compartir
-             </button>
-          </div>
-        </div>
-      )}
+                         let highlightClass = "border-border-soft bg-surface-soft";
+                         if (gObs && gObs.status === 'PENDING_CORRECTION') highlightClass = "border-orange-400 bg-orange-50 ring-2 ring-orange-200";
+                         else if (gObs && gObs.status === 'CHANGED_BY_EDUCATOR') highlightClass = "border-yellow-400 bg-yellow-50";
+                         else if (gObs && gObs.status === 'RESOLVED') highlightClass = "border-green-300 bg-green-50";
 
-      {stage === 3 && (
-        <div className="max-w-2xl mx-auto w-full text-center">
-          <h3 className="text-4xl font-bold mb-8 text-text-primary">
-            {readOnly ? 'El resumen de nuestra semana' : '¿Listas para compartirla?'}
-          </h3>
-          <div className="bg-white p-12 rounded-xl shadow-sm border border-border-soft mb-8">
-            <p className="text-xl text-text-muted mb-10 leading-relaxed">
-              {readOnly
-                ? (status === 'APPROVED' ? '¡Qué buena noticia! Esta propuesta fue aprobada. Gracias por el tiempo y el cariño que dedicas a preparar experiencias para tu grupo.' : 'La Directora la está leyendo en este momento. Te avisaré cuando nos comente algo.')
-                : 'La Directora podrá leer lo que construimos juntas para esta semana.'}
-            </p>
-            {!readOnly && (
-              <button onClick={handleSubmit} disabled={days.length !== 5} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-2xl px-12 py-6 rounded-full shadow-sm transition w-full">
-                Compartir con la Directora
-              </button>
-            )}
-            <button onClick={() => setStage(2)} className="mt-8 text-teal-700 font-bold hover:bg-surface-ivory px-6 py-3 rounded-full transition text-lg">Revisar las actividades otra vez</button>
-          </div>
-        </div>
-      )}
+                         return (
+                           <div key={a.activityId} className={`rounded-xl border overflow-hidden transition ${highlightClass}`}>
+                             {gObs && (gObs.status === 'PENDING_CORRECTION' || gObs.status === 'CHANGED_BY_EDUCATOR') && (
+                               <div className="bg-orange-100 border-b border-orange-200 p-4 text-orange-900">
+                                 <span className="font-bold text-sm uppercase tracking-wider block mb-1">⚠️ OBSERVACIÓN DE LA DIRECTORA:</span>
+                                 <p className="text-sm font-bold text-orange-950">{gObs.observation}</p>
+                                 {gObs.status === 'CHANGED_BY_EDUCATOR' && <span className="text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 mt-2 inline-block rounded">✓ Modificado, pendiente de reenviar</span>}
+                               </div>
+                             )}
+                             <button onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)} className="w-full text-left p-6 hover:bg-white/50 transition flex justify-between items-center group outline-none">
+                               <div>
+                                 <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
+                                 <p className="font-bold text-text-primary text-xl group-hover:text-teal-800 transition">{a.objective}</p>
+                               </div>
+                               <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition">
+                                 {isExpanded ? 'Ocultar' : 'Revisar / Editar'}
+                               </div>
+                             </button>
+                             {isExpanded && (
+                               <div className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white">
+                                 <textarea disabled={readOnly} value={a.description} onChange={e => {
+                                    const newDays = [...days];
+                                    newDays[activeDayIndex]!.activities![j]!.description = e.target.value;
+                                    setDays(newDays);
+                                 }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[160px] resize-y transition" />
+                               </div>
+                             )}
+                           </div>
+                         );
+                      })}
+
+                      {!readOnly && (
+                        <div className="mt-8 text-center flex gap-4 justify-center">
+                          <button onClick={handleSaveDraft} className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-4 rounded-full transition shadow-sm">
+                            Guardar Lunes
+                          </button>
+                          <button onClick={handleSubmit} disabled={days.filter(day => day.activities.length > 0).length < 1} className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-8 py-4 rounded-full transition shadow-sm disabled:opacity-50">
+                            Enviar a Revisión
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </>
+        )}
+      </div>
     </div>
   );
 };
-
 const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   useEffect(() => { service.listDirectorReviewQueue('DIRECTOR').then(setPlans); }, [refreshKey, service]);
@@ -680,26 +534,120 @@ const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWork
   );
 };
 
-const DirectorReview = ({ service, planId, onBack, onSaved }: { service: PlanningWorkflowService, planId: string, onBack: () => void, onSaved: () => void }) => {
-  const [plan, setPlan] = useState<WeeklyPlanning | null>(null);
+
+
+
+
+const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { service: PlanningWorkflowService, planId: string, onBack: () => void, onSaved: () => void, onViewOfficial: () => void }) => {
+  const [plan, setPlan] = useState<any>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
-  const [activityObservations, setActivityObservations] = useState<Record<string, string>>({});
+
+  // DRAFTING STATE (Review Round)
+  const [newGranularObs, setNewGranularObs] = useState<Record<string, string>>({});
+  const [preparedObservations, setPreparedObservations] = useState<Record<string, string>>({});
+
+  const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
 
-  useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service]);
+  useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service, toastMessage]);
   if (!plan) return <p className="p-8 text-center text-xl">Leyendo la propuesta...</p>;
 
+  // P0-2: "GUARDAR OBSERVACIÓN" MEANS ONLY SAVE LOCALLY
+  const handleSavePrepared = (activityId: string) => {
+    const obsText = newGranularObs[activityId];
+    if (!obsText || !obsText.trim()) return;
+
+    setPreparedObservations(prev => ({
+      ...prev,
+      [activityId]: obsText.trim()
+    }));
+    setNewGranularObs(prev => { const n = {...prev}; delete n[activityId]; return n; });
+    setToastMessage('✓ Observación preparada localmente (No enviada)');
+    setTimeout(() => { setToastMessage(''); }, 2000);
+  };
+
+  // P0-4: ATOMIC "SEND OBSERVATIONS TO EDUCATOR"
+  const handleSendRound = async () => {
+    const granularObsArray = [];
+    for (const [activityId, obsText] of Object.entries(preparedObservations)) {
+      // Find original content
+      let originalContent = '';
+      for (const d of plan.days) {
+        const act = d.activities.find((a: any) => a.activityId === activityId);
+        if (act) originalContent = act.description;
+      }
+      granularObsArray.push({
+        targetId: activityId,
+        observation: obsText,
+        originalContent: originalContent,
+        currentContent: originalContent,
+        status: 'PENDING_CORRECTION',
+        reviewer: 'DIRECTOR',
+        timestamp: new Date()
+      });
+    }
+
+    await service.reject(planId, 'Se requieren ajustes en la planeación.', 'DIRECTOR', 'DIRECTOR', granularObsArray);
+
+    setPreparedObservations({});
+    setToastMessage('✓ Observaciones enviadas a la educadora.');
+    onSaved();
+    setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
+  };
+
+  const handleResolve = async (activityId: string) => {
+    await service.resolveGranularObservation(planId, activityId, 'DIRECTOR', 'Ceci');
+    const updatedPlan = await service.getPlanning(planId);
+    setPlan(updatedPlan);
+    setCollapsedResolved(prev => ({...prev, [activityId]: true}));
+    setToastMessage('✅ OBSERVACIÓN ATENDIDA');
+    onSaved();
+    setTimeout(() => { setToastMessage(''); }, 2000);
+  };
+
+  const preparedCount = Object.keys(preparedObservations).length;
+
   return (
-    <div className="max-w-5xl mx-auto pb-32 animate-fade-in">
+    <div className="max-w-5xl mx-auto pb-32 animate-fade-in relative">
       {toastMessage && (
         <div role="status" aria-live="polite" className="fixed top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-4 rounded-full shadow-2xl z-50 font-bold flex items-center gap-3 text-lg">
           {toastMessage}
         </div>
       )}
+
+      {(() => {
+        const existingObsList = plan?.granularObservations || [];
+        const pendingCount = existingObsList.filter((o: any) => o.status === 'PENDING_CORRECTION' || o.status === 'CHANGED_BY_EDUCATOR').length;
+        const resolvedCount = existingObsList.filter((o: any) => o.status === 'RESOLVED').length;
+        if (pendingCount > 0 || resolvedCount > 0) {
+          return (
+            <div className="flex justify-center gap-6 mb-8 -mt-4">
+               {pendingCount > 0 && <span className="px-4 py-2 bg-yellow-100 text-yellow-900 border border-yellow-300 font-bold rounded-full uppercase tracking-wider text-sm shadow-sm">{pendingCount} observaciones pendientes</span>}
+               {resolvedCount > 0 && <span className="px-4 py-2 bg-green-100 text-green-900 border border-green-300 font-bold rounded-full uppercase tracking-wider text-sm shadow-sm">{resolvedCount} observación atendida</span>}
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Sticky Prepared Summary */}
+      {preparedCount > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-orange-100 border-t-4 border-orange-500 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] z-40 flex justify-center items-center gap-6">
+          <p className="text-orange-900 font-bold text-lg uppercase tracking-wider">{preparedCount} observaciones preparadas</p>
+          <button onClick={handleSendRound} className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-8 py-3 rounded-full shadow-md transition">
+            ENVIAR OBSERVACIONES A LA EDUCADORA
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
-        {plan.status === 'APPROVED' && <span className="bg-gray-200 text-gray-700 font-bold px-4 py-1.5 rounded-full text-sm">Propuesta aprobada</span>}
+        {plan.status === 'APPROVED' && (
+          <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
+            Versión Oficial IMSS
+          </button>
+        )}
       </div>
 
       <div className="text-center mb-12">
@@ -707,238 +655,384 @@ const DirectorReview = ({ service, planId, onBack, onSaved }: { service: Plannin
         <p className="text-text-muted font-bold text-2xl uppercase tracking-widest">Lactantes C</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-border-soft p-10 mb-12">
-        <div className="grid md:grid-cols-2 gap-12">
-          <div>
-            <h4 className="text-sm font-bold text-teal-700 uppercase tracking-wider mb-4">Lo que observó en el grupo</h4>
-            <p className="font-medium text-xl leading-relaxed text-text-primary">{plan.observations || 'Sin observaciones registradas.'}</p>
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-teal-700 uppercase tracking-wider mb-4">Necesidad pedagógica</h4>
-            <p className="font-medium text-xl leading-relaxed text-text-primary">{plan.identifiedNeeds || 'Sin necesidad específica registrada.'}</p>
+      <div className="max-w-4xl mx-auto mb-12">
+        <div className="bg-surface-ivory rounded-xl border border-brand-primary/20 p-8 shadow-sm">
+          <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest border-b border-teal-100 pb-2">Contexto de la Educadora</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <div>
+              <p className="text-sm font-bold text-text-muted uppercase mb-1">Observaciones</p>
+              <p className="text-text-primary">{plan.observations || 'Sin especificar'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-muted uppercase mb-1">Necesidades detectadas</p>
+              <p className="text-text-primary">{plan.identifiedNeeds || 'Sin especificar'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-muted uppercase mb-1">Situaciones especiales</p>
+              <p className="text-text-primary">{plan.specialSituations || 'Sin especificar'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-muted uppercase mb-1">Materiales disponibles</p>
+              <p className="text-text-primary">{plan.availableMaterials || 'Sin especificar'}</p>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="bg-surface-ivory rounded-xl shadow-sm border border-brand-primary/20 p-10 mb-12 text-center">
-         <h4 className="text-sm font-bold text-teal-700 uppercase tracking-wider mb-4">Propósito de la semana</h4>
-         <p className="font-medium text-2xl leading-relaxed text-text-primary italic">
-           "Favorecer {plan.identifiedNeeds ? plan.identifiedNeeds.toLowerCase() : 'el aprendizaje'} a través de experiencias basadas en: {plan.observations ? plan.observations : 'las necesidades del grupo'}."
-         </p>
       </div>
 
       <h3 className="text-3xl font-bold mb-8 text-text-primary text-center">Desarrollo de las acciones pedagógicas</h3>
 
       <div className="space-y-8 pb-8 max-w-4xl mx-auto">
-        <WeekDayTabs
-          days={plan.days}
-          activeIndex={activeDayIndex}
-          onSelect={(idx) => {
-            setActiveDayIndex(idx);
-            setExpandedActivityId(null);
-          }}
-        />
+        <WeekDayTabs days={plan.days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} />
 
         {(() => {
           const d = plan.days[activeDayIndex];
           if (!d) return null;
+          const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
 
-          const commonWeeklyMaterials = getCommonWeeklyMaterials(plan.days);
-          const dailyMaterials = getDaySpecificMaterials(d, commonWeeklyMaterials);
-
-          const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes' :
-                          d.dayOfWeek === 'TUESDAY' ? 'Martes' :
-                          d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' :
-                          d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
+          if (!d.activities || d.activities.length === 0) {
+            return (
+              <div key={d.dayOfWeek} className="w-full bg-surface-soft rounded-xl border border-border-soft p-12 text-center text-text-muted font-medium">
+                <p className="text-xl">Día pendiente de planeación.</p>
+              </div>
+            );
+          }
 
           return (
-            <div key={d.dayOfWeek} id={`panel-${d.dayOfWeek}`} role="tabpanel" className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
-               <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
-                 {dayName}
-               </h4>
-               <p className="text-center text-teal-700 font-medium italic mb-10 border-b-2 border-teal-50 pb-6">
-                 {DAY_CONTEXT[d.dayOfWeek]}
-               </p>
-
+            <div key={d.dayOfWeek} className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
+               <h4 className="text-3xl font-bold text-teal-900 mb-6 uppercase tracking-widest text-center">{dayName}</h4>
                <div className="space-y-4">
-                 {d.activities.map((a) => {
+                 {d.activities.map((a: any) => {
                     const isExpanded = expandedActivityId === a.activityId;
-                    return (
-                      <div key={a.activityId} className="bg-surface-soft rounded-xl border border-border-soft overflow-hidden transition">
-                        <button
-                          onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)}
-                          aria-expanded={isExpanded}
-                          aria-controls={`review-${a.activityId}`}
-                          className="w-full text-left p-6 hover:bg-surface-ivory transition flex justify-between items-center group outline-none focus:ring-4 focus:ring-brand-primary/30"
-                        >
+
+                    // We must find the LATEST observation if there are multiple.
+                    // For H1R3, finding the first (or last) is enough, assume findLast if JS supported it easily, we'll reverse.
+                    const existingObs = [...plan.granularObservations].reverse().find((o: any) => o.targetId === a.activityId);
+
+                    const isPrepared = !!preparedObservations[a.activityId];
+
+                    let highlightClass = "bg-surface-soft border-border-soft";
+                    let badge = null;
+                    if (isPrepared) {
+                       highlightClass = "bg-orange-50 border-orange-400 ring-2 ring-orange-200";
+                       badge = <span className="bg-orange-200 text-orange-900 px-3 py-1 text-xs font-bold uppercase rounded-full tracking-widest">Observación preparada</span>;
+                    } else if (existingObs) {
+                      if (existingObs.status === 'CHANGED_BY_EDUCATOR') {
+                         highlightClass = "bg-yellow-50 border-yellow-400 ring-2 ring-yellow-200";
+                         badge = <span className="bg-yellow-200 text-yellow-900 px-3 py-1 text-xs font-bold uppercase rounded-full tracking-widest">CAMBIO SOLICITADO ANTERIORMENTE</span>;
+                      } else if (existingObs.status === 'PENDING_CORRECTION') {
+                         highlightClass = "bg-orange-50 border-orange-300";
+                         badge = <span className="bg-orange-200 text-orange-900 px-3 py-1 text-xs font-bold uppercase rounded-full tracking-widest">Pendiente de corregir por educadora</span>;
+                      } else if (existingObs.status === 'RESOLVED') {
+                         highlightClass = "bg-green-50 border-green-300";
+                         badge = <span className="bg-green-200 text-green-900 px-3 py-1 text-xs font-bold uppercase rounded-full tracking-widest">Observación atendida</span>;
+                      }
+                    }
+
+                    if (existingObs && existingObs.status === 'RESOLVED' && collapsedResolved[a.activityId] && !isExpanded) {
+                      return (
+                        <div key={a.activityId} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-green-50 p-5 rounded-xl border border-green-200 mt-4 mb-4 shadow-sm transition">
                           <div>
-                            <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
-                            <p className="font-bold text-text-primary text-xl group-hover:text-teal-800 transition">{a.objective}</p>
+                             <p className="font-bold text-green-900 text-lg">{a.objective}</p>
+                             <span className="bg-green-200 text-green-900 px-3 py-1 text-xs font-bold uppercase rounded-full mt-2 inline-block tracking-widest shadow-sm">Observación atendida</span>
                           </div>
-                          <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition group-hover:bg-teal-50">
+                          <button onClick={() => { setCollapsedResolved(prev => ({...prev, [a.activityId]: false})); setExpandedActivityId(a.activityId); }} className="text-green-700 hover:text-green-900 font-bold text-sm uppercase tracking-wider underline mt-3 sm:mt-0 px-4 py-2">
+                            Ver detalle
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={a.activityId} className={`rounded-xl border overflow-hidden transition ${highlightClass}`}>
+                        <button onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)} className="w-full text-left p-6 hover:bg-white/50 transition flex justify-between items-center outline-none">
+                          <div>
+                            {badge && <div className="mb-3">{badge}</div>}
+                            <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
+                            <p className="font-bold text-text-primary text-xl">{a.objective}</p>
+                          </div>
+                          <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0">
                             {isExpanded ? 'Ocultar' : 'Revisar'}
                           </div>
                         </button>
-
                         {isExpanded && (
-                          <div id={`review-${a.activityId}`} className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white animate-fade-in">
-                            <div className="mb-5">
-                              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 mt-4 block">Objetivo</p>
-                              <p className="font-bold text-text-primary text-lg">{a.objective}</p>
-                            </div>
-                            <div className="mb-5">
-                              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Actividad</p>
-                              <p className="text-base text-gray-800 leading-relaxed">{a.description}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2 block">Materiales</p>
-                              <p className="text-base font-bold text-text-primary">{a.materials.length > 0 ? a.materials.join(', ') : 'Ninguno registrado'}</p>
-                            </div>
+                          <div className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white animate-fade-in">
+                            <p className="font-bold text-text-primary text-lg mb-2">{a.objective}</p>
+                            <p className="text-base text-gray-800 leading-relaxed mb-4">{a.description}</p>
+                            <p className="text-sm font-bold text-text-muted uppercase mb-6">Materiales: <span className="text-gray-800 normal-case font-medium">{a.materials.join(', ')}</span></p>
 
-                            <div className="mt-8 border-t border-teal-50 pt-6">
-                              {activityObservations[`${d.dayOfWeek}-${a.activityId}`] !== undefined ? (
-                                <div className="bg-orange-50 p-5 rounded-xl border border-orange-200">
-                                  <label htmlFor={`obs-${a.activityId}`} className="block text-sm font-bold text-orange-900 uppercase tracking-wider mb-3">
-                                    Observación para Anita sobre esta actividad
-                                  </label>
-                                  <textarea
-                                    id={`obs-${a.activityId}`}
-                                    value={activityObservations[`${d.dayOfWeek}-${a.activityId}`]}
-                                    onChange={e => setActivityObservations({ ...activityObservations, [`${d.dayOfWeek}-${a.activityId}`]: e.target.value })}
-                                    className="w-full text-base p-4 bg-white border border-orange-300 focus:border-orange-500 rounded-lg outline-none transition min-h-[100px] resize-none mb-3"
-                                    placeholder="Escribe aquí tu observación..."
-                                  />
-                                  <div className="flex justify-end">
-                                    <button
-                                      onClick={() => {
-                                        const newObs = { ...activityObservations };
-                                        delete newObs[`${d.dayOfWeek}-${a.activityId}`];
-                                        setActivityObservations(newObs);
-                                      }}
-                                      className="text-orange-700 hover:text-orange-900 font-bold text-sm underline"
-                                    >
-                                      Quitar observación
-                                    </button>
+                            {/* PREPARED STATE */}
+                            {isPrepared && (
+                              <div className="bg-orange-50 p-5 rounded-xl border border-orange-400 mt-4 mb-6 shadow-sm">
+                                <h5 className="font-bold text-orange-900 text-sm uppercase tracking-wider mb-3">Observación preparada (Borrador):</h5>
+                                <p className="text-orange-900 font-bold">{preparedObservations[a.activityId]}</p>
+                                <button onClick={() => {
+                                  const n = {...preparedObservations};
+                                  delete n[a.activityId];
+                                  setPreparedObservations(n);
+                                }} className="text-orange-700 text-sm font-bold uppercase tracking-wider mt-4 underline">
+                                  Eliminar observación
+                                </button>
+                              </div>
+                            )}
+
+                            {/* RE-REVIEW STATE (P0-8) */}
+                            {existingObs && (existingObs.status === 'CHANGED_BY_EDUCATOR' || existingObs.status === 'PENDING_CORRECTION' || existingObs.status === 'RESOLVED') && !isPrepared && (
+                              <div className={`p-5 rounded-xl border mt-4 mb-6 ${existingObs.status === 'RESOLVED' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-300 shadow-sm'}`}>
+                                <h5 className={`font-bold text-sm uppercase tracking-wider mb-3 ${existingObs.status === 'RESOLVED' ? 'text-green-900' : 'text-yellow-900'}`}>MI OBSERVACIÓN PREVIA:</h5>
+                                <p className={`mb-4 font-bold text-lg ${existingObs.status === 'RESOLVED' ? 'text-green-900' : 'text-yellow-900'}`}>{existingObs.observation}</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="bg-white p-4 rounded border border-gray-200">
+                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes:</p>
+                                    <p className="text-sm text-gray-700 font-normal leading-relaxed">{existingObs.originalContent}</p>
+                                  </div>
+                                  <div className="bg-white p-4 rounded border border-gray-200 shadow-sm">
+                                    <p className="text-xs font-bold text-green-700 uppercase mb-2">AHORA:</p>
+                                    <p className="text-base text-gray-900 font-bold leading-relaxed">{existingObs.currentContent}</p>
                                   </div>
                                 </div>
-                              ) : (
-                                <button
-                                  onClick={() => setActivityObservations({ ...activityObservations, [`${d.dayOfWeek}-${a.activityId}`]: '' })}
-                                  className="text-orange-700 hover:text-orange-900 font-bold text-sm flex items-center gap-2 px-5 py-2.5 rounded-full hover:bg-orange-50 transition border border-transparent hover:border-orange-200"
-                                >
-                                  + Agregar observación
+                                {existingObs.status === 'CHANGED_BY_EDUCATOR' && (
+                                  <div className="mt-4 flex flex-col gap-3">
+                                    <button onClick={() => handleResolve(a.activityId)} className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-3 rounded uppercase tracking-wider text-sm transition text-center shadow-sm">
+                                      MARCAR COMO ATENDIDA
+                                    </button>
+
+                                    {/* P0-10: NEW ADJUSTMENT AFTER CORRECTION */}
+                                    <div className="bg-orange-50 p-4 rounded mt-4 border border-orange-200">
+                                      <label className="block text-sm font-bold text-orange-900 uppercase tracking-wider mb-2">
+                                        NUEVA OBSERVACIÓN
+                                      </label>
+                                      <textarea
+                                        value={newGranularObs[a.activityId] || ''}
+                                        onChange={e => setNewGranularObs({ ...newGranularObs, [a.activityId]: e.target.value })}
+                                        className="w-full text-base p-3 bg-white border border-orange-300 focus:border-orange-500 rounded outline-none transition min-h-[60px] resize-y mb-2"
+                                        placeholder="Escribe un nuevo ajuste si es necesario..."
+                                      />
+                                      <button disabled={!newGranularObs[a.activityId]} onClick={() => handleSavePrepared(a.activityId)} className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded text-sm transition disabled:opacity-50">
+                                        SOLICITAR NUEVO AJUSTE (Guardar observación)
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* FIRST REVIEW STATE */}
+                            {plan.status !== 'APPROVED' && !isPrepared && (!existingObs || existingObs.status === 'RESOLVED') && (
+                              <div className="bg-orange-50 p-5 rounded-xl border border-orange-200 mt-4">
+                                <label className="block text-sm font-bold text-orange-900 uppercase tracking-wider mb-3">
+                                  Agregar observación a esta actividad
+                                </label>
+                                <textarea
+                                  value={newGranularObs[a.activityId] || ''}
+                                  onChange={e => setNewGranularObs({ ...newGranularObs, [a.activityId]: e.target.value })}
+                                  className="w-full text-base p-4 bg-white border border-orange-300 focus:border-orange-500 rounded-lg outline-none transition min-h-[80px] resize-y mb-3"
+                                  placeholder="¿Qué sugerencia tienes sobre esta actividad?"
+                                />
+                                <button disabled={!newGranularObs[a.activityId]} onClick={() => handleSavePrepared(a.activityId)} className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded text-sm transition disabled:opacity-50">
+                                  Guardar observación
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     );
                  })}
                </div>
-
-               <div className="mt-12 border-t border-border-soft pt-10">
-                 {commonWeeklyMaterials.length > 0 && (
-                   <div className="mb-10">
-                     <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                       <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
-                       Materiales de uso diario
-                     </h5>
-                     <ul className="list-none space-y-3">
-                       {commonWeeklyMaterials.map(m => (
-                         <li key={m} className="flex items-center gap-3 text-lg text-gray-800 font-medium">
-                           <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
-                           {m}
-                         </li>
-                       ))}
-                     </ul>
-                   </div>
-                 )}
-
-                 <div>
-                   <h5 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                     <span className="w-2 h-2 rounded-full bg-brand-accent"></span>
-                     Materiales previstos para el {dayName.toLowerCase()}
-                   </h5>
-                   {dailyMaterials.length > 0 ? (
-                     <ul className="list-none space-y-3">
-                       {dailyMaterials.map(m => (
-                         <li key={m} className="flex items-center gap-3 text-lg text-gray-800 font-medium">
-                           <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-                           {m}
-                         </li>
-                       ))}
-                     </ul>
-                   ) : (
-                     <p className="text-text-muted italic bg-surface-soft p-4 rounded-lg inline-block">
-                       Para este día se utilizarán los materiales de uso diario.
-                     </p>
-                   )}
-                 </div>
-               </div>
             </div>
           );
         })()}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-border-soft p-10 mb-12">
-         <h4 className="text-2xl font-bold text-teal-900 border-b-2 border-teal-50 pb-4 mb-6 uppercase tracking-widest text-center">Evaluación de la semana</h4>
-         <p className="text-xl text-text-muted text-center italic">
-           "Este espacio estará disponible para registrar cómo respondió el grupo una vez realizadas las actividades."
-         </p>
-      </div>
+      {plan.status === 'IN_REVIEW' && (
+        <div className="mt-16 flex justify-center">
+          <div className="flex flex-col gap-6 max-w-2xl w-full">
+            <button
+              onClick={handleSendRound}
+              disabled={preparedCount === 0}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold text-lg px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 uppercase tracking-wider"
+            >
+              ENVIAR OBSERVACIONES A LA EDUCADORA
+            </button>
 
-      {plan.status !== 'APPROVED' && (() => {
-        const obsCount = Object.keys(activityObservations).length;
-        return (
-          <div className="mt-16 flex justify-center">
-            <div className="flex flex-col gap-6 max-w-2xl w-full text-center">
-              {obsCount > 0 && (
-                <div className="bg-orange-50 p-6 rounded-xl border-2 border-orange-200 mb-4 text-left shadow-sm">
-                  <h4 className="font-bold text-orange-900 text-lg mb-3">
-                    Has registrado {obsCount} {obsCount === 1 ? 'observación' : 'observaciones'} en esta planeación.
-                  </h4>
-                  <ul className="list-disc pl-5 text-orange-800 space-y-1 font-medium">
-                    {Object.keys(activityObservations).map(key => {
-                      const [day, actId] = key.split('-');
-                      const dayName = day === 'MONDAY' ? 'Lunes' : day === 'TUESDAY' ? 'Martes' : day === 'WEDNESDAY' ? 'Miércoles' : day === 'THURSDAY' ? 'Jueves' : 'Viernes';
-                      const act = plan.days.find(d => d.dayOfWeek === day)?.activities.find(a => a.activityId === actId);
-                      return <li key={key}>{dayName} · {act?.category}</li>;
-                    })}
-                  </ul>
-                </div>
-              )}
+            {(() => {
+              const existingObsList = plan?.granularObservations || [];
+              const pendingCount = existingObsList.filter((o: any) => o.status === 'PENDING_CORRECTION' || o.status === 'CHANGED_BY_EDUCATOR').length;
+              const canApprove = preparedCount === 0 && pendingCount === 0;
 
-              <button onClick={async () => { await service.approve(planId, 'DIRECTOR'); onSaved(); setToastMessage('🌟 ¡Qué bien! Propuesta aprobada.'); setTimeout(() => { setToastMessage(''); onBack(); }, 2500); }} className="bg-brand-primary hover:bg-brand-dark text-white font-bold text-2xl px-12 py-6 rounded-full shadow-sm transition w-full">
-                ✓ Aprobar planeación
-              </button>
-
-              {obsCount === 0 ? (
-                 <div className="mt-2 text-center">
-                   <button disabled className="bg-white text-orange-300 font-bold px-8 py-5 rounded-full w-full border-2 border-orange-100 text-xl cursor-not-allowed">
-                     Solicitar ajustes
-                   </button>
-                   <p className="text-orange-600 mt-4 font-medium">Agrega al menos una observación en la actividad que requiere ajuste.</p>
-                 </div>
-              ) : (
-                 <button onClick={async () => {
-                   const summaryReason = `Has recibido ${obsCount} ${obsCount === 1 ? 'observación' : 'observaciones'} en actividades específicas.`;
-                   await service.reject(planId, summaryReason, 'd1', 'DIRECTOR');
-                   onSaved();
-                   setToastMessage('✓ Le enviamos tu sugerencia a la docente');
-                   setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
-                 }} className="bg-white text-orange-700 font-bold px-8 py-5 rounded-full hover:bg-orange-50 transition w-full border-2 border-orange-200 text-xl shadow-sm">
-                   Solicitar ajustes
-                 </button>
-              )}
-            </div>
+              return (
+                <>
+                  <button
+                    onClick={async () => {
+                      await service.approve(planId, 'DIRECTOR', 'Ceci');
+                      onSaved();
+                      setToastMessage('🌟 Propuesta aprobada.');
+                      setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
+                    }}
+                    disabled={!canApprove}
+                    className="w-full bg-brand-primary hover:bg-brand-dark text-white font-bold text-lg px-8 py-6 rounded-full shadow-lg transition flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    ✓ APROBAR TODA LA PLANEACIÓN
+                  </button>
+                  {preparedCount > 0 && <p className="text-center text-orange-700 text-sm font-bold">La aprobación está bloqueada porque hay observaciones preparadas sin enviar.</p>}
+                  {pendingCount > 0 && preparedCount === 0 && <p className="text-center text-orange-700 text-sm font-bold">La aprobación está bloqueada porque hay observaciones pendientes de revisar o atender.</p>}
+                </>
+              );
+            })()}
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 };
 
+const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }: { service: PlanningWorkflowService, planId: string, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onViewOfficial: () => void }) => {
+  const [plan, setPlan] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'PLAN' | 'HISTORY'>('PLAN');
+
+  useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service]);
+  if (!plan) return <p className="p-8 text-center text-xl">Cargando...</p>;
+
+  return (
+    <div className="max-w-5xl mx-auto pb-32 animate-fade-in">
+      <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
+        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
+        <div className="flex gap-3">
+          <button onClick={() => setActiveTab('PLAN')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'PLAN' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER PLANEACIÓN</button>
+          <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'HISTORY' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER HISTORIAL DE CAMBIOS</button>
+          <button onClick={onViewOfficial} className="px-6 py-2 rounded-full font-bold transition bg-teal-700 hover:bg-teal-800 text-white shadow-sm flex items-center gap-2">VER VERSIÓN OFICIAL IMSS</button>
+        </div>
+      </div>
+
+      {activeTab === 'PLAN' && (
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft">
+          <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">Contenido de la Planeación (Lectura)</h2>
+          <div className="bg-surface-soft border border-border-soft p-6 rounded-xl mb-8 space-y-4">
+            <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest border-b border-teal-100 pb-2">Contexto de la Educadora</h3>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Observaciones</p><p className="text-text-primary">{plan.observations || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Necesidades Identificadas</p><p className="text-text-primary">{plan.identifiedNeeds || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Situaciones Especiales</p><p className="text-text-primary">{plan.specialSituations || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Materiales Disponibles</p><p className="text-text-primary">{plan.availableMaterials || 'Sin especificar'}</p></div>
+          </div>
+          {plan.days.map((d: any) => (
+            <div key={d.dayOfWeek} className="mb-8">
+              <h3 className="text-xl font-bold border-b border-gray-300 pb-2 mb-4">{d.dayOfWeek}</h3>
+              {d.activities.length === 0 ? <p className="text-gray-500">Sin actividades</p> : d.activities.map((a: any) => (
+                <div key={a.activityId} className="mb-4">
+                  <p className="font-bold text-lg text-gray-900 mb-1">{a.objective} ({a.durationMinutes} min)</p>
+                  <p className="text-gray-700 font-normal">{a.description}</p>
+                  <p className="text-sm mt-1 font-normal"><strong>Materiales:</strong> {a.materials.join(', ')}</p>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'HISTORY' && (
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft">
+          <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">HISTORIAL DE REVISIONES</h2>
+          {!plan.granularObservations || plan.granularObservations.length === 0 ? (
+            <p className="text-center text-gray-500 font-medium">No hay observaciones registradas.</p>
+          ) : (
+            <div className="space-y-12">
+              {plan.historicalRounds && plan.historicalRounds.length > 0 ? (
+                <>
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest border-b border-gray-200 pb-2">▼ ÚLTIMA REVISIÓN — RONDA {plan.historicalRounds.length}</h3>
+                    {[...plan.historicalRounds[plan.historicalRounds.length - 1].observations].reverse().map((obs: any, idx: number) => (
+                      <div key={idx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="font-bold text-gray-800 uppercase tracking-wider text-sm">Observación Directora</span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${obs.status === 'RESOLVED' ? 'bg-green-100 text-green-800' : obs.status === 'CHANGED_BY_EDUCATOR' ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
+                              {obs.status === 'RESOLVED' ? '✅ ATENDIDA' : 'Pendiente / Cambio solicitado'}
+                            </span>
+                            {obs.status === 'RESOLVED' && obs.resolvedBy && (
+                              <span className="text-xs text-green-700 font-bold">Atendida por: {obs.resolvedBy} - {new Date(obs.resolvedAt).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-lg font-black text-gray-900 mb-4">{obs.observation}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-gray-50 p-4 rounded border border-gray-100">
+                            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes (Original):</p>
+                            <p className="text-sm text-gray-700 font-normal">{obs.originalContent}</p>
+                          </div>
+                          <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                            <p className="text-xs font-bold text-green-700 uppercase mb-2">Ahora (Educadora):</p>
+                            <p className="text-sm text-gray-900 font-bold">{obs.currentContent}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {plan.historicalRounds.length > 1 && (
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-bold text-gray-600 uppercase tracking-widest border-b border-gray-200 pb-2 mt-8">REVISIONES ANTERIORES</h3>
+                      {[...plan.historicalRounds].reverse().slice(1).map((round: any, rIdx: number) => (
+                        <details key={round.roundId} className="group">
+                          <summary className="font-bold text-gray-600 cursor-pointer mb-4 outline-none hover:text-gray-800 uppercase tracking-wider text-sm bg-gray-50 p-3 rounded border border-gray-200 text-left flex items-center">
+                            ▶ REVISIÓN ANTERIOR — RONDA {plan.historicalRounds.length - 1 - rIdx}
+                          </summary>
+                          <div className="space-y-6 mt-4">
+                            {[...round.observations].reverse().map((obs: any, idx: number) => (
+                              <div key={idx} className="border border-gray-200 rounded-lg p-5 opacity-80 hover:opacity-100 transition bg-white">
+                                <div className="flex justify-between items-center mb-4">
+                                  <span className="font-bold text-gray-600 uppercase tracking-wider text-sm">Observación Directora</span>
+                                </div>
+                                <p className="text-base font-black text-gray-700 mb-4">{obs.observation}</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                                    <p className="text-xs font-bold text-gray-500 uppercase mb-1">Antes:</p>
+                                    <p className="text-xs text-gray-600 font-normal">{obs.originalContent}</p>
+                                  </div>
+                                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                                    <p className="text-xs font-bold text-gray-700 uppercase mb-1">Después:</p>
+                                    <p className="text-xs text-gray-800 font-bold">{obs.currentContent}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest border-b border-gray-200 pb-2">▼ ÚLTIMA REVISIÓN</h3>
+                  {[...plan.granularObservations].reverse().map((obs: any, idx: number) => (
+                    <div key={idx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="font-bold text-gray-800 uppercase tracking-wider text-sm">Observación Directora</span>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${obs.status === 'RESOLVED' ? 'bg-green-100 text-green-800' : obs.status === 'CHANGED_BY_EDUCATOR' ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
+                          {obs.status === 'RESOLVED' ? 'Atendida' : 'Pendiente / Cambio solicitado'}
+                        </span>
+                      </div>
+                      <p className="text-lg font-black text-gray-900 mb-4">{obs.observation}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-4 rounded border border-gray-100">
+                          <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes (Original):</p>
+                          <p className="text-sm text-gray-700 font-normal">{obs.originalContent}</p>
+                        </div>
+                        <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                          <p className="text-xs font-bold text-green-700 uppercase mb-2">Ahora (Educadora):</p>
+                          <p className="text-sm text-gray-900 font-bold">{obs.currentContent}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 const SupervisorList = ({ service, onSelect, refreshKey }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   useEffect(() => { service.listSupervisorApprovedPlanning('SUPERVISOR').then(setPlans); }, [refreshKey, service]);
@@ -963,93 +1057,121 @@ const SupervisorList = ({ service, onSelect, refreshKey }: { service: PlanningWo
   );
 };
 
-const PrintableView = ({ service, planId, onBack }: { service: PlanningWorkflowService, planId: string, onBack: () => void }) => {
-  const [plan, setPlan] = useState<WeeklyPlanning | null>(null);
+
+
+
+const PrintableView = ({ service, planId, modality, onBack }: { service: PlanningWorkflowService, planId: string, modality: 'DIRECT'|'INDIRECT', onBack: () => void }) => {
+  const [plan, setPlan] = useState<any>(null);
   useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service]);
   if (!plan) return null;
 
+  const isDirect = modality === 'DIRECT';
+  const title = isDirect ? 'Planeación de Actividades Pedagógicas' : 'Planeación de Acciones Pedagógicas';
+  const docCode = isDirect ? '3D11-009-003' : 'DPES/CG/2020/PDG/04';
+
   return (
-    <div className="bg-white print:p-0 font-serif">
-      <div className="print:hidden mb-12 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl">
+    <div className="bg-white font-serif w-full text-black">
+      <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
         <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-lg">← Volver</button>
-        <button onClick={() => window.print()} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Guardar este documento</button>
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
+          <button onClick={() => {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write('<html><head><title>Imprimir Planeación</title>');
+                const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('');
+                printWindow.document.write(styles);
+                printWindow.document.write('</head><body class="bg-white">');
+                const root = document.getElementById('printable-document-root');
+                printWindow.document.write(root ? root.outerHTML : '');
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => { printWindow.print(); printWindow.close(); }, 750);
+            }
+          }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
+        </div>
       </div>
 
-      <div className="print:block bg-white max-w-5xl mx-auto p-16 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg">
-        <div className="border-b-4 border-gray-900 pb-8 mb-12 flex justify-between items-end">
+      <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none">
+        <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-4 print:mb-8">
           <div>
-            <h1 className="text-5xl font-bold text-text-primary mb-4 tracking-tight">TutorIA</h1>
-            <p className="text-2xl text-text-muted uppercase tracking-widest font-bold">Documento de planeación</p>
+            <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">{title}</h1>
+            <p className="text-lg print:text-sm text-gray-700 uppercase tracking-widest font-bold">Código: {docCode}</p>
           </div>
           <div className="text-right">
-            <span className="inline-block px-6 py-2 border-4 border-green-800 text-status-approved font-bold uppercase tracking-widest text-lg rounded-lg">Planeación aprobada</span>
+            <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-sm print:border-2 rounded-lg">{plan.status === 'APPROVED' ? 'Aprobada' : 'Borrador'}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-16 text-xl">
-          <div><span className="text-text-muted font-bold block text-sm uppercase tracking-wider mb-1">Centro</span><p className="font-bold text-text-primary">Guardería IMSS Demo</p></div>
-          <div><span className="text-text-muted font-bold block text-sm uppercase tracking-wider mb-1">Docente estrella</span><p className="font-bold text-text-primary">Anita</p></div>
-          <div><span className="text-text-muted font-bold block text-sm uppercase tracking-wider mb-1">Para el grupo de</span><p className="font-bold text-text-primary">Lactantes C (13–18 meses)</p></div>
-          <div><span className="text-text-muted font-bold block text-sm uppercase tracking-wider mb-1">La semana del</span><p className="font-bold text-text-primary">10 al 14 de agosto de 2026</p></div>
+        <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-12 text-lg print:text-sm print:mb-8">
+          <div><span className="text-gray-600 font-bold block text-sm print:text-xs uppercase tracking-wider mb-1">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
+          <div><span className="text-gray-600 font-bold block text-sm print:text-xs uppercase tracking-wider mb-1">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
+          <div><span className="text-gray-600 font-bold block text-sm print:text-xs uppercase tracking-wider mb-1">Periodo</span><p className="font-bold text-black">10 al 14 de agosto de 2026</p></div>
         </div>
 
-        <div className="mb-16 bg-surface-soft p-10 rounded-lg">
-          <div className="mb-10"><span className="text-text-muted font-bold block text-sm uppercase mb-3 tracking-wider">Lo que Anita notó</span><p className="font-medium text-2xl leading-relaxed text-text-primary">"{plan.observations}"</p></div>
-          <div><span className="text-text-muted font-bold block text-sm uppercase mb-3 tracking-wider">Nuestra meta a fortalecer</span><p className="font-medium text-2xl leading-relaxed text-text-primary">"{plan.identifiedNeeds}"</p></div>
+        {isDirect && (
+          <div className="mb-12 print:mb-8">
+            <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Programa Sintético de la Fase 1 para educación inicial</h3>
+            <p className="text-base print:text-sm text-black italic">Campos Formativos: Lenguajes, Saberes y Pensamiento Científico, Ética, Naturaleza y Sociedades, De lo Humano y lo Comunitario</p>
+          </div>
+        )}
+
+        {!isDirect && (
+          <div className="mb-12 print:mb-8">
+            <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Referentes curriculares</h3>
+            <p className="text-base print:text-sm text-black italic">No implementado en esta versión demo.</p>
+          </div>
+        )}
+
+        <div className="mb-12 print:mb-8">
+           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">{isDirect ? 'Observaciones de las y los niños' : 'Observaciones de los niños'}</h3>
+           <p className="text-lg print:text-sm text-black">{plan.observations || 'N/A'}</p>
         </div>
 
-        <div className="mb-12 bg-surface-ivory border-2 border-brand-primary/20 rounded-xl p-8 text-center">
-          <span className="text-teal-700 font-bold block text-sm uppercase mb-3 tracking-wider">Propósito de la semana</span>
-          <p className="font-medium text-2xl leading-relaxed text-text-primary italic">
-            "Favorecer {plan.identifiedNeeds ? plan.identifiedNeeds.toLowerCase() : 'el aprendizaje'} a través de experiencias basadas en: {plan.observations ? plan.observations : 'las necesidades del grupo'}."
-          </p>
-        </div>
-
-        <div className="space-y-16">
-          {plan.days.map(d => (
-            <div key={d.dayOfWeek}>
-               <h2 className="text-3xl font-bold border-b-2 border-gray-300 pb-3 mb-4 uppercase tracking-widest text-text-primary">
-                 {d.dayOfWeek === 'MONDAY' && 'Lunes'}
-                 {d.dayOfWeek === 'TUESDAY' && 'Martes'}
-                 {d.dayOfWeek === 'WEDNESDAY' && 'Miércoles'}
-                 {d.dayOfWeek === 'THURSDAY' && 'Jueves'}
-                 {d.dayOfWeek === 'FRIDAY' && 'Viernes'}
-               </h2>
-               <p className="text-text-muted font-medium italic mb-8 text-xl">"{DAY_CONTEXT[d.dayOfWeek]}"</p>
-
-              <div className="space-y-8">
-                {d.activities.map(a => (
-                  <div key={a.activityId} className="flex gap-8">
-                    <div className="w-1/4">
-                      <p className="font-bold text-text-primary uppercase text-sm mb-2 tracking-wider">{a.category}</p>
-                      <p className="text-text-muted font-bold text-base">{a.durationMinutes} min</p>
+        <div className="mb-12 print:mb-8">
+           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">{isDirect ? 'Planteamiento de actividades a realizar durante su estancia' : 'Planeación / acciones pedagógicas'}</h3>
+           <div className="space-y-12 print:space-y-6">
+             {plan.days.map((d: any) => (
+               <div key={d.dayOfWeek} className="print:break-inside-avoid">
+                  <h4 className="text-2xl print:text-base font-bold border-b border-black pb-2 mb-4 uppercase text-black">
+                    {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                  </h4>
+                  {(!d.activities || d.activities.length === 0) ? (
+                    <p className="text-black italic print:text-sm">Pendiente de planeación.</p>
+                  ) : (
+                    <div className="space-y-6 print:space-y-4">
+                      {d.activities.map((a: any) => (
+                        <div key={a.activityId} className="print:break-inside-avoid">
+                          <p className="font-bold text-lg print:text-sm mb-1">{a.objective} <span className="font-bold">({a.durationMinutes} min)</span></p>
+                          <p className="text-black mb-2 print:text-sm font-normal">{a.description}</p>
+                          <p className="text-sm print:text-xs font-normal"><strong>{isDirect ? 'Materiales requeridos para las Actividades Pedagógicas' : 'Materiales para ambientes de aprendizaje'}:</strong> {a.materials.join(', ')}</p>
+                        </div>
+                      ))}
                     </div>
-                    <div className="w-3/4">
-                      <p className="font-bold text-2xl mb-3 text-text-primary">{a.objective}</p>
-                      <p className="text-gray-800 mb-5 leading-relaxed text-xl">{a.description}</p>
-                      <p className="text-base font-bold text-text-muted uppercase tracking-wider">Materiales: <span className="font-bold text-text-primary normal-case">{a.materials.join(', ')}</span></p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                  )}
+               </div>
+             ))}
+           </div>
         </div>
 
-        <div className="mt-16 bg-surface-soft p-10 rounded-lg">
-           <h4 className="text-xl font-bold text-text-primary mb-6 uppercase tracking-widest">Materiales de la semana</h4>
-           {Array.from(new Set(plan.days.flatMap(d => d.activities.flatMap(a => a.materials)))).length > 0 ? (
-             <ul className="list-disc pl-5 space-y-2 text-xl text-gray-800">
-               {Array.from(new Set(plan.days.flatMap(d => d.activities.flatMap(a => a.materials)))).map(m => <li key={m}>{m}</li>)}
-             </ul>
-           ) : (
-             <p className="text-text-muted italic">No hay materiales especiales registrados.</p>
-           )}
+        <div className="mb-12 print:mb-8">
+           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Evaluación</h3>
+           <p className="text-black italic print:text-sm">Espacio para la evaluación posterior a la implementación.</p>
         </div>
 
-        <div className="mt-24 pt-10 border-t border-gray-300 text-center text-base font-bold text-gray-400 uppercase tracking-widest">
-          Diseñado con cuidado y cariño para nuestros niños.
+        <div className="mb-12 print:mb-8">
+           <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Actividades complementarias de otros programas</h3>
+           <p className="text-black italic print:text-sm">Pendiente</p>
         </div>
+
+        {isDirect && (
+          <div className="mb-12 print:mb-8">
+             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Práctica(s) Priorizada(s) a implementar</h3>
+             <p className="text-black italic print:text-sm">Pendiente</p>
+          </div>
+        )}
+
       </div>
     </div>
   );

@@ -7,7 +7,9 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
   public async generateRecommendation(
     room: Room,
     observations: string,
-    identifiedNeeds: string
+    identifiedNeeds: string,
+    specialSituations: string,
+    availableMaterials: string
   ): Promise<PlanningDay[]> {
 
     // DEMO DATA - NORMATIVA IMSS 5 CATEGORÍAS (Lactantes C)

@@ -30,6 +30,8 @@ export class PlanningWorkflowService {
     planningId: string,
     observations: string,
     identifiedNeeds: string,
+    specialSituations: string,
+    availableMaterials: string,
     curricularReferences: string[],
     days: PlanningDay[],
     role: PlanningActorRole
@@ -39,7 +41,7 @@ export class PlanningWorkflowService {
     const planning = await this.repository.findById(planningId);
     if (!planning) throw new Error('Planning not found');
 
-    planning.editPedagogicalContent(observations, identifiedNeeds, curricularReferences, days);
+    planning.editPedagogicalContent(observations, identifiedNeeds, specialSituations, availableMaterials, curricularReferences, days);
     await this.repository.save(planning);
   }
 
@@ -53,13 +55,13 @@ export class PlanningWorkflowService {
     await this.repository.save(planning);
   }
 
-  public async reject(planningId: string, reason: string, rejectedBy: string, role: PlanningActorRole): Promise<void> {
+  public async reject(planningId: string, reason: string, rejectedBy: string, role: PlanningActorRole, granularObs?: any[]): Promise<void> {
     if (role !== 'DIRECTOR') throw new Error('Only Director can reject planning');
 
     const planning = await this.repository.findById(planningId);
     if (!planning) throw new Error('Planning not found');
 
-    planning.reject(reason, rejectedBy);
+    planning.reject(reason, rejectedBy, granularObs);
     await this.repository.save(planning);
   }
 
@@ -67,6 +69,8 @@ export class PlanningWorkflowService {
     planningId: string,
     observations: string,
     identifiedNeeds: string,
+    specialSituations: string,
+    availableMaterials: string,
     curricularReferences: string[],
     days: PlanningDay[],
     role: PlanningActorRole
@@ -77,18 +81,26 @@ export class PlanningWorkflowService {
     if (!planning) throw new Error('Planning not found');
 
     // Editing while in REJECTED state is allowed before submit
-    planning.editPedagogicalContent(observations, identifiedNeeds, curricularReferences, days);
+    planning.editPedagogicalContent(observations, identifiedNeeds, specialSituations, availableMaterials, curricularReferences, days);
     planning.submit();
     await this.repository.save(planning);
   }
 
-  public async approve(planningId: string, role: PlanningActorRole): Promise<void> {
+  public async resolveGranularObservation(planningId: string, targetId: string, role: PlanningActorRole, resolvedBy: string): Promise<void> {
+    if (role !== 'DIRECTOR') throw new Error('Only Director can resolve observations');
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error('Planning not found');
+    planning.resolveGranularObservation(targetId, resolvedBy);
+    await this.repository.save(planning);
+  }
+
+  public async approve(planningId: string, role: PlanningActorRole, approvedBy: string): Promise<void> {
     if (role !== 'DIRECTOR') {throw new Error('Only Director can approve planning');}
 
     const planning = await this.repository.findById(planningId);
     if (!planning) throw new Error('Planning not found');
 
-    planning.approve();
+    planning.approve(approvedBy);
     await this.repository.save(planning);
   }
 

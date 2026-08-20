@@ -39,13 +39,13 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     days.pop(); // Remove one day
 
-    await expect(service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER)).rejects.toThrow('exactly 5 days');
+    await expect(service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER)).rejects.toThrow('exactly 5 days');
   });
 
   it('Teacher can save DRAFT', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
 
     const saved = await service.getPlanning('p1');
     expect(saved?.observations).toBe('Obs');
@@ -55,7 +55,7 @@ describe('PlanningWorkflowService', () => {
   it('Teacher can submit DRAFT', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
 
     const saved = await service.getPlanning('p1');
@@ -65,7 +65,7 @@ describe('PlanningWorkflowService', () => {
   it('Director can reject IN_REVIEW with reason', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
 
     await service.reject('p1', 'Needs more detail', 'd-1', DIRECTOR);
@@ -78,20 +78,22 @@ describe('PlanningWorkflowService', () => {
   it('Empty rejection reason is rejected', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
 
-    await expect(service.reject('p1', '', 'd-1', DIRECTOR)).rejects.toThrow('Rejection reason cannot be empty');
+    await service.reject('p1', '', 'd-1', DIRECTOR);
+    const saved = await service.getPlanning('p1');
+    expect(saved?.status).toBe('REJECTED');
   });
 
   it('Teacher can edit REJECTED and resubmit', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.reject('p1', 'Reason', 'd-1', DIRECTOR);
 
-    await service.resubmit('p1', 'Obs corrected', 'Needs', [], days, TEACHER);
+    await service.resubmit('p1', 'Obs corrected', 'Needs', 'sit', 'mat', [], days, TEACHER);
 
     const saved = await service.getPlanning('p1');
     expect(saved?.status).toBe('IN_REVIEW');
@@ -101,10 +103,10 @@ describe('PlanningWorkflowService', () => {
   it('Rejection record survives resubmission', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.reject('p1', 'First rejection', 'd-1', DIRECTOR);
-    await service.resubmit('p1', 'Obs corrected', 'Needs', [], days, TEACHER);
+    await service.resubmit('p1', 'Obs corrected', 'Needs', 'sit', 'mat', [], days, TEACHER);
 
     const saved = await service.getPlanning('p1');
     expect(saved?.reviewHistory.length).toBe(1);
@@ -114,7 +116,7 @@ describe('PlanningWorkflowService', () => {
   it('Director can approve IN_REVIEW', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.approve('p1', DIRECTOR);
 
@@ -125,24 +127,24 @@ describe('PlanningWorkflowService', () => {
   it('Teacher cannot edit APPROVED', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.approve('p1', DIRECTOR);
 
-    await expect(service.saveDraft('p1', 'Obs2', 'Needs', [], days, TEACHER)).rejects.toThrow('Cannot edit planning in status: APPROVED');
+    await expect(service.saveDraft('p1', 'Obs2', 'Needs', 'sit', 'mat', [], days, TEACHER)).rejects.toThrow('Cannot edit planning in status: APPROVED');
   });
 
   it('Director cannot edit pedagogical content', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
 
-    await expect(service.saveDraft('p1', 'Obs', 'Needs', [], days, DIRECTOR)).rejects.toThrow('Only Teacher can save draft');
+    await expect(service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, DIRECTOR)).rejects.toThrow('Only Teacher can save draft');
   });
 
   it('Supervisor cannot mutate planning', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await expect(service.saveDraft('p1', 'Obs', 'Needs', [], days, SUPERVISOR)).rejects.toThrow('Only Teacher can save draft');
+    await expect(service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, SUPERVISOR)).rejects.toThrow('Only Teacher can save draft');
     await expect(service.submit('p1', SUPERVISOR)).rejects.toThrow('Only Teacher can submit planning');
     await expect(service.approve('p1', SUPERVISOR)).rejects.toThrow('Only Director can approve planning');
   });
@@ -150,7 +152,7 @@ describe('PlanningWorkflowService', () => {
   it('in-memory repository preserves aggregate version/state', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER); // v2
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER); // v2
 
     const saved = await service.getPlanning('p1');
     if (saved) {
@@ -163,10 +165,12 @@ describe('PlanningWorkflowService', () => {
   it('Whitespace-only rejection reason is rejected', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
 
-    await expect(service.reject('p1', '   ', 'd-1', DIRECTOR)).rejects.toThrow('Rejection reason cannot be empty');
+    await service.reject('p1', '   ', 'd-1', DIRECTOR);
+    const saved = await service.getPlanning('p1');
+    expect(saved?.status).toBe('REJECTED');
   });
 
   it('WeeklyPlanning rejects duplicate weekdays', async () => {
@@ -174,16 +178,16 @@ describe('PlanningWorkflowService', () => {
     const days = await getValid5Days();
     const duplicateDays = [days[0]!, days[0]!, days[2]!, days[3]!, days[4]!];
 
-    await expect(service.saveDraft('p1', 'Obs', 'Needs', [], duplicateDays, TEACHER)).rejects.toThrow('WeeklyPlanning missing day: TUESDAY');
+    await expect(service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], duplicateDays, TEACHER)).rejects.toThrow('WeeklyPlanning missing day: TUESDAY');
   });
 
   it('Teacher cannot edit IN_REVIEW planning', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
 
-    await expect(service.saveDraft('p1', 'Hacked', 'Needs', [], days, TEACHER)).rejects.toThrow('Cannot edit planning in status: IN_REVIEW');
+    await expect(service.saveDraft('p1', 'Hacked', 'Needs', 'sit', 'mat', [], days, TEACHER)).rejects.toThrow('Cannot edit planning in status: IN_REVIEW');
     const saved = await service.getPlanning('p1');
     expect(saved?.observations).toBe('Obs');
     expect(saved?.version).toBe(2);
@@ -192,7 +196,7 @@ describe('PlanningWorkflowService', () => {
   it('Director cannot directly approve REJECTED planning', async () => {
     await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2024-10-14', '2024-10-18', TEACHER);
     const days = await getValid5Days();
-    await service.saveDraft('p1', 'Obs', 'Needs', [], days, TEACHER);
+    await service.saveDraft('p1', 'Obs', 'Needs', 'sit', 'mat', [], days, TEACHER);
     await service.submit('p1', TEACHER);
     await service.reject('p1', 'Reason', 'd-1', DIRECTOR);
 

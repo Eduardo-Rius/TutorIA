@@ -5,6 +5,8 @@ export interface PedagogicalRecommendationSource {
   generateRecommendation(
     room: Room,
     observations: string,
-    identifiedNeeds: string
+    identifiedNeeds: string,
+    specialSituations: string,
+    availableMaterials: string
   ): Promise<PlanningDay[]>;
 }

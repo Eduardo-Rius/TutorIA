@@ -43,7 +43,7 @@ describe('FirestoreWeeklyPlanningRepository Serialization', () => {
       materials: ['Mat1']
     }));
 
-    planning.editPedagogicalContent('Obs', 'Needs', ['Ref1'], days);
+    planning.editPedagogicalContent('Obs', 'Needs', 'Special', 'Materials', ['Ref1'], days);
     // Add a review history record
     planning.submit();
     planning.reject('Needs more details', 'director1');
