@@ -19,10 +19,10 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
     const plan = WeeklyPlanning.create('plan-indirect', 'dc-1', 'rm-1', 't1', '2026-08-10', '2026-08-14');
     plan.editPedagogicalContent('Observaciones para INDIRECT', 'needs', 'sit', 'mat', ['ref1'], [
         { dayOfWeek: 'MONDAY', date: '2026-08-10', activities: [{ activityId: 'act1', category: 'C', objective: 'Obj INDIRECT MONDAY', description: 'Desc INDIRECT', durationMinutes: 30, materials: ['Mat Indirect'], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'TUESDAY', date: '2026-08-11', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'WEDNESDAY', date: '2026-08-12', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-11', activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-12', activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ] as any);
     plan.submit();
     await repository.save(plan);
@@ -38,6 +38,15 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
     fireEvent.click(screen.getByText('Ceci (Directora)'));
     await waitFor(() => expect(screen.getByText('Lista para conversar')).toBeTruthy());
     fireEvent.click(screen.getByText('Lista para conversar'));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Lunes 24/i })).toBeTruthy());
+    const daysToReview = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToReview) {
+      fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, "i") }));
+      if (screen.queryByText("Marcar día revisado")) {
+        fireEvent.click(screen.getByText("Marcar día revisado"));
+      }
+    }
+
 
     await waitFor(() => expect(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN')).toBeTruthy());
     fireEvent.click(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN'));
@@ -108,10 +117,25 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
     await waitFor(() => expect(screen.getByText('← Volver al listado')).toBeTruthy());
     fireEvent.click(screen.getByText('← Volver al listado'));
 
+    await waitFor(async () => {
+      const p = await (service as any).repository.listApproved();
+      expect(p.length).toBeGreaterThan(0);
+    });
+    for (const p of Array.from(((service as any).repository as any).data.values()) as any[]) {
+      for (const d of p.days) {
+        d.evaluation = "Evaluación completada";
+        d.evaluationStatus = "APPROVED";
+      }
+      p.status = "CLOSED";
+      p.closedBy = "Ceci";
+      p.closedAt = new Date();
+      await (service as any).repository.save(p);
+    }
+
     // Switch role to Supervisor
     fireEvent.click(screen.getByText('Tere (Supervisora)'));
-    await waitFor(() => expect(screen.getByText('Planeación aprobada')).toBeTruthy());
-    fireEvent.click(screen.getByText('Planeación aprobada'));
+    await waitFor(() => expect(screen.getAllByText(/Semana cerrada/i).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('Anita'));
     await waitFor(() => expect(screen.getByText('VER VERSIÓN OFICIAL IMSS')).toBeTruthy());
 
     // S. Supervisor remains read-only (no approve/reject buttons)
@@ -129,7 +153,7 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
 
   it('Ensures DIRECT Title/Code/Behavior remain unchanged', async () => {
      const plan = WeeklyPlanning.create('plan-direct', 'dc-1', 'rm-1', 't1', '2026-08-10', '2026-08-14');
-     plan.editPedagogicalContent('Observaciones para DIRECT', 'needs', 'sit', 'mat', ['ref1'], [{ dayOfWeek: "MONDAY", date: "2026-08-10", activities: [{ activityId: "act1", category: "C", objective: "Obj DIRECT MONDAY", description: "Desc DIRECT", durationMinutes: 30, materials: ["Mat Direct"], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "TUESDAY", date: "2026-08-11", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "WEDNESDAY", date: "2026-08-12", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "THURSDAY", date: "2026-08-13", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "FRIDAY", date: "2026-08-14", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }] as any);
+     plan.editPedagogicalContent('Observaciones para DIRECT', 'needs', 'sit', 'mat', ['ref1'], [{ dayOfWeek: "MONDAY", date: "2026-08-10", activities: [{ activityId: "act1", category: "C", objective: "Obj DIRECT MONDAY", description: "Desc DIRECT", durationMinutes: 30, materials: ["Mat Direct"], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "TUESDAY", date: "2026-08-11", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "WEDNESDAY", date: "2026-08-12", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "THURSDAY", date: "2026-08-13", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "FRIDAY", date: "2026-08-14", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }] as any);
      plan.submit();
      await repository.save(plan);
 
@@ -139,8 +163,17 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
      fireEvent.click(screen.getByText('Ceci (Directora)'));
      await waitFor(() => expect(screen.getByText('Lista para conversar')).toBeTruthy());
      fireEvent.click(screen.getByText('Lista para conversar'));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Lunes 24/i })).toBeTruthy());
+    const daysToReview = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToReview) {
+      fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, "i") }));
+      if (screen.queryByText("Marcar día revisado")) {
+        fireEvent.click(screen.getByText("Marcar día revisado"));
+      }
+    }
 
-     await waitFor(() => expect(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN')).toBeTruthy());
+
+    await waitFor(() => expect(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN')).toBeTruthy());
      fireEvent.click(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN'));
 
      await waitFor(() => expect(screen.getByText('Versión Oficial IMSS')).toBeTruthy());

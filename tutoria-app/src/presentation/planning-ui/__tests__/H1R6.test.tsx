@@ -19,10 +19,10 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
     const plan = WeeklyPlanning.create('plan-1', 'dc-1', 'rm-1', 't1', '2026-08-10', '2026-08-14');
     plan.editPedagogicalContent('obs', 'needs', 'sit', 'mat', ['ref1'], [
         { dayOfWeek: 'MONDAY', date: '2026-08-10', activities: [{ activityId: 'act1', category: 'C', objective: 'Obj 1', description: 'Desc 1', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'TUESDAY', date: '2026-08-11', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'WEDNESDAY', date: '2026-08-12', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-11', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-12', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ] as any);
     plan.submit();
     await repository.save(plan);
@@ -55,8 +55,8 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
     await waitFor(() => expect(screen.getByDisplayValue('Desc 1')).toBeTruthy());
     fireEvent.change(screen.getByDisplayValue('Desc 1'), { target: { value: 'CORRECTED_ACTIVITY_BETA' } });
 
-    await waitFor(() => expect(screen.getByText('Enviar a Revisión')).toBeTruthy());
-    fireEvent.click(screen.getByText('Enviar a Revisión'));
+    await waitFor(() => expect(screen.getByText('Enviar correcciones a la Directora')).toBeTruthy());
+    fireEvent.click(screen.getByText('Enviar correcciones a la Directora'));
 
     // ROLE: DIRECTOR (Review and Resolve)
     fireEvent.click(screen.getByText('Ceci (Directora)'));
@@ -72,15 +72,39 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
 
     await waitFor(() => expect(screen.getByText('MARCAR COMO ATENDIDA')).toBeTruthy());
     fireEvent.click(screen.getByText('MARCAR COMO ATENDIDA'));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Lunes 24/i })).toBeTruthy());
+    const daysToReview = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToReview) {
+      fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, "i") }));
+      if (screen.queryByText("Marcar día revisado")) {
+        fireEvent.click(screen.getByText("Marcar día revisado"));
+      }
+    }
+
 
     // Approve to archive
     await waitFor(() => expect(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN')).toBeTruthy());
     fireEvent.click(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN'));
 
+    await waitFor(async () => {
+      const p = await repository.listApproved();
+      expect(p.length).toBeGreaterThan(0);
+    });
+    for (const p of Array.from((repository as any).data.values()) as any[]) {
+      for (const d of p.days) {
+        d.evaluation = "Evaluación completada";
+        d.evaluationStatus = "APPROVED";
+      }
+      p.status = "CLOSED";
+      p.closedBy = "Ceci";
+      p.closedAt = new Date();
+      await repository.save(p);
+    }
+
     // ROLE: SUPERVISOR (Audit)
     fireEvent.click(screen.getByText('Tere (Supervisora)'));
-    await waitFor(() => expect(screen.getByText(/Planeación aprobada/i)).toBeTruthy());
-    fireEvent.click(screen.getByText(/Planeación aprobada/i));
+    await waitFor(() => expect(screen.getAllByText(/Semana cerrada/i).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('Anita'));
 
     await waitFor(() => expect(screen.getByText('VER HISTORIAL DE CAMBIOS')).toBeTruthy());
     fireEvent.click(screen.getByText('VER HISTORIAL DE CAMBIOS'));
@@ -96,10 +120,10 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
     const plan = WeeklyPlanning.create('plan-2', 'dc-1', 'rm-1', 't1', '2026-08-10', '2026-08-14');
     plan.editPedagogicalContent('obs', 'needs', 'sit', 'mat', ['ref1'], [
         { dayOfWeek: 'MONDAY', date: '2026-08-10', activities: [{ activityId: 'act1', category: 'C', objective: 'Obj 1', description: 'ORIGINAL_A', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'TUESDAY', date: '2026-08-11', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'WEDNESDAY', date: '2026-08-12', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
-        { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-11', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-12', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ] as any);
     plan.submit();
     await repository.save(plan);
@@ -128,7 +152,7 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
     fireEvent.click(screen.getByText('Obj 1'));
     await waitFor(() => expect(screen.getByDisplayValue('ORIGINAL_A')).toBeTruthy());
     fireEvent.change(screen.getByDisplayValue('ORIGINAL_A'), { target: { value: 'CORRECTED_B' } });
-    fireEvent.click(screen.getByText('Enviar a Revisión'));
+    fireEvent.click(screen.getByText('Enviar correcciones a la Directora'));
 
     // ROLE: DIRECTOR (Round 2)
     fireEvent.click(screen.getByText('Ceci (Directora)'));
@@ -152,7 +176,7 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
     fireEvent.click(screen.getByText('Obj 1'));
     await waitFor(() => expect(screen.getByDisplayValue('CORRECTED_B')).toBeTruthy());
     fireEvent.change(screen.getByDisplayValue('CORRECTED_B'), { target: { value: 'CORRECTED_C' } });
-    fireEvent.click(screen.getByText('Enviar a Revisión'));
+    fireEvent.click(screen.getByText('Enviar correcciones a la Directora'));
 
     // ROLE: DIRECTOR (Approve)
     fireEvent.click(screen.getByText('Ceci (Directora)'));
@@ -163,14 +187,38 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
     fireEvent.click(screen.getByText('Obj 1'));
     await waitFor(() => expect(screen.getByText('MARCAR COMO ATENDIDA')).toBeTruthy());
     fireEvent.click(screen.getByText('MARCAR COMO ATENDIDA'));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Lunes 24/i })).toBeTruthy());
+    const daysToReview = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToReview) {
+      fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, "i") }));
+      if (screen.queryByText("Marcar día revisado")) {
+        fireEvent.click(screen.getByText("Marcar día revisado"));
+      }
+    }
+
 
     await waitFor(() => expect(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN')).toBeTruthy());
     fireEvent.click(screen.getByText('✓ APROBAR TODA LA PLANEACIÓN'));
 
+    await waitFor(async () => {
+      const p = await repository.listApproved();
+      expect(p.length).toBeGreaterThan(0);
+    });
+    for (const p of Array.from((repository as any).data.values()) as any[]) {
+      for (const d of p.days) {
+        d.evaluation = "Evaluación completada";
+        d.evaluationStatus = "APPROVED";
+      }
+      p.status = "CLOSED";
+      p.closedBy = "Ceci";
+      p.closedAt = new Date();
+      await repository.save(p);
+    }
+
     // ROLE: SUPERVISOR (Audit Chain)
     fireEvent.click(screen.getByText('Tere (Supervisora)'));
-    await waitFor(() => expect(screen.getByText(/Planeación aprobada/i)).toBeTruthy());
-    fireEvent.click(screen.getByText(/Planeación aprobada/i));
+    await waitFor(() => expect(screen.getAllByText(/Semana cerrada/i).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText('Anita'));
     await waitFor(() => expect(screen.getByText('VER HISTORIAL DE CAMBIOS')).toBeTruthy());
     fireEvent.click(screen.getByText('VER HISTORIAL DE CAMBIOS'));
 
@@ -195,10 +243,10 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
 
     // Educator edit
     plan.days = [{ dayOfWeek: 'MONDAY', activities: [{ activityId: 'act1', category: '', objective: 'obj', description: 'XYZ', materials: [], durationMinutes: 10, curricularTraceability: [] }], complementaryActivities: [], materials: [] } as any,
-                 { dayOfWeek: 'TUESDAY', activities: [], complementaryActivities: [], materials: [] } as any,
-                 { dayOfWeek: 'WEDNESDAY', activities: [], complementaryActivities: [], materials: [] } as any,
-                 { dayOfWeek: 'THURSDAY', activities: [], complementaryActivities: [], materials: [] } as any,
-                 { dayOfWeek: 'FRIDAY', activities: [], complementaryActivities: [], materials: [] } as any];
+                 { dayOfWeek: 'TUESDAY', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [] } as any,
+                 { dayOfWeek: 'WEDNESDAY', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [] } as any,
+                 { dayOfWeek: 'THURSDAY', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [] } as any,
+                 { dayOfWeek: 'FRIDAY', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [] } as any];
 
     // Add a granular observation
     plan.submit();

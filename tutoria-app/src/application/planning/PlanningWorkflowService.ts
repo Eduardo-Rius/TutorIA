@@ -1,4 +1,4 @@
-import { WeeklyPlanning, PlanningDay } from '../../domain/planning/WeeklyPlanning';
+import { WeeklyPlanning, PlanningDay, WeeklyContextSnapshot } from '../../domain/planning/WeeklyPlanning';
 import { InMemoryWeeklyPlanningRepository } from '../../infrastructure/repositories/InMemoryWeeklyPlanningRepository';
 import { RoomCatalog } from '../../domain/planning/RoomCatalog';
 
@@ -34,14 +34,32 @@ export class PlanningWorkflowService {
     availableMaterials: string,
     curricularReferences: string[],
     days: PlanningDay[],
-    role: PlanningActorRole
+    role: PlanningActorRole,
+    originalContext?: WeeklyContextSnapshot
   ): Promise<void> {
     if (role !== 'TEACHER') throw new Error('Only Teacher can save draft');
 
     const planning = await this.repository.findById(planningId);
     if (!planning) throw new Error('Planning not found');
 
-    planning.editPedagogicalContent(observations, identifiedNeeds, specialSituations, availableMaterials, curricularReferences, days);
+    planning.editPedagogicalContent(observations, identifiedNeeds, specialSituations, availableMaterials, curricularReferences, days, originalContext);
+    await this.repository.save(planning);
+  }
+
+  public async updateWeeklyContext(
+    planningId: string,
+    observations: string,
+    identifiedNeeds: string,
+    specialSituations: string,
+    availableMaterials: string,
+    role: PlanningActorRole
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can edit weekly context");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.updateWeeklyContext(observations, identifiedNeeds, specialSituations, availableMaterials);
     await this.repository.save(planning);
   }
 
@@ -94,6 +112,18 @@ export class PlanningWorkflowService {
     await this.repository.save(planning);
   }
 
+  public async markDirectorDayReviewed(
+    planningId: string,
+    dayOfWeek: PlanningDay["dayOfWeek"],
+    role: PlanningActorRole
+  ): Promise<void> {
+    if (role !== "DIRECTOR") throw new Error("Only Director can mark day as reviewed");
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+    planning.markDirectorDayReviewed(dayOfWeek);
+    await this.repository.save(planning);
+  }
+
   public async approve(planningId: string, role: PlanningActorRole, approvedBy: string): Promise<void> {
     if (role !== 'DIRECTOR') {throw new Error('Only Director can approve planning');}
 
@@ -118,7 +148,130 @@ export class PlanningWorkflowService {
   }
 
   public async listSupervisorApprovedPlanning(role: PlanningActorRole): Promise<WeeklyPlanning[]> {
-    if (role !== 'SUPERVISOR') throw new Error('Unauthorized');
+    if (role !== 'SUPERVISOR' && role !== 'DIRECTOR') throw new Error('Unauthorized');
     return this.repository.listApproved();
+  }
+
+  public async listSupervisorClosedPlanning(role: PlanningActorRole): Promise<WeeklyPlanning[]> {
+    if (role !== 'SUPERVISOR') throw new Error('Unauthorized');
+    return this.repository.listClosed();
+  }
+  public async saveDailyEvaluationDraft(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    role: PlanningActorRole,
+    currentDate?: string,
+    teacherId?: string
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can save daily evaluation draft");
+    if (!currentDate) throw new Error("Current date is required for temporal evaluation authorization");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.saveDailyEvaluationDraft(dayOfWeekOrDate, evaluation, currentDate, teacherId);
+    await this.repository.save(planning);
+  }
+
+  public async submitDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    role: PlanningActorRole,
+    currentDate?: string,
+    teacherId?: string
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can submit daily evaluation");
+    if (!currentDate) throw new Error("Current date is required for temporal evaluation authorization");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.submitDailyEvaluation(dayOfWeekOrDate, evaluation, currentDate, teacherId);
+    await this.repository.save(planning);
+  }
+
+  public async resubmitDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    role: PlanningActorRole,
+    currentDate?: string,
+    teacherId?: string
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can resubmit daily evaluation");
+    if (!currentDate) throw new Error("Current date is required for temporal evaluation authorization");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.resubmitDailyEvaluation(dayOfWeekOrDate, evaluation, currentDate, teacherId);
+    await this.repository.save(planning);
+  }
+
+  public async approveDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    role: PlanningActorRole,
+    directorId: string = "Ceci"
+  ): Promise<void> {
+    if (role !== "DIRECTOR") throw new Error("Only Director can approve daily evaluation");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.approveDailyEvaluation(dayOfWeekOrDate, directorId);
+    await this.repository.save(planning);
+  }
+
+  public async requestDailyEvaluationChange(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    comment: string,
+    role: PlanningActorRole,
+    directorId: string = "Ceci"
+  ): Promise<void> {
+    if (role !== "DIRECTOR") throw new Error("Only Director can request changes to daily evaluation");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.requestDailyEvaluationChange(dayOfWeekOrDate, comment, directorId);
+    await this.repository.save(planning);
+  }
+
+  public async saveDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    role: PlanningActorRole,
+    currentDate?: string
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can record daily evaluation");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    if (!currentDate) {
+      throw new Error("Current date is required for temporal evaluation authorization");
+    }
+    planning.saveDailyEvaluation(dayOfWeekOrDate, evaluation, currentDate);
+    await this.repository.save(planning);
+  }
+
+  public async closeWeek(
+    planningId: string,
+    role: PlanningActorRole,
+    directorId: string = "Ceci",
+    closedAt: Date = new Date()
+  ): Promise<void> {
+    if (role !== "DIRECTOR") throw new Error("Only Director can formally close the week");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.closeWeek(directorId, closedAt);
+    await this.repository.save(planning);
   }
 }

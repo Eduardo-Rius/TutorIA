@@ -50,7 +50,19 @@ export class InMemoryWeeklyPlanningRepository {
 
   public async listApproved(): Promise<WeeklyPlanning[]> {
     return Array.from(this.data.values())
-      .filter(p => p.status === 'APPROVED')
+      .filter(p => p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION' || p.status === 'CLOSED')
+      .map(p => {
+        const serialized = JSON.stringify(p);
+        return Object.assign(
+          WeeklyPlanning.create('', '', '', '', '', ''),
+          JSON.parse(serialized)
+        );
+      });
+  }
+
+  public async listClosed(): Promise<WeeklyPlanning[]> {
+    return Array.from(this.data.values())
+      .filter(p => p.status === 'CLOSED')
       .map(p => {
         const serialized = JSON.stringify(p);
         return Object.assign(

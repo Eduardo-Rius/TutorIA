@@ -25,10 +25,10 @@ describe("H1R7.1: PRINT WINDOW INJECTION VERIFICATION", () => {
     const plan = WeeklyPlanning.create("plan-indirect", "dc-1", "rm-1", "t1", "2026-08-10", "2026-08-14");
     plan.editPedagogicalContent("Obs INDIRECT", "needs", "sit", "mat", ["ref1"], [
         { dayOfWeek: "MONDAY", date: "2026-08-10", activities: [{ activityId: "act1", category: "C", objective: "Obj INDIRECT MONDAY", description: "Desc", durationMinutes: 30, materials: ["Mat"], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
-        { dayOfWeek: "TUESDAY", date: "2026-08-11", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
-        { dayOfWeek: "WEDNESDAY", date: "2026-08-12", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
-        { dayOfWeek: "THURSDAY", date: "2026-08-13", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
-        { dayOfWeek: "FRIDAY", date: "2026-08-14", activities: [], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }
+        { dayOfWeek: "TUESDAY", date: "2026-08-11", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
+        { dayOfWeek: "WEDNESDAY", date: "2026-08-12", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
+        { dayOfWeek: "THURSDAY", date: "2026-08-13", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
+        { dayOfWeek: "FRIDAY", date: "2026-08-14", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }
     ] as any);
     plan.submit();
     await repository.save(plan);
@@ -42,6 +42,16 @@ describe("H1R7.1: PRINT WINDOW INJECTION VERIFICATION", () => {
     fireEvent.click(screen.getByText("Ceci (Directora)"));
     await waitFor(() => expect(screen.getByText("Lista para conversar")).toBeTruthy());
     fireEvent.click(screen.getByText("Lista para conversar"));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Lunes 24/i })).toBeTruthy());
+    const daysToReview = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToReview) {
+      fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, "i") }));
+      if (screen.queryByText("Marcar día revisado")) {
+        fireEvent.click(screen.getByText("Marcar día revisado"));
+      }
+    }
+
+
     await waitFor(() => expect(screen.getByText("✓ APROBAR TODA LA PLANEACIÓN")).toBeTruthy());
     fireEvent.click(screen.getByText("✓ APROBAR TODA LA PLANEACIÓN"));
     await waitFor(() => expect(screen.getByText("Versión Oficial IMSS")).toBeTruthy());

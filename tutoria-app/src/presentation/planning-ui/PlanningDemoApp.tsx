@@ -34,10 +34,16 @@ const VISUAL_STEPS = [
 export interface PlanningDemoAppProps {
   service: PlanningWorkflowService;
   source: PedagogicalRecommendationSource;
+  currentDate?: string;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, source }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, source, currentDate }) => {
   const [role, setRole] = useState<PlanningActorRole>('TEACHER');
+  const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
+
+  useEffect(() => {
+    if (currentDate) setSimulatedDate(currentDate);
+  }, [currentDate]);
   const [view, setView] = useState<'LIST' | 'CREATE' | 'REVIEW' | 'PRINT'>('LIST');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -61,15 +67,24 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, sourc
           <option value="DIRECT">Prestación Directa (LAB)</option>
           <option value="INDIRECT">Prestación Indirecta (LAB)</option>
         </select>
-        <button onClick={() => { setRole('TEACHER'); setView('LIST'); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'TEACHER' ? 'bg-role-teacher text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
+        <div className="flex items-center gap-1 text-[10px] text-gray-400 ml-2">
+          <span>Fecha Demo:</span>
+          <button onClick={() => setSimulatedDate('2026-08-23')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-23' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>23</button>
+          <button onClick={() => setSimulatedDate('2026-08-24')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-24' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>24 (L)</button>
+          <button onClick={() => setSimulatedDate('2026-08-25')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-25' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>25 (M)</button>
+          <button onClick={() => setSimulatedDate('2026-08-26')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-26' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>26 (X)</button>
+          <button onClick={() => setSimulatedDate('2026-08-27')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-27' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>27 (J)</button>
+          <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>28 (V)</button>
+        </div>
+        <button onClick={() => { setRole('TEACHER'); setView('LIST'); setRefreshKey(k => k + 1); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'TEACHER' ? 'bg-role-teacher text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
           <img src={personas.anita} alt="Anita" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Anita (Pedagoga)
         </button>
-        <button onClick={() => { setRole('DIRECTOR'); setView('LIST'); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'DIRECTOR' ? 'bg-role-director text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
+        <button onClick={() => { setRole('DIRECTOR'); setView('LIST'); setRefreshKey(k => k + 1); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'DIRECTOR' ? 'bg-role-director text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
           <img src={personas.ceci} alt="Ceci" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Ceci (Directora)
         </button>
-        <button onClick={() => { setRole('SUPERVISOR'); setView('LIST'); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'SUPERVISOR' ? 'bg-role-supervisor text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
+        <button onClick={() => { setRole('SUPERVISOR'); setView('LIST'); setRefreshKey(k => k + 1); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'SUPERVISOR' ? 'bg-role-supervisor text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
           <img src={personas.tere} alt="Tere" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Tere (Supervisora)
         </button>
@@ -100,7 +115,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, sourc
 
       <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
         {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
-        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} planId={selectedPlanId} modality={modality} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} planId={selectedPlanId} modality={modality} currentDate={simulatedDate} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
         {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
@@ -120,7 +135,7 @@ const TeacherList = ({ service, onNew, onSelect, refreshKey, modality }: { servi
       <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola Anita 👋</h2>
       <p className="text-2xl text-text-muted mb-8 max-w-xl leading-relaxed">
         Vamos a preparar tu semana.<br/>
-        Del 10 al 14 de agosto para <span className="font-bold text-text-primary">Lactantes C</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
+        Del 24 al 28 de agosto para <span className="font-bold text-text-primary">Lactantes C</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
       </p>
 
       <p className="text-sm font-medium text-brand-primary bg-surface-ivory px-6 py-3 rounded-full mb-10 shadow-sm border border-brand-primary/20">
@@ -139,11 +154,13 @@ const TeacherList = ({ service, onNew, onSelect, refreshKey, modality }: { servi
                  {p.status === 'DRAFT' && 'Trabajando en la propuesta'}
                  {p.status === 'IN_REVIEW' && 'La Directora la está leyendo'}
                  {p.status === 'REJECTED' && 'Revisar sugerencias de la Directora'}
-                 {p.status === 'APPROVED' && 'Propuesta lista para usarse 🌟'}
+                 {(p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION') && 'Propuesta lista para usarse 🌟 (Aprobada para ejecución)'}
+                 {p.status === 'CLOSED' && 'Semana cerrada ✓ (Registro completado)'}
                </span>
                {p.status === 'REJECTED' && <span className="w-3 h-3 bg-status-adjustment rounded-full"></span>}
+               {p.status === 'CLOSED' && <span className="text-xs font-bold bg-teal-100 text-teal-800 border border-teal-300 px-2.5 py-0.5 rounded-full">Cerrada</span>}
              </div>
-             <p className="text-sm text-text-muted font-medium">Continuar donde nos quedamos</p>
+             <p className="text-sm text-text-muted font-medium">{p.status === 'CLOSED' ? 'Semana concluida y archivada' : 'Continuar donde nos quedamos'}</p>
            </button>
         ))}
       </div>
@@ -151,24 +168,95 @@ const TeacherList = ({ service, onNew, onSelect, refreshKey, modality }: { servi
   );
 };
 
-const WeekDayTabs = ({ days, activeIndex, onSelect }: { days: PlanningDay[], activeIndex: number, onSelect: (idx: number) => void }) => (
+const WeekDayTabs = ({
+  days,
+  activeIndex,
+  onSelect,
+  reviewedDays,
+  requiredCorrectionDays,
+  isCorrectionRound,
+  isApprovedPlanning,
+  role
+}: {
+  days: PlanningDay[];
+  activeIndex: number;
+  onSelect: (idx: number) => void;
+  reviewedDays?: Record<string, boolean>;
+  requiredCorrectionDays?: string[];
+  isCorrectionRound?: boolean;
+  isApprovedPlanning?: boolean;
+  role?: string;
+}) => (
   <div className="max-w-4xl mx-auto flex justify-between gap-3 mb-10 overflow-x-auto pb-4 px-2" role="tablist">
     {days.map((d, idx) => {
       const isActive = idx === activeIndex;
-      const label = d.dayOfWeek === 'MONDAY' ? 'Lunes' :
-                    d.dayOfWeek === 'TUESDAY' ? 'Martes' :
-                    d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' :
-                    d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
+
+      let bgClass = "bg-white text-text-muted border-border-default hover:border-brand-primary/50 hover:text-brand-dark hover:bg-surface-ivory shadow-sm";
+      let icon = "";
+
+      if (isApprovedPlanning) {
+        // DAILY EVALUATION STATUS VISUAL NAVIGATION (H1R9-C.4.1 & H1R9-D.2)
+        const isResubmitted = d.evaluationResubmitted || Boolean(d.evaluationHistory && d.evaluationHistory.length > 0);
+
+        if (d.evaluationStatus === 'APPROVED') {
+          bgClass = "bg-green-100 text-green-900 border-green-300 ring-green-200 hover:shadow-sm";
+          icon = "✓ ";
+          if (isActive) bgClass = "bg-green-600 text-white border-green-700 shadow-md ring-4 ring-green-600/20";
+        } else if (d.evaluationStatus === 'CHANGES_REQUESTED') {
+          bgClass = "bg-orange-100 text-orange-900 border-orange-300 ring-orange-200 hover:shadow-sm";
+          icon = "🟠 ";
+          if (isActive) bgClass = "bg-orange-500 text-white border-orange-600 shadow-md ring-4 ring-orange-500/20";
+        } else if (d.evaluationStatus === 'IN_REVIEW') {
+          if (role === 'DIRECTOR' && isResubmitted) {
+            bgClass = "bg-orange-100 text-orange-900 border-orange-300 ring-orange-200 hover:shadow-sm";
+            icon = "🟠 ";
+            if (isActive) bgClass = "bg-orange-500 text-white border-orange-600 shadow-md ring-4 ring-orange-500/20";
+          } else {
+            bgClass = "bg-blue-100 text-blue-900 border-blue-300 ring-blue-200 hover:shadow-sm";
+            icon = "⏳ ";
+            if (isActive) bgClass = "bg-blue-600 text-white border-blue-700 shadow-md ring-4 ring-blue-600/20";
+          }
+        } else if (d.evaluationStatus === 'DRAFT') {
+          bgClass = "bg-teal-50 text-teal-900 border-teal-200 hover:shadow-sm";
+          icon = "📝 ";
+          if (isActive) bgClass = "bg-teal-600 text-white border-teal-700 shadow-md ring-4 ring-teal-600/20";
+        } else {
+          if (isActive) bgClass = "bg-brand-primary text-white border-brand-primary shadow-md ring-4 ring-brand-primary/20";
+        }
+      } else {
+        // PLANNING REVIEW WORKFLOW (Before APPROVED)
+        const isReqCorrection = requiredCorrectionDays?.includes(d.dayOfWeek);
+        const isReviewed = reviewedDays?.[d.dayOfWeek] || (isCorrectionRound && !isReqCorrection);
+
+        if (isReqCorrection) {
+          bgClass = "bg-orange-100 text-orange-900 border-orange-300 ring-orange-200 hover:shadow-sm";
+          icon = "🟠 ";
+        } else if (isReviewed) {
+          bgClass = "bg-green-100 text-green-900 border-green-300 ring-green-200 hover:shadow-sm";
+          icon = "✓ ";
+        }
+
+        if (isActive) {
+          if (isReqCorrection) bgClass = "bg-orange-500 text-white border-orange-600 shadow-md ring-4 ring-orange-500/20";
+          else if (isReviewed) bgClass = "bg-green-600 text-white border-green-700 shadow-md ring-4 ring-green-600/20";
+          else bgClass = "bg-brand-primary text-white border-brand-primary shadow-md ring-4 ring-brand-primary/20";
+        }
+      }
+
+      const label = d.dayOfWeek === 'MONDAY' ? 'Lunes 24' :
+                    d.dayOfWeek === 'TUESDAY' ? 'Martes 25' :
+                    d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' :
+                    d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28';
       return (
         <button
           key={d.dayOfWeek}
           role="tab"
           aria-selected={isActive}
-          aria-controls={`panel-${d.dayOfWeek}`}
+          aria-controls={'panel-' + d.dayOfWeek}
           onClick={() => onSelect(idx)}
-          className={`flex-1 min-w-[140px] px-6 py-4 rounded-full font-bold text-lg transition border whitespace-nowrap outline-none focus:ring-4 focus:ring-brand-primary/30 ${isActive ? 'bg-brand-primary text-white border-brand-primary shadow-md ring-4 ring-brand-primary/20' : 'bg-white text-text-muted border-border-default hover:border-brand-primary/50 hover:text-brand-dark hover:bg-surface-ivory shadow-sm'}`}
+          className={`flex-1 min-w-[140px] px-6 py-4 rounded-full font-bold text-lg transition border whitespace-nowrap outline-none focus:ring-4 focus:ring-brand-primary/30 ${bgClass}`}
         >
-          {label}
+          {icon}{label}
         </button>
       );
     })}
@@ -226,14 +314,31 @@ const getDaySpecificMaterials = (day: PlanningDay, commonMaterials: string[]): s
 
 
 
-const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, role, onViewOfficial }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void }) => {
+export const formatDayDateMessage = (dateStr: string): string => {
+  const parts = dateStr.split("-").map(Number);
+  const y = parts[0] || 2026;
+  const m = parts[1] || 1;
+  const d = parts[2] || 1;
+  const dateObj = new Date(Date.UTC(y, m - 1, d));
+  const dayNames = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const monthNames = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+  ];
+  return `${dayNames[dateObj.getUTCDay()]} ${d} de ${monthNames[dateObj.getUTCMonth()]}`;
+};
+
+const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
   const [specialSituations, setSpecialSituations] = useState('');
   const [availableMaterials, setAvailableMaterials] = useState('');
+  const [originalContext, setOriginalContext] = useState<any>(null);
 
   const [days, setDays] = useState<PlanningDay[]>([]);
   const [status, setStatus] = useState<string>('DRAFT');
+  const [planningObj, setPlanningObj] = useState<any>(null);
+  const [weekStart, setWeekStart] = useState<string>(MOCK_START);
   const [granularObservations, setGranularObservations] = useState<any[]>([]);
 
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
@@ -243,19 +348,32 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
   const currentPlanId = planId || stableIdRef.current;
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mondayProposal, setMondayProposal] = useState<PlanningDay | null>(null);
+  const [contextLocked, setContextLocked] = useState(false);
+  const [reviewedDays, setReviewedDays] = useState<Record<string, boolean>>({});
   const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
+  const [dailyEvaluations, setDailyEvaluations] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (planId) {
       service.getPlanning(planId).then((p: any) => {
         if (p) {
+          setPlanningObj(p);
           setObs(p.observations || '');
           setNeeds(p.identifiedNeeds || '');
           setSpecialSituations(p.specialSituations || '');
           setAvailableMaterials(p.availableMaterials || '');
           setGranularObservations(p.granularObservations || []);
+          if (p.originalContext) {
+            setOriginalContext(p.originalContext);
+          } else if (p.days && p.days.some((d: any) => d.activities && d.activities.length > 0)) {
+            setOriginalContext({
+              observations: p.observations || '',
+              identifiedNeeds: p.identifiedNeeds || '',
+              specialSituations: p.specialSituations || '',
+              availableMaterials: p.availableMaterials || ''
+            });
+          }
 
           if (p.days.length === 0) {
             setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
@@ -263,8 +381,19 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
             })));
           } else {
             setDays(p.days);
+            if (p.days.some((d: any) => d.activities && d.activities.length > 0)) {
+              setContextLocked(true);
+            }
           }
           setStatus(p.status);
+          if (p.weekStart) setWeekStart(p.weekStart);
+          if (p.days) {
+            const evals: Record<string, string> = {};
+            for (const d of p.days) {
+              if (d.evaluation) evals[d.dayOfWeek] = d.evaluation;
+            }
+            setDailyEvaluations(evals);
+          }
         }
       });
     } else {
@@ -278,32 +407,60 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
     }
   }, [planId, currentPlanId, service, role]);
 
-  const handleRecommendMonday = async () => {
+  const handleGenerateWeek = async () => {
     setIsGenerating(true);
     const recommended = await source.generateRecommendation(RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
-    const mondayRec = recommended.find(d => d.dayOfWeek === 'MONDAY');
-    if (mondayRec) {
-      setTimeout(() => {
-        setMondayProposal(mondayRec);
-        setIsGenerating(false);
-      }, process.env.NODE_ENV === 'test' ? 0 : 2000);
+    const initialSnapshot = {
+      observations: obs,
+      identifiedNeeds: needs,
+      specialSituations: specialSituations,
+      availableMaterials: availableMaterials
+    };
+    setTimeout(async () => {
+      setDays(recommended);
+      setReviewedDays({ MONDAY: false, TUESDAY: false, WEDNESDAY: false, THURSDAY: false, FRIDAY: false });
+      setOriginalContext(initialSnapshot);
+      setContextLocked(true);
+      setIsGenerating(false);
+      try {
+        await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], recommended, 'TEACHER', initialSnapshot);
+      } catch (err) {}
+    }, process.env.NODE_ENV === 'test' ? 0 : 2000);
+  };
+
+  const handleSaveDay = () => {
+    const activeDayName = days[activeDayIndex]?.dayOfWeek;
+    if (activeDayName) {
+      setReviewedDays(prev => ({ ...prev, [activeDayName]: true }));
+      // Automatically move to next day if not the last one
+      if (activeDayIndex < 4) {
+        setActiveDayIndex(activeDayIndex + 1);
+      }
     }
   };
 
-  const handleAcceptProposal = () => {
-    if (mondayProposal) {
-      setDays(d => d.map(day => day.dayOfWeek === 'MONDAY' ? mondayProposal : day));
-      setMondayProposal(null);
+    const handleSaveContextEdit = async () => {
+    setContextLocked(true);
+    if (!originalContext) {
+      setOriginalContext({
+        observations: obs,
+        identifiedNeeds: needs,
+        specialSituations: specialSituations,
+        availableMaterials: availableMaterials
+      });
     }
-  };
-
-  const handleDiscardProposal = () => {
-    setMondayProposal(null);
+    try {
+      if (days.length === 5 && days.some(d => d.activities && d.activities.length > 0)) {
+        await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
+      }
+    } catch (err) {}
+    setToastMessage('✓ Contexto semanal guardado.');
+    setTimeout(() => setToastMessage(''), 2000);
   };
 
   const handleSaveDraft = async () => {
     if (days.length === 5) {
-      await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
+      await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
 
       // Auto-update local status for UX so color changes to yellow
       const updated = await service.getPlanning(currentPlanId);
@@ -318,7 +475,7 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
     if (status === 'REJECTED') {
       await service.resubmit(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
     } else {
-      if (days.length === 5) await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
+      if (days.length === 5) await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
       await service.submit(currentPlanId, 'TEACHER');
     }
     setStatus('IN_REVIEW');
@@ -330,7 +487,22 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
     }, 2500);
   };
 
-  const readOnly = status === 'IN_REVIEW' || status === 'APPROVED' || role !== 'TEACHER';
+  const readOnly = status === 'IN_REVIEW' || status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED' || role !== 'TEACHER';
+
+  const requiredCorrectionDays = React.useMemo(() => {
+    if (status !== 'REJECTED') return [];
+    const req = new Set<string>();
+    granularObservations.forEach((obs: any) => {
+      if (obs.status === 'PENDING_CORRECTION') {
+        for (const d of days) {
+          if (d.activities && d.activities.some((a: any) => a.activityId === obs.targetId)) {
+            req.add(d.dayOfWeek);
+          }
+        }
+      }
+    });
+    return Array.from(req);
+  }, [status, granularObservations, days]);
 
   return (
     <div className="flex flex-col relative animate-fade-in pb-20 max-w-4xl mx-auto">
@@ -344,7 +516,16 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
         <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
         <div className="flex items-center gap-4">
           <span className="text-sm font-bold text-teal-700 bg-teal-50 px-4 py-2 rounded-full border border-teal-200">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
-          {(status === 'APPROVED' || role === 'SUPERVISOR') && (
+          {status === 'CLOSED' ? (
+            <span className="text-sm font-bold text-teal-900 bg-teal-100 px-4 py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
+              <span>✓</span> Semana cerrada
+            </span>
+          ) : (status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION') && (
+            <span className="text-sm font-bold text-green-800 bg-green-50 px-4 py-2 rounded-full border border-green-200">
+              Aprobada para ejecución
+            </span>
+          )}
+          {(status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED' || role === 'SUPERVISOR') && (
             <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
               Versión Oficial IMSS
             </button>
@@ -358,7 +539,54 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
       <div className="space-y-8 pb-8">
         {days.length > 0 && (
           <>
-            <WeekDayTabs days={days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} />
+
+            <div className="bg-surface-ivory p-6 rounded-xl border border-teal-100 shadow-sm mb-8 animate-fade-in">
+              <h4 className="text-xl font-bold text-teal-900 mb-4 border-b border-teal-50 pb-2">Contexto Pedagógico Semanal</h4>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">1. ¿Qué observaste en el grupo?</label>
+                  <textarea disabled={readOnly || contextLocked} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ej: Los niños muestran interés en los sonidos..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">2. ¿Qué necesitan fortalecer?</label>
+                  <textarea disabled={readOnly || contextLocked} value={needs} onChange={e => setNeeds(e.target.value)} placeholder="Ej: Control postural, atención conjunta..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">3. ¿Hay situaciones a considerar?</label>
+                  <textarea disabled={readOnly || contextLocked} value={specialSituations} onChange={e => setSpecialSituations(e.target.value)} placeholder="Ej: Dos niños nuevos en adaptación..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">4. ¿Qué materiales tienes disponibles?</label>
+                  <textarea disabled={readOnly || contextLocked} value={availableMaterials} onChange={e => setAvailableMaterials(e.target.value)} placeholder="Ej: Sonajas, colchonetas, pintura dactilar..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                </div>
+              </div>
+
+              {days.some(d => d.activities && d.activities.length > 0) && !readOnly && (
+                <div className="mt-4 flex justify-end">
+                  {contextLocked ? (
+                    <button onClick={() => setContextLocked(false)} className="text-sm font-bold text-teal-700 hover:text-teal-900 flex items-center gap-2">
+                      ✏️ Editar contexto semanal
+                    </button>
+                  ) : (
+                    <button onClick={handleSaveContextEdit} className="text-sm font-bold bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-full shadow-sm flex items-center gap-2 transition">
+                      💾 Guardar contexto semanal
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {!days.some(d => d.activities && d.activities.length > 0) && !isGenerating && !readOnly && (
+                <div className="text-center mt-8 pt-6 border-t border-teal-100">
+                  <button onClick={handleGenerateWeek} disabled={!obs || readOnly} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
+                    ✨ Ayúdame con TutorIA (Generar Semana)
+                  </button>
+                  <p className="text-xs text-text-muted mt-3 uppercase tracking-wider font-bold">Generará los 5 días basándose en este contexto</p>
+                </div>
+              )}
+            </div>
+
+            <WeekDayTabs days={days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} reviewedDays={reviewedDays} requiredCorrectionDays={requiredCorrectionDays} isCorrectionRound={status === 'REJECTED'} isApprovedPlanning={status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED'} role="TEACHER" />
+
 
             {(() => {
               const d = days[activeDayIndex];
@@ -366,85 +594,22 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
               const isMonday = d.dayOfWeek === 'MONDAY';
               const hasActivities = d.activities && d.activities.length > 0;
 
-              if (!isMonday && !hasActivities) {
-                return (
-                  <div key={d.dayOfWeek} className="w-full bg-surface-soft rounded-xl border border-border-soft p-12 text-center text-text-muted font-medium animate-fade-in">
-                    <p className="text-xl">Día pendiente de planeación.</p>
-                    <p className="text-sm mt-2">(Marcador de posición para pruebas de progreso diario)</p>
-                  </div>
-                );
-              }
+
 
               return (
                 <div key={d.dayOfWeek} className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
                   <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
-                    {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                    {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
                   </h4>
 
-                  {!hasActivities && isMonday && !mondayProposal && !isGenerating && (
-                    <div className="mt-8 space-y-6">
-                      <div className="bg-surface-ivory p-6 rounded-xl border border-teal-100 shadow-sm">
-                        <h4 className="text-xl font-bold text-teal-900 mb-4 border-b border-teal-50 pb-2">Contexto Pedagógico de tu Grupo</h4>
-
-                        <div className="space-y-5">
-                          <div>
-                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">1. ¿Qué observaste en el grupo?</label>
-                            <textarea disabled={readOnly} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ej: Los niños muestran interés en los sonidos..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">2. ¿Qué necesitan fortalecer?</label>
-                            <textarea disabled={readOnly} value={needs} onChange={e => setNeeds(e.target.value)} placeholder="Ej: Control postural, atención conjunta..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">3. ¿Hay situaciones a considerar?</label>
-                            <textarea disabled={readOnly} value={specialSituations} onChange={e => setSpecialSituations(e.target.value)} placeholder="Ej: Dos niños nuevos en adaptación..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">4. ¿Qué materiales tienes disponibles?</label>
-                            <textarea disabled={readOnly} value={availableMaterials} onChange={e => setAvailableMaterials(e.target.value)} placeholder="Ej: Sonajas, colchonetas, pintura dactilar..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-center mt-8">
-                        <button onClick={handleRecommendMonday} disabled={!obs || readOnly} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
-                          ✨ Ayúdame con TutorIA
-                        </button>
-                        <p className="text-xs text-text-muted mt-3 uppercase tracking-wider font-bold">Asistente IA (Mock / Demo)</p>
-                      </div>
+                  {!hasActivities && !isGenerating && (
+                    <div className="mt-12 text-center text-text-muted text-lg italic">
+                      Planeación pendiente para este día. Utiliza TutorIA para generar la semana.
                     </div>
                   )}
-
                   {isGenerating && (
                     <div className="mt-12 text-center text-brand-primary font-bold text-xl animate-pulse">
-                      Consultando referencias curriculares y adaptando propuesta...
-                    </div>
-                  )}
-
-                  {mondayProposal && (
-                    <div className="mt-8 bg-purple-50 border-2 border-purple-200 rounded-xl p-8 animate-fade-in shadow-sm">
-                      <div className="flex justify-between items-center mb-6">
-                        <h5 className="font-bold text-purple-900 text-xl flex items-center gap-2">
-                          <span className="text-2xl">✨</span> PROPUESTA DE TUTORIA
-                        </h5>
-                        <span className="text-xs font-bold bg-purple-200 text-purple-800 px-3 py-1 rounded-full uppercase tracking-wider">Borrador IA</span>
-                      </div>
-                      <div className="bg-white p-6 rounded-lg mb-6 shadow-sm border border-purple-100">
-                        {mondayProposal.activities.map(a => (
-                          <div key={a.activityId} className="mb-4 last:mb-0 border-b last:border-b-0 pb-4 last:pb-0 border-purple-50">
-                            <p className="font-bold text-purple-900">{a.category}</p>
-                            <p className="text-gray-800 text-sm mt-1">{a.objective}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-4 justify-center">
-                        <button onClick={handleAcceptProposal} className="bg-purple-700 hover:bg-purple-800 text-white font-bold px-6 py-3 rounded-full transition shadow-sm">
-                          Aceptar / Usar propuesta
-                        </button>
-                        <button onClick={handleDiscardProposal} className="bg-white text-purple-700 border border-purple-300 hover:bg-purple-100 font-bold px-6 py-3 rounded-full transition">
-                          Descartar
-                        </button>
-                      </div>
+                      Consultando referencias curriculares y generando propuesta semanal...
                     </div>
                   )}
 
@@ -483,6 +648,14 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
                                     const newDays = [...days];
                                     newDays[activeDayIndex]!.activities![j]!.description = e.target.value;
                                     setDays(newDays);
+
+                                    // Update granular status to CHANGED_BY_EDUCATOR if it was PENDING_CORRECTION
+                                    setGranularObservations(prev => prev.map(obs => {
+                                      if (obs.targetId === a.activityId && obs.status === 'PENDING_CORRECTION') {
+                                        return { ...obs, status: 'CHANGED_BY_EDUCATOR' };
+                                      }
+                                      return obs;
+                                    }));
                                  }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[160px] resize-y transition" />
                                </div>
                              )}
@@ -490,14 +663,277 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
                          );
                       })}
 
+                                            {(status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED') && (() => {
+                        const evalStatus = planningObj && typeof planningObj.getEvaluationStatus === 'function'
+                          ? planningObj.getEvaluationStatus(d.dayOfWeek, currentDate)
+                          : {
+                              isEligible: Boolean(planningObj && planningObj.canEvaluateDay && planningObj.canEvaluateDay(d.dayOfWeek, currentDate)),
+                              isFuture: false,
+                              isChronologicallyBlocked: false,
+                              dayDate: (planningObj && planningObj.getDayDate ? planningObj.getDayDate(d) : d.date) || ""
+                            };
+                        const isEligible = evalStatus.isEligible;
+                        const dayDate = evalStatus.dayDate || (planningObj && planningObj.getDayDate ? planningObj.getDayDate(d) : d.date);
+
+                        return (
+                          <div className="mt-10 pt-8 border-t border-teal-100 bg-surface-ivory p-6 rounded-xl border">
+                            <div className="flex items-center justify-between mb-4">
+                              <h5 className="text-xl font-bold text-teal-900 flex items-center gap-2">
+                                <span>📝</span> Evaluación del día
+                              </h5>
+                              {d.evaluationStatus === 'APPROVED' ? (
+                                <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                  <span>✓</span> Aprobada por Ceci
+                                </span>
+                              ) : d.evaluationStatus === 'CHANGES_REQUESTED' ? (
+                                <span className="text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                  <span>⚠</span> Cambio solicitado por Ceci
+                                </span>
+                              ) : d.evaluationStatus === 'IN_REVIEW' ? (
+                                <span className="text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                  <span>⏳</span> En revisión por Ceci
+                                </span>
+                              ) : !isEligible ? (
+                                <span className="text-xs font-bold bg-gray-100 text-gray-600 border border-gray-300 px-3 py-1 rounded-full flex items-center gap-1.5">
+                                  <span>🔒</span> Bloqueado
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5">
+                                  <span>✓</span> Disponible para evaluar
+                                </span>
+                              )}
+                            </div>
+
+                            {d.evaluationStatus === 'APPROVED' ? (
+                              <div className="bg-green-50/50 border border-green-200 rounded-lg p-6">
+                                <div className="flex items-center justify-between mb-3 border-b border-green-100 pb-2">
+                                  <span className="text-xs font-bold text-green-900 uppercase tracking-wider">
+                                    Evaluación aprobada por Dirección
+                                  </span>
+                                  <span className="text-[11px] font-medium text-green-700">
+                                    {d.evaluationReviewedAt ? new Date(d.evaluationReviewedAt).toLocaleDateString() : 'Aprobada'}
+                                  </span>
+                                </div>
+                                <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-green-100 shadow-inner min-h-[100px]">
+                                  {dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
+                                </div>
+                                <p className="text-xs text-green-800 mt-3 font-semibold flex items-center gap-1.5">
+                                  <span>✓</span> Aprobada por {d.evaluationReviewedBy || 'Ceci'}.
+                                </p>
+                              </div>
+                            ) : !isEligible ? (
+                              evalStatus.isChronologicallyBlocked && evalStatus.blockingDay ? (
+                                <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-6 text-center">
+                                  <p className="text-amber-900 font-medium text-base mb-2">
+                                    🔒 Evaluación bloqueada por orden cronológico.
+                                  </p>
+                                  <p className="text-sm font-bold text-amber-800">
+                                    Completa primero la evaluación de {planningObj?.getDaySpanishName ? planningObj.getDaySpanishName(evalStatus.blockingDay.dayOfWeek) : evalStatus.blockingDay.dayOfWeek}.
+                                  </p>
+                                  <textarea
+                                    disabled
+                                    value={dailyEvaluations[d.dayOfWeek] || d.evaluation || ''}
+                                    placeholder="La evaluación se habilitará cuando se completen las evaluaciones previas..."
+                                    className="w-full text-base p-4 mt-4 bg-gray-100 border border-gray-300 rounded-lg outline-none min-h-[120px] resize-none text-gray-400 cursor-not-allowed"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                                  <p className="text-gray-600 font-medium text-base mb-2">
+                                    🔒 Esta evaluación aún no está disponible.
+                                  </p>
+                                  <p className="text-sm font-bold text-gray-500">
+                                    Evaluación disponible a partir del {formatDayDateMessage(dayDate)}. (Disponible el {formatDayDateMessage(dayDate)})
+                                  </p>
+                                  <textarea
+                                    disabled
+                                    value={dailyEvaluations[d.dayOfWeek] || d.evaluation || ''}
+                                    placeholder="La evaluación se habilitará cuando llegue esta fecha..."
+                                    className="w-full text-base p-4 mt-4 bg-gray-100 border border-gray-300 rounded-lg outline-none min-h-[120px] resize-none text-gray-400 cursor-not-allowed"
+                                  />
+                                </div>
+                              )
+                            ) : d.evaluationStatus === 'CHANGES_REQUESTED' ? (
+                              <div className="bg-orange-50/50 border border-orange-200 rounded-lg p-6">
+                                <div className="flex items-center justify-between mb-3 border-b border-orange-100 pb-2">
+                                  <span className="text-xs font-bold text-orange-900 uppercase tracking-wider">
+                                    Cambio solicitado por Dirección
+                                  </span>
+                                  <span className="text-[11px] font-medium text-orange-700">
+                                    {d.evaluationReviewedAt ? new Date(d.evaluationReviewedAt).toLocaleDateString() : 'Revisada'}
+                                  </span>
+                                </div>
+                                <div className="mt-2 mb-4 p-4 bg-orange-100/70 border border-orange-200 rounded-lg text-sm text-orange-900">
+                                  <span className="font-bold block mb-1">Observación de Ceci:</span>
+                                  <p>{d.evaluationDirectorComment}</p>
+                                </div>
+                                <p className="text-sm text-orange-900 font-semibold mb-3">
+                                  ✏️ Edición habilitada por solicitud de Ceci. Corrige tu evaluación y reenvíala a Dirección:
+                                </p>
+                                <textarea
+                                  value={dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: val }));
+                                  }}
+                                  placeholder="El grupo respondió favorablemente a la actividad..."
+                                  className="w-full text-base p-4 bg-white border border-orange-300 focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
+                                />
+                                <div className="mt-4 flex justify-between items-center gap-3">
+                                  <button
+                                    onClick={async () => {
+                                      const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
+                                      if (!currentDate) return;
+                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, "t1");
+                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText || "" } : day));
+                                      if (planningObj) {
+                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
+                                        if (target) {
+                                          target.evaluation = evalText || "";
+                                        }
+                                      }
+                                      const updatedPlan = await service.getPlanning(currentPlanId);
+                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      setToastMessage('✓ Borrador de corrección guardado.');
+                                      setTimeout(() => setToastMessage(''), 2000);
+                                      onSaved();
+                                    }}
+                                    className="bg-surface-ivory hover:bg-orange-50 border border-orange-300 text-orange-900 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm"
+                                  >
+                                    💾 Guardar corrección como borrador
+                                  </button>
+
+                                  <button
+                                    disabled={!((dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim())}
+                                    onClick={async () => {
+                                      const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
+                                      if (!currentDate || !evalText) return;
+                                      await service.resubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
+                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText, evaluationStatus: "IN_REVIEW", evaluationSubmittedAt: new Date(), evaluationSubmittedBy: "t1" } : day));
+                                      if (planningObj) {
+                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
+                                        if (target) {
+                                          target.evaluation = evalText;
+                                          target.evaluationStatus = "IN_REVIEW";
+                                          target.evaluationSubmittedAt = new Date();
+                                          target.evaluationSubmittedBy = "t1";
+                                        }
+                                      }
+                                      const updatedPlan = await service.getPlanning(currentPlanId);
+                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      setToastMessage('✓ Evaluación reenviada a Ceci.');
+                                      setTimeout(() => setToastMessage(''), 2000);
+                                      onSaved();
+                                    }}
+                                    className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    🚀 Reenviar evaluación a Ceci
+                                  </button>
+                                </div>
+                              </div>
+                            ) : d.evaluationStatus === 'IN_REVIEW' ? (
+                              <div className="bg-blue-50/50 border border-blue-200 rounded-lg p-6">
+                                <div className="flex items-center justify-between mb-3 border-b border-blue-100 pb-2">
+                                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                                    Evaluación enviada a Dirección
+                                  </span>
+                                  <span className="text-[11px] font-medium text-blue-700">
+                                    {d.evaluationSubmittedAt ? new Date(d.evaluationSubmittedAt).toLocaleDateString() : 'Enviada'}
+                                  </span>
+                                </div>
+                                <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-blue-100 shadow-inner min-h-[100px]">
+                                  {dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
+                                </div>
+                                <p className="text-xs text-blue-800 mt-3 font-semibold flex items-center gap-1.5">
+                                  <span>🔒</span> Evaluación registrada y en revisión por Ceci. No se permiten modificaciones.
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm text-text-muted mb-3 font-medium">
+                                  Registra cómo se desarrollaron las actividades y observaciones pedagógicas clave de este día:
+                                </p>
+                                <textarea
+                                  value={dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: val }));
+                                  }}
+                                  placeholder="El grupo respondió favorablemente a la actividad..."
+                                  className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
+                                />
+                                <div className="mt-4 flex justify-between items-center gap-3">
+                                  <button
+                                    onClick={async () => {
+                                      const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
+                                      if (!currentDate) return;
+                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, "t1");
+                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText || "", evaluationStatus: "DRAFT" } : day));
+                                      if (planningObj) {
+                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
+                                        if (target) {
+                                          target.evaluation = evalText || "";
+                                          target.evaluationStatus = "DRAFT";
+                                        }
+                                      }
+                                      const updatedPlan = await service.getPlanning(currentPlanId);
+                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      setToastMessage('✓ Borrador de evaluación guardado.');
+                                      setTimeout(() => setToastMessage(''), 2000);
+                                      onSaved();
+                                    }}
+                                    className="bg-surface-ivory hover:bg-teal-50 border border-teal-300 text-teal-800 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm"
+                                  >
+                                    💾 Guardar borrador
+                                  </button>
+
+                                  <button
+                                    disabled={!((dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim())}
+                                    onClick={async () => {
+                                      const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
+                                      if (!currentDate || !evalText) return;
+                                      await service.submitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
+                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText, evaluationStatus: "IN_REVIEW", evaluationSubmittedAt: new Date(), evaluationSubmittedBy: "t1" } : day));
+                                      if (planningObj) {
+                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
+                                        if (target) {
+                                          target.evaluation = evalText;
+                                          target.evaluationStatus = "IN_REVIEW";
+                                          target.evaluationSubmittedAt = new Date();
+                                          target.evaluationSubmittedBy = "t1";
+                                        }
+                                      }
+                                      const updatedPlan = await service.getPlanning(currentPlanId);
+                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      setToastMessage('✓ Evaluación enviada a Ceci.');
+                                      setTimeout(() => setToastMessage(''), 2000);
+                                      onSaved();
+                                    }}
+                                    className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    🚀 Enviar evaluación a Ceci
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {!readOnly && (
-                        <div className="mt-8 text-center flex gap-4 justify-center">
-                          <button onClick={handleSaveDraft} className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-4 rounded-full transition shadow-sm">
-                            Guardar Lunes
-                          </button>
-                          <button onClick={handleSubmit} disabled={days.filter(day => day.activities.length > 0).length < 1} className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-8 py-4 rounded-full transition shadow-sm disabled:opacity-50">
-                            Enviar a Revisión
-                          </button>
+                        <div className="mt-8">
+                          <div className="flex justify-between items-center bg-teal-50 p-4 rounded-lg mb-6 border border-teal-100">
+                            <span className="text-teal-900 font-bold text-lg">Progreso de revisión:</span>
+                            <span className="text-teal-900 font-bold text-2xl">{Object.values(reviewedDays).filter(Boolean).length}/5 días revisados</span>
+                          </div>
+                          <div className="text-center flex gap-4 justify-center">
+                            <button onClick={handleSaveDay} className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-4 rounded-full transition shadow-sm">
+                              Guardar Día
+                            </button>
+                            <button onClick={handleSubmit} disabled={status === 'REJECTED' ? requiredCorrectionDays.length > 0 : Object.values(reviewedDays).filter(Boolean).length < 5} className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-8 py-4 rounded-full transition shadow-sm disabled:opacity-50">
+                              {status === 'REJECTED' ? 'Enviar correcciones a la Directora' : 'Enviar a Revisión'}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -513,7 +949,17 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
 };
 const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
-  useEffect(() => { service.listDirectorReviewQueue('DIRECTOR').then(setPlans); }, [refreshKey, service]);
+  useEffect(() => {
+    Promise.all([
+      service.listDirectorReviewQueue('DIRECTOR').catch(() => []),
+      service.listSupervisorApprovedPlanning('SUPERVISOR').catch(() => [])
+    ]).then(([reviewPlans, approvedPlans]) => {
+      const map = new Map<string, WeeklyPlanning>();
+      for (const p of reviewPlans) map.set(p.planningId, p);
+      for (const p of approvedPlans) if (!map.has(p.planningId)) map.set(p.planningId, p);
+      setPlans(Array.from(map.values()));
+    });
+  }, [refreshKey, service]);
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">
       <h1 className="text-4xl font-bold mb-10 text-center">Acompañamiento pedagógico</h1>
@@ -525,7 +971,7 @@ const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWork
                <span className="font-bold text-text-primary text-2xl">Anita</span>
                <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-status-review/20 text-status-review">Lista para conversar</span>
              </div>
-             <p className="text-base text-text-muted font-medium">Lactantes C • Semana del 10 al 14 de agosto</p>
+             <p className="text-base text-text-muted font-medium">Lactantes C • Semana del 24 al 28 de agosto</p>
            </button>
         ))}
         {plans.length === 0 && <p className="text-text-muted text-center mt-12 text-xl font-medium">No tenemos propuestas para conversar en este momento.</p>}
@@ -542,6 +988,7 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
   const [plan, setPlan] = useState<any>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
+  const [directorReviewedDays, setDirectorReviewedDays] = useState<Record<string, boolean>>({});
 
   // DRAFTING STATE (Review Round)
   const [newGranularObs, setNewGranularObs] = useState<Record<string, string>>({});
@@ -549,8 +996,40 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
 
   const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
+  const [evalDirectorComments, setEvalDirectorComments] = useState<Record<string, string>>({});
+  const [requestingChangeForDay, setRequestingChangeForDay] = useState<string | null>(null);
 
-  useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service, toastMessage]);
+  const requiredCorrectionDays = React.useMemo(() => {
+    const req = new Set<string>();
+    for (const d of plan?.days || []) {
+      for (const a of d.activities || []) {
+        if (preparedObservations[a.activityId]) {
+          req.add(d.dayOfWeek);
+          continue;
+        }
+        const gObs = plan?.granularObservations?.find((o: any) => o.targetId === a.activityId);
+        if (gObs && (gObs.status === 'PENDING_CORRECTION' || gObs.status === 'CHANGED_BY_EDUCATOR')) {
+          req.add(d.dayOfWeek);
+        }
+      }
+    }
+    return Array.from(req);
+  }, [plan, preparedObservations]);
+
+  useEffect(() => {
+    service.getPlanning(planId).then(p => {
+      if (p) {
+        setPlan(p);
+        const initialReviewed: Record<string, boolean> = {};
+        for (const d of p.days) {
+          if (typeof p.isDirectorDayReviewed === "function" ? p.isDirectorDayReviewed(d.dayOfWeek) : Boolean(d.directorReviewed)) {
+            initialReviewed[d.dayOfWeek] = true;
+          }
+        }
+        setDirectorReviewedDays(initialReviewed);
+      }
+    });
+  }, [planId, service]);
   if (!plan) return <p className="p-8 text-center text-xl">Leyendo la propuesta...</p>;
 
   // P0-2: "GUARDAR OBSERVACIÓN" MEANS ONLY SAVE LOCALLY
@@ -563,6 +1042,11 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
       [activityId]: obsText.trim()
     }));
     setNewGranularObs(prev => { const n = {...prev}; delete n[activityId]; return n; });
+    const activeDay = plan?.days?.[activeDayIndex];
+    if (activeDay) {
+      setDirectorReviewedDays(prev => ({ ...prev, [activeDay.dayOfWeek]: true }));
+      service.markDirectorDayReviewed(planId, activeDay.dayOfWeek, "DIRECTOR");
+    }
     setToastMessage('✓ Observación preparada localmente (No enviada)');
     setTimeout(() => { setToastMessage(''); }, 2000);
   };
@@ -588,7 +1072,12 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
       });
     }
 
-    await service.reject(planId, 'Se requieren ajustes en la planeación.', 'DIRECTOR', 'DIRECTOR', granularObsArray);
+    for (const [dayOfWeek, isRev] of Object.entries(directorReviewedDays)) {
+      if (isRev) {
+        await service.markDirectorDayReviewed(planId, dayOfWeek as any, "DIRECTOR");
+      }
+    }
+    await service.reject(planId, "Se requieren ajustes en la planeación.", "DIRECTOR", "DIRECTOR", granularObsArray);
 
     setPreparedObservations({});
     setToastMessage('✓ Observaciones enviadas a la educadora.');
@@ -597,16 +1086,57 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
   };
 
   const handleResolve = async (activityId: string) => {
-    await service.resolveGranularObservation(planId, activityId, 'DIRECTOR', 'Ceci');
+    await service.resolveGranularObservation(planId, activityId, "DIRECTOR", "Ceci");
     const updatedPlan = await service.getPlanning(planId);
-    setPlan(updatedPlan);
-    setCollapsedResolved(prev => ({...prev, [activityId]: true}));
-    setToastMessage('✅ OBSERVACIÓN ATENDIDA');
+    if (updatedPlan) {
+      setPlan(updatedPlan);
+      const newReviewed: Record<string, boolean> = {};
+      for (const d of updatedPlan.days) {
+        if (typeof updatedPlan.isDirectorDayReviewed === "function" ? updatedPlan.isDirectorDayReviewed(d.dayOfWeek) : Boolean(d.directorReviewed)) {
+          newReviewed[d.dayOfWeek] = true;
+        }
+      }
+      setDirectorReviewedDays(prev => ({ ...prev, ...newReviewed }));
+    }
+    setCollapsedResolved(prev => ({ ...prev, [activityId]: true }));
+    setToastMessage("✅ OBSERVACIÓN ATENDIDA");
     onSaved();
-    setTimeout(() => { setToastMessage(''); }, 2000);
+    setTimeout(() => { setToastMessage(""); }, 2000);
   };
 
   const preparedCount = Object.keys(preparedObservations).length;
+
+  const isDayReviewedByDirector = (dayOfWeek: string) => {
+    const day = plan?.days?.find((d: any) => d.dayOfWeek === dayOfWeek);
+    const hasPrepared = day?.activities?.some((a: any) => Boolean(preparedObservations[a.activityId]));
+    if (hasPrepared) return true;
+
+    const hasPendingCorrectionFromEducator = plan?.granularObservations?.some((o: any) =>
+      o.status === "CHANGED_BY_EDUCATOR" &&
+      day?.activities?.some((a: any) => a.activityId === o.targetId)
+    );
+    if (hasPendingCorrectionFromEducator) {
+      return false;
+    }
+
+    if (directorReviewedDays[dayOfWeek] !== undefined) {
+      return directorReviewedDays[dayOfWeek];
+    }
+
+    const hasObs = plan?.granularObservations?.some((o: any) =>
+      day?.activities?.some((a: any) => a.activityId === o.targetId)
+    );
+    if (hasObs && plan?.status === "IN_REVIEW") {
+      return true;
+    }
+
+    if (plan && typeof plan.isDirectorDayReviewed === "function") {
+      return plan.isDirectorDayReviewed(dayOfWeek);
+    }
+    return Boolean(day?.directorReviewed);
+  };
+
+  const reviewedDirectorCount = (plan?.days || []).filter((d: any) => isDayReviewedByDirector(d.dayOfWeek)).length;
 
   return (
     <div className="max-w-5xl mx-auto pb-32 animate-fade-in relative">
@@ -643,11 +1173,22 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
 
       <div className="flex items-center justify-between mb-8">
         <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
-        {plan.status === 'APPROVED' && (
-          <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
-            Versión Oficial IMSS
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {plan.status === 'CLOSED' ? (
+            <span className="text-sm font-bold text-teal-900 bg-teal-100 px-4 py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
+              <span>✓</span> Semana cerrada
+            </span>
+          ) : (plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION') && (
+            <span className="text-sm font-bold text-green-800 bg-green-50 px-4 py-2 rounded-full border border-green-200">
+              Aprobada para ejecución
+            </span>
+          )}
+          {(plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED') && (
+            <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
+              Versión Oficial IMSS
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="text-center mb-12">
@@ -655,39 +1196,152 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
         <p className="text-text-muted font-bold text-2xl uppercase tracking-widest">Lactantes C</p>
       </div>
 
-      <div className="max-w-4xl mx-auto mb-12">
-        <div className="bg-surface-ivory rounded-xl border border-brand-primary/20 p-8 shadow-sm">
-          <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest border-b border-teal-100 pb-2">Contexto de la Educadora</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-            <div>
-              <p className="text-sm font-bold text-text-muted uppercase mb-1">Observaciones</p>
-              <p className="text-text-primary">{plan.observations || 'Sin especificar'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-text-muted uppercase mb-1">Necesidades detectadas</p>
-              <p className="text-text-primary">{plan.identifiedNeeds || 'Sin especificar'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-text-muted uppercase mb-1">Situaciones especiales</p>
-              <p className="text-text-primary">{plan.specialSituations || 'Sin especificar'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-text-muted uppercase mb-1">Materiales disponibles</p>
-              <p className="text-text-primary">{plan.availableMaterials || 'Sin especificar'}</p>
+      {(() => {
+        const orig = plan.originalContext || {
+          observations: plan.observations || '',
+          identifiedNeeds: plan.identifiedNeeds || '',
+          specialSituations: plan.specialSituations || '',
+          availableMaterials: plan.availableMaterials || ''
+        };
+
+        const fields = [
+          {
+            key: 'observations',
+            label: 'Observaciones del grupo',
+            originalVal: orig.observations || '',
+            currentVal: plan.observations || '',
+            changed: Boolean(plan.originalContext && (orig.observations || '').trim() !== (plan.observations || '').trim())
+          },
+          {
+            key: 'identifiedNeeds',
+            label: 'Qué necesita fortalecer',
+            originalVal: orig.identifiedNeeds || '',
+            currentVal: plan.identifiedNeeds || '',
+            changed: Boolean(plan.originalContext && (orig.identifiedNeeds || '').trim() !== (plan.identifiedNeeds || '').trim())
+          },
+          {
+            key: 'specialSituations',
+            label: 'Situaciones a considerar',
+            originalVal: orig.specialSituations || '',
+            currentVal: plan.specialSituations || '',
+            changed: Boolean(plan.originalContext && (orig.specialSituations || '').trim() !== (plan.specialSituations || '').trim())
+          },
+          {
+            key: 'availableMaterials',
+            label: 'Materiales disponibles',
+            originalVal: orig.availableMaterials || '',
+            currentVal: plan.availableMaterials || '',
+            changed: Boolean(plan.originalContext && (orig.availableMaterials || '').trim() !== (plan.availableMaterials || '').trim())
+          }
+        ];
+
+        const hasContextChanged = fields.some(f => f.changed);
+
+        return (
+          <div className="max-w-4xl mx-auto mb-12">
+            <div className={`rounded-xl border p-8 shadow-sm transition ${hasContextChanged ? 'bg-amber-50/60 border-amber-300 ring-2 ring-amber-200' : 'bg-surface-ivory border-brand-primary/20'}`}>
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-teal-100 pb-3 gap-2">
+                <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest">Contexto de la Educadora</h3>
+                {hasContextChanged && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-white font-bold text-xs uppercase tracking-wider rounded-full shadow-sm animate-pulse">
+                    ⚠️ CONTEXTO SEMANAL MODIFICADO
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                {fields.map(f => {
+                  if (f.changed) {
+                    return (
+                      <div key={f.key} className="bg-white rounded-lg border-2 border-amber-300 p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">{f.label}</p>
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded">Modificado</span>
+                        </div>
+                        <div className="space-y-2 mt-2">
+                          <div>
+                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-0.5">ANTES:</span>
+                            <p className="text-sm text-gray-600 bg-gray-50 p-2.5 rounded border border-gray-200 italic">{f.originalVal || 'Sin especificar'}</p>
+                          </div>
+                          <div>
+                            <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block mb-0.5">AHORA:</span>
+                            <p className="text-sm font-semibold text-amber-950 bg-amber-50/80 p-2.5 rounded border border-amber-200">{f.currentVal || 'Sin especificar'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={f.key} className="bg-white/60 rounded-lg border border-gray-200/70 p-4">
+                      <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">{f.label}</p>
+                      <p className="text-sm text-text-primary bg-white p-2.5 rounded border border-gray-100">{f.currentVal || 'Sin especificar'}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       <h3 className="text-3xl font-bold mb-8 text-text-primary text-center">Desarrollo de las acciones pedagógicas</h3>
 
       <div className="space-y-8 pb-8 max-w-4xl mx-auto">
-        <WeekDayTabs days={plan.days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} />
+        {(() => {
+          const isClosed = plan.status === 'CLOSED';
+          const isApprovedPlanning = plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || isClosed;
+          const approvedEvaluationsCount = plan.days.filter((d: any) => d.evaluationStatus === 'APPROVED').length;
+          const isReadyForClosure = !isClosed && (plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION') && plan.days.length === 5 && plan.days.every((d: any) => d.evaluationStatus === 'APPROVED');
+
+          if (isApprovedPlanning) {
+            return (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
+                <span className="text-sm font-bold text-teal-800 bg-teal-50 border border-teal-200 px-5 py-2 rounded-full shadow-sm">
+                  Evaluaciones aprobadas: {approvedEvaluationsCount}/5
+                </span>
+                {isClosed ? (
+                  <span className="text-sm font-bold text-teal-900 bg-teal-100 border border-teal-300 px-5 py-2 rounded-full shadow-sm flex items-center gap-1.5 animate-fade-in">
+                    <span>🔒</span> ✓ Semana cerrada
+                  </span>
+                ) : isReadyForClosure ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-green-800 bg-green-100 border border-green-300 px-5 py-2 rounded-full shadow-sm flex items-center gap-1.5 animate-fade-in">
+                      <span>✓</span> Semana lista para cierre
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await service.closeWeek(planId, "DIRECTOR", "Ceci");
+                        const updated = await service.getPlanning(planId);
+                        if (updated) setPlan(updated);
+                        setToastMessage("✓ Semana cerrada exitosamente");
+                        setTimeout(() => setToastMessage(""), 2000);
+                        onSaved();
+                      }}
+                      className="bg-teal-700 hover:bg-teal-800 text-white font-bold px-6 py-2 rounded-full text-sm shadow-md transition flex items-center gap-2"
+                    >
+                      <span>🔒</span> Cerrar semana
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex justify-center mb-2">
+              <span className="text-sm font-bold text-teal-800 bg-teal-50 border border-teal-200 px-5 py-2 rounded-full shadow-sm">
+                {reviewedDirectorCount}/5 días revisados
+              </span>
+            </div>
+          );
+        })()}
+        <WeekDayTabs days={plan.days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} reviewedDays={directorReviewedDays} requiredCorrectionDays={requiredCorrectionDays} isCorrectionRound={false} isApprovedPlanning={plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED'} role="DIRECTOR" />
 
         {(() => {
           const d = plan.days[activeDayIndex];
           if (!d) return null;
-          const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes';
+          const dayName = d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28';
 
           if (!d.activities || d.activities.length === 0) {
             return (
@@ -839,6 +1493,198 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
                     );
                  })}
                </div>
+
+                {/* DIRECTOR DAILY EVALUATION REVIEW (H1R9-C.4 & H1R9-D.2) */}
+                {d.evaluationStatus === 'IN_REVIEW' && (() => {
+                  const isResubmitted = d.evaluationResubmitted || Boolean(d.evaluationHistory && d.evaluationHistory.length > 0);
+                  return (
+                    <div className="mt-10 pt-8 border-t border-teal-100 bg-surface-ivory p-6 rounded-xl border">
+                      <div className="flex items-center justify-between mb-4">
+                        <h5 className="text-xl font-bold text-teal-900 flex items-center gap-2">
+                          <span>📝</span> Evaluación del día
+                        </h5>
+                        {isResubmitted ? (
+                          <span className="text-xs font-bold bg-orange-100 text-orange-900 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                            <span>🟠</span> Evaluación corregida por Anita — requiere revisión
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                            <span>⏳</span> PENDIENTE DE MI REVISIÓN
+                          </span>
+                        )}
+                      </div>
+
+                      {isResubmitted && (
+                        <div className="p-4 bg-orange-100/70 border border-orange-300 rounded-lg text-sm text-orange-950 mb-4">
+                          <span className="font-bold block mb-1">Observación previa de Dirección:</span>
+                          <p>{(d.evaluationHistory && d.evaluationHistory[d.evaluationHistory.length - 1]?.directorComment) || d.evaluationDirectorComment}</p>
+                        </div>
+                      )}
+
+                      <div className="bg-white p-5 rounded-lg border border-blue-100 shadow-inner mb-4">
+                        <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-2">
+                          {isResubmitted ? 'Anita (Evaluación corregida):' : 'Anita:'}
+                        </span>
+                        <p className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap">
+                          {d.evaluation}
+                        </p>
+                      </div>
+
+                      {requestingChangeForDay === d.dayOfWeek ? (
+                        <div className="bg-orange-50 p-5 rounded-xl border border-orange-300 mt-4 animate-fade-in">
+                          <label className="block text-sm font-bold text-orange-900 uppercase tracking-wider mb-2">
+                            Comentario para Anita:
+                          </label>
+                          <textarea
+                            value={evalDirectorComments[d.dayOfWeek] || ''}
+                            onChange={e => setEvalDirectorComments({ ...evalDirectorComments, [d.dayOfWeek]: e.target.value })}
+                            placeholder="Escribe la observación o ajuste solicitado para esta evaluación..."
+                            className="w-full text-base p-4 bg-white border border-orange-300 focus:border-orange-500 rounded-lg outline-none min-h-[90px] resize-y mb-3 shadow-inner"
+                          />
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => setRequestingChangeForDay(null)}
+                              className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-800"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              disabled={!((evalDirectorComments[d.dayOfWeek] || '').trim())}
+                              onClick={async () => {
+                                const comment = (evalDirectorComments[d.dayOfWeek] || '').trim();
+                                if (!comment) return;
+                                await service.requestDailyEvaluationChange(planId, d.dayOfWeek, comment, "DIRECTOR", "Ceci");
+                                const updated = await service.getPlanning(planId);
+                                if (updated) setPlan(updated);
+                                setRequestingChangeForDay(null);
+                                setToastMessage("✓ Solicitud de cambio enviada.");
+                                setTimeout(() => setToastMessage(""), 2000);
+                                onSaved();
+                              }}
+                              className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2.5 rounded-full text-sm transition shadow-sm disabled:opacity-50"
+                            >
+                              Enviar solicitud de cambio
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-end gap-3 mt-4">
+                          <button
+                            onClick={() => setRequestingChangeForDay(d.dayOfWeek)}
+                            className="bg-surface-ivory hover:bg-orange-50 border border-orange-300 text-orange-800 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm"
+                          >
+                            Solicitar cambio
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await service.approveDailyEvaluation(planId, d.dayOfWeek, "DIRECTOR", "Ceci");
+                              const updated = await service.getPlanning(planId);
+                              if (updated) setPlan(updated);
+                              setToastMessage("✓ Evaluación aprobada");
+                              setTimeout(() => setToastMessage(""), 2000);
+                              onSaved();
+                            }}
+                            className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm"
+                          >
+                            ✓ Aprobar evaluación
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+               {d.evaluationStatus === 'APPROVED' && (
+                 <div className="mt-10 pt-8 border-t border-teal-100 bg-surface-ivory p-6 rounded-xl border">
+                   <div className="flex items-center justify-between mb-4">
+                     <h5 className="text-xl font-bold text-teal-900 flex items-center gap-2">
+                       <span>📝</span> Evaluación del día
+                     </h5>
+                     <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                       <span>✓</span> Evaluación aprobada
+                     </span>
+                   </div>
+                   <div className="bg-white p-5 rounded-lg border border-green-100 shadow-inner">
+                     <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-2">
+                       Anita:
+                     </span>
+                     <p className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap">
+                       {d.evaluation}
+                     </p>
+                   </div>
+                   <p className="text-xs text-green-800 mt-3 font-semibold flex items-center gap-1.5">
+                     <span>✓</span> Aprobada por {d.evaluationReviewedBy || 'Ceci'}.
+                   </p>
+                 </div>
+               )}
+
+               {d.evaluationStatus === 'CHANGES_REQUESTED' && (
+                 <div className="mt-10 pt-8 border-t border-teal-100 bg-surface-ivory p-6 rounded-xl border">
+                   <div className="flex items-center justify-between mb-4">
+                     <h5 className="text-xl font-bold text-teal-900 flex items-center gap-2">
+                       <span>📝</span> Evaluación del día
+                     </h5>
+                     <span className="text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                       <span>⚠</span> CAMBIO SOLICITADO
+                     </span>
+                   </div>
+                   <div className="bg-white p-5 rounded-lg border border-orange-100 shadow-inner mb-3">
+                     <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-2">
+                       Anita:
+                     </span>
+                     <p className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap">
+                       {d.evaluation}
+                     </p>
+                   </div>
+                   <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-900">
+                     <span className="font-bold block mb-1">Observación de Ceci:</span>
+                     <p>{d.evaluationDirectorComment}</p>
+                   </div>
+                 </div>
+               )}
+
+               {(() => {
+                 const isOrange = requiredCorrectionDays.includes(d.dayOfWeek);
+                 const isReviewed = isDayReviewedByDirector(d.dayOfWeek);
+
+                 if (isOrange) {
+                   return (
+                     <div className="mt-10 pt-6 border-t border-border-soft flex justify-center">
+                       <button disabled className="bg-orange-100 border border-orange-300 text-orange-800 font-bold px-8 py-3 rounded-full shadow-sm flex items-center gap-2 cursor-default opacity-90">
+                         <span>🟠</span> Día con observaciones
+                       </button>
+                     </div>
+                   );
+                 }
+
+                 if (isReviewed) {
+                   return (
+                     <div className="mt-10 pt-6 border-t border-border-soft flex justify-center">
+                       <button disabled className="bg-green-100 border border-green-300 text-green-800 font-bold px-8 py-3 rounded-full shadow-sm flex items-center gap-2 cursor-default opacity-90">
+                         <span className="text-xl">✓</span> Día revisado
+                       </button>
+                     </div>
+                   );
+                 }
+
+                 return (
+                   <div className="mt-10 pt-6 border-t border-border-soft flex justify-center">
+                     <button
+                       onClick={async () => {
+                          setDirectorReviewedDays(prev => ({ ...prev, [d.dayOfWeek]: true }));
+                          await service.markDirectorDayReviewed(planId, d.dayOfWeek, "DIRECTOR");
+                          const updated = await service.getPlanning(planId);
+                          if (updated) setPlan(updated);
+                          setToastMessage("✓ Día marcado como revisado");
+                          setTimeout(() => setToastMessage(""), 2000);
+                        }}
+                       className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-3 rounded-full transition shadow-sm flex items-center gap-2"
+                     >
+                       <span className="text-xl">✓</span> Marcar día revisado
+                     </button>
+                   </div>
+                 );
+               })()}
             </div>
           );
         })()}
@@ -858,22 +1704,26 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
             {(() => {
               const existingObsList = plan?.granularObservations || [];
               const pendingCount = existingObsList.filter((o: any) => o.status === 'PENDING_CORRECTION' || o.status === 'CHANGED_BY_EDUCATOR').length;
-              const canApprove = preparedCount === 0 && pendingCount === 0;
+              const canApprove = reviewedDirectorCount === 5 && preparedCount === 0 && pendingCount === 0;
 
               return (
                 <>
                   <button
                     onClick={async () => {
-                      await service.approve(planId, 'DIRECTOR', 'Ceci');
+                      await service.approve(planId, "DIRECTOR", "Ceci");
+                      const updated = await service.getPlanning(planId);
+                      if (updated) setPlan(updated);
                       onSaved();
-                      setToastMessage('🌟 Propuesta aprobada.');
+                      setToastMessage("🌟 Planeación aprobada para ejecución.");
                       setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
                     }}
                     disabled={!canApprove}
                     className="w-full bg-brand-primary hover:bg-brand-dark text-white font-bold text-lg px-8 py-6 rounded-full shadow-lg transition flex items-center justify-center gap-3 disabled:opacity-50"
                   >
-                    ✓ APROBAR TODA LA PLANEACIÓN
+                    <span>✓ APROBAR TODA LA PLANEACIÓN</span>
+                    <span className="text-xs font-bold bg-white/25 px-3 py-1 rounded-full uppercase tracking-wider">Para Ejecución</span>
                   </button>
+                  {reviewedDirectorCount < 5 && <p className="text-center text-text-muted text-sm font-medium">Debes revisar los 5 días ({reviewedDirectorCount}/5 revisados) para poder aprobar la planeación.</p>}
                   {preparedCount > 0 && <p className="text-center text-orange-700 text-sm font-bold">La aprobación está bloqueada porque hay observaciones preparadas sin enviar.</p>}
                   {pendingCount > 0 && preparedCount === 0 && <p className="text-center text-orange-700 text-sm font-bold">La aprobación está bloqueada porque hay observaciones pendientes de revisar o atender.</p>}
                 </>
@@ -897,35 +1747,95 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }:
     <div className="max-w-5xl mx-auto pb-32 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
         <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-teal-900 bg-teal-100 px-4 py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
+            <span>🔒</span> ✓ Semana cerrada
+          </span>
+          {plan.closedBy && (
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
+              Cerrada por: {plan.closedBy}
+            </span>
+          )}
+        </div>
         <div className="flex gap-3">
-          <button onClick={() => setActiveTab('PLAN')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'PLAN' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER PLANEACIÓN</button>
+          <button onClick={() => setActiveTab('PLAN')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'PLAN' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER PLANEACIÓN Y EVALUACIONES</button>
           <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'HISTORY' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER HISTORIAL DE CAMBIOS</button>
           <button onClick={onViewOfficial} className="px-6 py-2 rounded-full font-bold transition bg-teal-700 hover:bg-teal-800 text-white shadow-sm flex items-center gap-2">VER VERSIÓN OFICIAL IMSS</button>
         </div>
       </div>
 
+      <div className="text-center mb-8">
+        <h2 className="text-4xl font-bold mb-2">Anita</h2>
+        <p className="text-text-muted font-bold text-xl uppercase tracking-widest">Guardería IMSS Demo (001) • Sala: Lactantes C • Periodo: 24 al 28 de agosto de 2026</p>
+      </div>
+
       {activeTab === 'PLAN' && (
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft">
-          <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">Contenido de la Planeación (Lectura)</h2>
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft space-y-8">
+          <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">Contenido de la Planeación y Evaluaciones (Lectura Institucional)</h2>
           <div className="bg-surface-soft border border-border-soft p-6 rounded-xl mb-8 space-y-4">
             <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest border-b border-teal-100 pb-2">Contexto de la Educadora</h3>
-            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Observaciones</p><p className="text-text-primary">{plan.observations || 'Sin especificar'}</p></div>
-            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Necesidades Identificadas</p><p className="text-text-primary">{plan.identifiedNeeds || 'Sin especificar'}</p></div>
-            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Situaciones Especiales</p><p className="text-text-primary">{plan.specialSituations || 'Sin especificar'}</p></div>
-            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">Materiales Disponibles</p><p className="text-text-primary">{plan.availableMaterials || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">1. ¿Qué observaste en el grupo? (Observaciones)</p><p className="text-text-primary font-medium">{plan.observations || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">2. ¿Qué necesitan fortalecer? (Necesidades)</p><p className="text-text-primary font-medium">{plan.identifiedNeeds || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">3. ¿Hay situaciones a considerar? (Situaciones especiales)</p><p className="text-text-primary font-medium">{plan.specialSituations || 'Sin especificar'}</p></div>
+            <div><p className="text-sm font-bold text-text-muted uppercase mb-1">4. ¿Qué materiales tienes disponibles? (Materiales)</p><p className="text-text-primary font-medium">{plan.availableMaterials || 'Sin especificar'}</p></div>
           </div>
-          {plan.days.map((d: any) => (
-            <div key={d.dayOfWeek} className="mb-8">
-              <h3 className="text-xl font-bold border-b border-gray-300 pb-2 mb-4">{d.dayOfWeek}</h3>
-              {d.activities.length === 0 ? <p className="text-gray-500">Sin actividades</p> : d.activities.map((a: any) => (
-                <div key={a.activityId} className="mb-4">
-                  <p className="font-bold text-lg text-gray-900 mb-1">{a.objective} ({a.durationMinutes} min)</p>
-                  <p className="text-gray-700 font-normal">{a.description}</p>
-                  <p className="text-sm mt-1 font-normal"><strong>Materiales:</strong> {a.materials.join(', ')}</p>
+
+          <div className="space-y-10">
+            {plan.days.map((d: any) => {
+              const daySpanishNames: Record<string, string> = {
+                MONDAY: 'Lunes 24',
+                TUESDAY: 'Martes 25',
+                WEDNESDAY: 'Miércoles 26',
+                THURSDAY: 'Jueves 27',
+                FRIDAY: 'Viernes 28'
+              };
+              const dayLabel = daySpanishNames[d.dayOfWeek] || d.dayOfWeek;
+
+              return (
+                <div key={d.dayOfWeek} className="border border-border-soft rounded-xl p-6 bg-surface-ivory/50">
+                  <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-6">
+                    <h3 className="text-2xl font-bold text-teal-900">{dayLabel}</h3>
+                    <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <span>✓</span> Evaluación aprobada
+                    </span>
+                  </div>
+
+                  <div className="space-y-4 mb-6">
+                    <h4 className="text-sm font-bold text-teal-800 uppercase tracking-wider">Actividades Pedagógicas Planificadas</h4>
+                    {d.activities.length === 0 ? <p className="text-gray-500">Sin actividades</p> : d.activities.map((a: any) => (
+                      <div key={a.activityId} className="bg-white p-4 rounded-lg border border-border-soft shadow-xs">
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="font-bold text-lg text-gray-900">{a.objective}</p>
+                          <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full">{a.category} • {a.durationMinutes} min</span>
+                        </div>
+                        <p className="text-gray-700 font-normal mt-2">{a.description}</p>
+                        {a.materials && a.materials.length > 0 && (
+                          <p className="text-xs text-text-muted mt-2"><strong>Materiales:</strong> {a.materials.join(', ')}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-green-50/60 border border-green-200 rounded-lg p-5">
+                    <div className="flex items-center justify-between mb-2 border-b border-green-100 pb-2">
+                      <span className="text-xs font-bold text-green-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>📝</span> Evaluación final del día
+                      </span>
+                      <span className="text-[11px] font-medium text-green-700">
+                        {d.evaluationReviewedAt ? new Date(d.evaluationReviewedAt).toLocaleDateString() : 'Aprobada'}
+                      </span>
+                    </div>
+                    <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-green-100 shadow-inner min-h-[60px]">
+                      {d.evaluation || 'Sin evaluación registrada'}
+                    </div>
+                    <p className="text-xs text-green-800 mt-2.5 font-semibold flex items-center gap-1.5">
+                      <span>✓</span> Aprobada por {d.evaluationReviewedBy || 'Ceci'}.
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1035,23 +1945,29 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }:
 };
 const SupervisorList = ({ service, onSelect, refreshKey }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
-  useEffect(() => { service.listSupervisorApprovedPlanning('SUPERVISOR').then(setPlans); }, [refreshKey, service]);
+  useEffect(() => { service.listSupervisorClosedPlanning('SUPERVISOR').then(setPlans); }, [refreshKey, service]);
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      <h1 className="text-4xl font-bold mb-4 text-center">Planeaciones aprobadas</h1>
-      <p className="text-center text-text-muted text-xl mb-12">Conoce el trabajo de tus educadoras.</p>
+      <h1 className="text-4xl font-bold mb-4 text-center">Registros semanales cerrados</h1>
+      <p className="text-center text-text-muted text-xl mb-12">Historial institucional de semanas concluidas y cerradas.</p>
 
       <div className="grid gap-6 w-full">
         {plans.map(p => (
            <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border border-border-default hover:border-gray-400 p-8 rounded-xl shadow-sm text-left transition w-full outline-none flex justify-between items-center">
              <div>
-               <span className="font-bold text-text-primary text-2xl mb-2 block">Anita</span>
-               <p className="text-lg text-text-muted font-medium">Lactantes C • Semana del 10 al 14 de agosto</p>
+               <span className="font-bold text-text-primary text-2xl mb-1 block">Anita</span>
+               <p className="text-sm font-semibold text-teal-800 mb-1">Guardería IMSS Demo (001)</p>
+               <p className="text-base text-text-muted font-medium">Lactantes C • Semana del 24 al 28 de agosto</p>
+               {p.closedBy && (
+                 <p className="text-xs text-text-muted mt-2 font-medium">Cerrada por: {p.closedBy} {p.closedAt ? `• ${new Date(p.closedAt).toLocaleDateString()}` : ''}</p>
+               )}
              </div>
-               <span className="text-sm font-bold px-6 py-2 rounded-full bg-status-approved/20 text-status-approved border border-green-200">Planeación aprobada</span>
+             <span className="text-sm font-bold px-5 py-2 rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1.5 shadow-sm">
+               <span>🔒</span> ✓ Semana cerrada
+             </span>
            </button>
         ))}
-        {plans.length === 0 && <p className="text-text-muted text-center mt-12 text-xl font-medium">Aún no hay planeaciones aprobadas para esta semana.</p>}
+        {plans.length === 0 && <p className="text-text-muted text-center mt-12 text-xl font-medium">Aún no hay semanas cerradas para supervisión.</p>}
       </div>
     </div>
   );
@@ -1108,14 +2024,14 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
               <p className="text-lg print:text-sm text-gray-700 uppercase tracking-widest font-bold">Código: 3D11-009-003</p>
             </div>
             <div className="text-right">
-              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-xs print:px-2 print:py-1 print:border-2 rounded-lg">{plan.status === 'APPROVED' ? 'Aprobada' : 'Borrador'}</span>
+              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-xs print:px-2 print:py-1 print:border-2 rounded-lg">{plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED' ? 'Aprobada' : 'Borrador'}</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-12 text-lg print:text-sm print:mb-8">
             <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
             <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">10 al 14 de agosto de 2026</p></div>
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">24 al 28 de agosto de 2026</p></div>
           </div>
 
           <div className="mb-12 print:mb-3">
@@ -1134,7 +2050,7 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
                {plan.days.map((d: any) => (
                  <div key={d.dayOfWeek} className="print:break-inside-avoid">
                     <h4 className="text-2xl print:text-[11px] font-bold border-b border-black pb-2 mb-4 print:pb-0 print:mb-1 uppercase text-black">
-                      {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                      {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
                     </h4>
                     {(!d.activities || d.activities.length === 0) ? (
                       <p className="text-black italic print:text-[10px]">Pendiente de planeación.</p>
@@ -1206,7 +2122,7 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
               <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">Planeación de Acciones Pedagógicas<br/><span className="text-2xl print:text-sm">(Anverso)</span></h1>
             </div>
             <div className="text-right">
-              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-sm print:border-2 rounded-lg">{plan.status === 'APPROVED' ? 'Aprobada' : 'Borrador'}</span>
+              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-sm print:border-2 rounded-lg">{plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED' ? 'Aprobada' : 'Borrador'}</span>
             </div>
           </div>
 
@@ -1227,7 +2143,7 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
           <div className="grid grid-cols-3 gap-y-6 gap-x-12 mb-12 text-lg print:text-xs print:mb-3 print:gap-y-2">
             <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
             <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">10 al 14 de agosto de 2026</p></div>
+            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">24 al 28 de agosto de 2026</p></div>
           </div>
 
           <div className="mb-12 print:mb-3">
@@ -1241,7 +2157,7 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
                {plan.days.map((d: any) => (
                  <div key={d.dayOfWeek} className="print:break-inside-avoid">
                     <h4 className="text-2xl print:text-[11px] font-bold border-b border-black pb-2 mb-4 print:pb-0 print:mb-1 uppercase text-black">
-                      {d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'}
+                      {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
                     </h4>
                     {(!d.activities || d.activities.length === 0) ? (
                       <p className="text-black italic print:text-sm">Pendiente de planeación.</p>
@@ -1289,7 +2205,7 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
                {plan.days.map((d: any) => d.activities && d.activities.map((a: any) =>
                  a.materials.length > 0 && (
                    <p key={a.activityId} className="text-black print:text-sm">
-                     <strong>{d.dayOfWeek === 'MONDAY' ? 'Lunes' : d.dayOfWeek === 'TUESDAY' ? 'Martes' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles' : d.dayOfWeek === 'THURSDAY' ? 'Jueves' : 'Viernes'} - {a.objective}:</strong> {a.materials.join(', ')}
+                     <strong>{d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'} - {a.objective}:</strong> {a.materials.join(', ')}
                    </p>
                  )
                ))}

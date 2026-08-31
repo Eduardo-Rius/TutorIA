@@ -15,7 +15,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
     // DEMO DATA - NORMATIVA IMSS 5 CATEGORÍAS (Lactantes C)
     return [
       {
-        date: '2024-10-14',
+        date: '2026-08-24',
         dayOfWeek: 'MONDAY',
         activities: [
           {
@@ -70,7 +70,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
         executionNotes: ''
       },
       {
-        date: '2024-10-15',
+        date: '2026-08-25',
         dayOfWeek: 'TUESDAY',
         activities: [
           {
@@ -125,7 +125,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
         executionNotes: ''
       },
       {
-        date: '2024-10-16',
+        date: '2026-08-26',
         dayOfWeek: 'WEDNESDAY',
         activities: [
           {
@@ -180,7 +180,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
         executionNotes: ''
       },
       {
-        date: '2024-10-17',
+        date: '2026-08-27',
         dayOfWeek: 'THURSDAY',
         activities: [
           {
@@ -235,7 +235,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
         executionNotes: ''
       },
       {
-        date: '2024-10-18',
+        date: '2026-08-28',
         dayOfWeek: 'FRIDAY',
         activities: [
           {
