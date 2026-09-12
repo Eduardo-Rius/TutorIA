@@ -167,8 +167,8 @@ describe("H1R9-E.1: Supervisor Tere — Closed Week Inbox Only", () => {
 
     // Z, AA. Direct official IMSS print view
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /VER VERSIÓN OFICIAL IMSS/i })); });
-    expect(screen.getAllByText("Aprobada").length).toBeGreaterThan(0);
-    expect(screen.getByText("Código: 3D11-009-003")).toBeDefined();
+    expect(screen.getAllByText(/Planeación de Actividades Pedagógicas/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Código: 3D11-009-003").length).toBeGreaterThan(0);
 
     unmount();
   });

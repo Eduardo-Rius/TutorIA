@@ -1,3 +1,24 @@
+import type { CurricularPDAReference } from './CurricularPDAReference';
+import { validateCurricularPDAReferences } from './CurricularPDAReference';
+import {
+  ComplementaryProgramActivity,
+  validateComplementaryProgramActivities,
+  InvalidComplementaryActivityError,
+} from './ComplementaryProgramActivity';
+import {
+  PrioritizedPractice,
+  validatePrioritizedPractices,
+  InvalidPrioritizedPracticeError,
+} from './PrioritizedPractice';
+
+export type { CurricularPDAReference, ComplementaryProgramActivity, PrioritizedPractice };
+export {
+  validateComplementaryProgramActivities,
+  InvalidComplementaryActivityError,
+  validatePrioritizedPractices,
+  InvalidPrioritizedPracticeError,
+};
+
 export interface WeeklyContextSnapshot {
   observations: string;
   identifiedNeeds: string;
@@ -39,8 +60,10 @@ export interface PlanningActivity {
   description: string;
   materials: string[];
   durationMinutes: number;
-  curricularTraceability: string[];
+  curricularTraceability: CurricularPDAReference[];
 }
+
+// ComplementaryProgramActivity is imported and re-exported from ./ComplementaryProgramActivity
 
 export type DailyEvaluationStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "CHANGES_REQUESTED" | "REJECTED";
 
@@ -58,7 +81,8 @@ export interface PlanningDay {
   date: string; // ISO date string
   dayOfWeek: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY";
   activities: PlanningActivity[];
-  complementaryActivities: string[];
+  complementaryActivities: ComplementaryProgramActivity[];
+  prioritizedPractices?: PrioritizedPractice[];
   materials: string[];
   evaluation?: string;
   executionNotes?: string;
@@ -97,7 +121,54 @@ export class WeeklyPlanning {
     public originalContext?: WeeklyContextSnapshot,
     public closedBy?: string,
     public closedAt?: Date
-  ) {}
+  ) {
+    WeeklyPlanning.validateCurricularInvariants(this.days);
+    WeeklyPlanning.validateComplementaryInvariants(this.days);
+    WeeklyPlanning.validatePrioritizedPracticeInvariants(this.days);
+  }
+
+  public assertValidCurricularInvariants(): void {
+    WeeklyPlanning.validateCurricularInvariants(this.days);
+  }
+
+  public assertValidComplementaryInvariants(): void {
+    WeeklyPlanning.validateComplementaryInvariants(this.days);
+  }
+
+  public assertValidPrioritizedPracticeInvariants(): void {
+    WeeklyPlanning.validatePrioritizedPracticeInvariants(this.days);
+  }
+
+  public static validatePrioritizedPracticeInvariants(days: readonly PlanningDay[]): void {
+    if (!days || !Array.isArray(days)) return;
+    for (const day of days) {
+      if (day && Array.isArray(day.prioritizedPractices)) {
+        validatePrioritizedPractices(day.prioritizedPractices);
+      }
+    }
+  }
+
+  public static validateCurricularInvariants(days: readonly PlanningDay[]): void {
+    if (!days || !Array.isArray(days)) return;
+    for (const day of days) {
+      if (day && Array.isArray(day.activities)) {
+        for (const activity of day.activities) {
+          if (activity && activity.curricularTraceability) {
+            validateCurricularPDAReferences(activity.curricularTraceability);
+          }
+        }
+      }
+    }
+  }
+
+  public static validateComplementaryInvariants(days: readonly PlanningDay[]): void {
+    if (!days || !Array.isArray(days)) return;
+    for (const day of days) {
+      if (day && Array.isArray(day.complementaryActivities)) {
+        validateComplementaryProgramActivities(day.complementaryActivities);
+      }
+    }
+  }
 
   public static create(
     planningId: string,
@@ -152,6 +223,11 @@ export class WeeklyPlanning {
         throw new Error(`WeeklyPlanning missing day: ${d}`);
       }
     }
+
+    // Enforce canonical curricular, complementary, and prioritized practice invariants atomically before mutating state
+    WeeklyPlanning.validateCurricularInvariants(days);
+    WeeklyPlanning.validateComplementaryInvariants(days);
+    WeeklyPlanning.validatePrioritizedPracticeInvariants(days);
 
     if (!this.originalContext) {
       if (originalContext) {
@@ -213,6 +289,83 @@ export class WeeklyPlanning {
     }
 
     this.version += 1;
+  }
+
+  public setActivityCurricularTraceability(
+    dayOfWeekOrDate: string,
+    activityId: string,
+    references: readonly CurricularPDAReference[]
+  ): void {
+    if (this.status !== 'DRAFT' && this.status !== 'REJECTED') {
+      throw new Error(`Cannot edit curricular traceability in status: ${this.status}`);
+    }
+
+    const targetDay = this.days.find(
+      (d) => d.dayOfWeek === dayOfWeekOrDate || d.date === dayOfWeekOrDate
+    );
+    if (!targetDay) {
+      throw new Error(`Day not found: ${dayOfWeekOrDate}`);
+    }
+
+    const targetActivity = (targetDay.activities || []).find(
+      (a) => a.activityId === activityId
+    );
+    if (!targetActivity) {
+      throw new Error(`Activity '${activityId}' not found in day ${dayOfWeekOrDate}`);
+    }
+
+    // Atomic validation of references before mutating activity
+    validateCurricularPDAReferences(references);
+
+    targetActivity.curricularTraceability = [...references];
+  }
+
+  /**
+   * Replaces the full complementary-activity selection/content for ONE PlanningDay.
+   * Human-governed operation for institutional program instructions.
+   */
+  public setDayComplementaryActivities(
+    dayId: string,
+    activities: readonly ComplementaryProgramActivity[]
+  ): void {
+    if (this.status !== 'DRAFT' && this.status !== 'REJECTED') {
+      throw new Error(`Cannot edit complementary activities in status: ${this.status}`);
+    }
+
+    const targetDay = this.days.find(
+      (d) => d.dayOfWeek === dayId || d.date === dayId
+    );
+    if (!targetDay) {
+      throw new Error(`Day not found: ${dayId}`);
+    }
+
+    // Atomic validation before mutation
+    const validated = validateComplementaryProgramActivities(activities);
+    targetDay.complementaryActivities = validated;
+  }
+
+  /**
+   * Replaces the full prioritized-practices collection for ONE PlanningDay.
+   * Human-governed operation for institutional instructions / mentoring.
+   */
+  public setDayPrioritizedPractices(
+    dayId: string,
+    practices: readonly PrioritizedPractice[]
+  ): void {
+    if (this.status !== 'DRAFT' && this.status !== 'REJECTED') {
+      throw new Error(`Cannot edit prioritized practices in status: ${this.status}`);
+    }
+
+    const targetDay = this.days.find(
+      (d) => d.dayOfWeek === dayId || d.date === dayId
+    );
+    if (!targetDay) {
+      throw new Error(`Day not found: ${dayId}`);
+    }
+
+    // Atomic validation before mutation
+    const validated = validatePrioritizedPractices(practices);
+    targetDay.prioritizedPractices = validated;
   }
 
   public submit(): void {

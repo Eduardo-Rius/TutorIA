@@ -37,7 +37,7 @@ describe('FirestoreWeeklyPlanningRepository Serialization', () => {
         description: 'Desc',
         materials: ['Mat1'],
         durationMinutes: 15,
-        curricularTraceability: ['Trace1']
+        curricularTraceability: [{ pdaId: 'TUTORIA-PDA-0001', catalogRevision: 'TUTORIA-DIRECT-PDA-CATALOG-R1' }]
       })),
       complementaryActivities: [],
       materials: ['Mat1']

@@ -25,7 +25,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Se proporcionarán sonajas y cascabeles para que los lactantes sigan el ritmo de una melodía suave, estimulando su percepción auditiva.',
             materials: ['Sonajas', 'Cascabeles', 'Música suave'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-EA-01']
+            curricularTraceability: []
           },
           {
             activityId: 'mon-aa',
@@ -34,7 +34,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Colocar colchonetas y juguetes llamativos a diferentes distancias para motivar el gateo y el desplazamiento autónomo.',
             materials: ['Colchonetas', 'Juguetes de colores vivos'],
             durationMinutes: 25,
-            curricularTraceability: ['IMSS-LA-AA-01']
+            curricularTraceability: []
           },
           {
             activityId: 'mon-af',
@@ -43,7 +43,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Juego de pataleo guiado sobre colchoneta mientras se canta una canción animada.',
             materials: ['Colchoneta'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-AF-01']
+            curricularTraceability: []
           },
           {
             activityId: 'mon-lva',
@@ -52,7 +52,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Lectura de cuento de animales de granja, imitando sonidos y mostrando imágenes grandes y contrastantes.',
             materials: ['Cuento de granja con imágenes grandes'],
             durationMinutes: 15,
-            curricularTraceability: ['IMSS-LA-LVA-01']
+            curricularTraceability: []
           },
           {
             activityId: 'mon-pm',
@@ -61,10 +61,11 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Los niños introducen y sacan pelotas suaves de una caja grande, descubriendo la relación espacial.',
             materials: ['Caja de cartón decorada', 'Pelotas de tela'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-PM-01']
+            curricularTraceability: []
           }
         ],
-        complementaryActivities: ['Bienvenida afectiva', 'Hábitos de higiene'],
+        complementaryActivities: [],
+        prioritizedPractices: [],
         materials: ['Sonajas', 'Colchonetas', 'Cuento', 'Caja y pelotas'],
         evaluation: '',
         executionNotes: ''
@@ -80,7 +81,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Pintura dactilar comestible (yogur con colorante) sobre papel bond grande en el suelo.',
             materials: ['Yogur natural', 'Colorantes vegetales', 'Papel bond'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-EA-02']
+            curricularTraceability: []
           },
           {
             activityId: 'tue-aa',
@@ -89,7 +90,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Juego frente al espejo de pared a nivel de piso para reconocer su propio rostro y gestos.',
             materials: ['Espejo irrompible de pared'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-AA-02']
+            curricularTraceability: []
           },
           {
             activityId: 'tue-af',
@@ -98,7 +99,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Circuito pequeño con rodillos de espuma que los niños deben superar gateando o apoyándose.',
             materials: ['Rodillos de espuma suave'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-AF-02']
+            curricularTraceability: []
           },
           {
             activityId: 'tue-lva',
@@ -107,7 +108,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Lectura de cuento corto sobre rutinas (dormir, comer) utilizando un tono de voz suave y melódico.',
             materials: ['Libro de tela sobre rutinas diarias'],
             durationMinutes: 15,
-            curricularTraceability: ['IMSS-LA-LVA-02']
+            curricularTraceability: []
           },
           {
             activityId: 'tue-pm',
@@ -116,10 +117,11 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Manipulación de bloques de ensamble grandes, separando un montón con muchos bloques y otro con pocos.',
             materials: ['Bloques de ensamble grandes tipo Mega Bloks'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-PM-02']
+            curricularTraceability: []
           }
         ],
-        complementaryActivities: ['Alimentación guiada', 'Siesta'],
+        complementaryActivities: [],
+        prioritizedPractices: [],
         materials: ['Yogur', 'Papel bond', 'Espejo', 'Rodillos', 'Libro de tela', 'Bloques grandes'],
         evaluation: '',
         executionNotes: ''
@@ -135,7 +137,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Bailar libremente al ritmo de música folklórica suave, apoyando el movimiento de manos.',
             materials: ['Música folklórica instrumental', 'Bocina'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-EA-03']
+            curricularTraceability: []
           },
           {
             activityId: 'wed-aa',
@@ -144,7 +146,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Juego en círculo sobre un tapete texturizado, fomentando el contacto visual e interacción entre pares.',
             materials: ['Tapete texturizado'],
             durationMinutes: 25,
-            curricularTraceability: ['IMSS-LA-AA-03']
+            curricularTraceability: []
           },
           {
             activityId: 'wed-af',
@@ -153,7 +155,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Lanzar y atrapar pelotas grandes de goma rodándolas por el piso en parejas con la educadora.',
             materials: ['Pelotas grandes de goma suave'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-AF-03']
+            curricularTraceability: []
           },
           {
             activityId: 'wed-lva',
@@ -162,7 +164,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Cuento de rimas cortas sobre las partes del cuerpo, señalando las partes correspondientes en los niños.',
             materials: ['Cuento de rimas con imágenes del cuerpo'],
             durationMinutes: 15,
-            curricularTraceability: ['IMSS-LA-LVA-03']
+            curricularTraceability: []
           },
           {
             activityId: 'wed-pm',
@@ -171,10 +173,11 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Juego de esconder un juguete sonoro debajo de un pañuelo y animar al niño a encontrarlo.',
             materials: ['Juguetes sonoros', 'Pañuelos opacos'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-PM-03']
+            curricularTraceability: []
           }
         ],
-        complementaryActivities: ['Cambiado de pañal afectivo'],
+        complementaryActivities: [],
+        prioritizedPractices: [],
         materials: ['Tapete texturizado', 'Pelotas grandes', 'Cuento', 'Juguetes sonoros', 'Pañuelos'],
         evaluation: '',
         executionNotes: ''
@@ -190,7 +193,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Garabateo libre con crayones gruesos sobre cartulina pegada en la pared a su altura.',
             materials: ['Crayones gruesos', 'Cartulina grande', 'Cinta masking'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-EA-04']
+            curricularTraceability: []
           },
           {
             activityId: 'thu-aa',
@@ -199,7 +202,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Acondicionar un área con cojines, luz tenue y música de cuna para una transición tranquila hacia la siesta.',
             materials: ['Cojines suaves', 'Música de relajación'],
             durationMinutes: 25,
-            curricularTraceability: ['IMSS-LA-AA-04']
+            curricularTraceability: []
           },
           {
             activityId: 'thu-af',
@@ -208,7 +211,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Motivar a los niños a ponerse de pie apoyándose en un mueble bajo y seguro para alcanzar un juguete.',
             materials: ['Muebles seguros', 'Juguetes atractivos'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-AF-04']
+            curricularTraceability: []
           },
           {
             activityId: 'thu-lva',
@@ -217,7 +220,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Lectura de cuento cantado, acompañando la historia con movimientos de manos y expresiones faciales.',
             materials: ['Cuento musical interactivo'],
             durationMinutes: 15,
-            curricularTraceability: ['IMSS-LA-LVA-04']
+            curricularTraceability: []
           },
           {
             activityId: 'thu-pm',
@@ -226,10 +229,11 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Jugar con aros apilables grandes, introduciéndolos en un poste con ayuda y supervisión.',
             materials: ['Aros apilables de plástico'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-PM-04']
+            curricularTraceability: []
           }
         ],
-        complementaryActivities: ['Lavado de manos y cantos'],
+        complementaryActivities: [],
+        prioritizedPractices: [],
         materials: ['Crayones', 'Cartulina', 'Cojines', 'Música de relajación', 'Cuento musical', 'Aros apilables'],
         evaluation: '',
         executionNotes: ''
@@ -245,7 +249,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Exploración de botellas sensoriales con agua, brillantina y objetos pequeños de colores brillantes.',
             materials: ['Botellas sensoriales seguras'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-EA-05']
+            curricularTraceability: []
           },
           {
             activityId: 'fri-aa',
@@ -254,7 +258,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Recorrido por un sendero corto de texturas en el suelo (alfombra, plástico de burbujas, foamy).',
             materials: ['Alfombra', 'Plástico de burbujas', 'Tapetes de foamy'],
             durationMinutes: 25,
-            curricularTraceability: ['IMSS-LA-AA-05']
+            curricularTraceability: []
           },
           {
             activityId: 'fri-af',
@@ -263,7 +267,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Actividad de intentar patear pelotas grandes suaves estando de pie o apoyados.',
             materials: ['Pelotas suaves y ligeras'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-AF-05']
+            curricularTraceability: []
           },
           {
             activityId: 'fri-lva',
@@ -272,7 +276,7 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Cuento interactivo con títeres de dedo sobre emociones básicas, propiciando sonrisas y gestos.',
             materials: ['Cuento corto', 'Títeres de dedo'],
             durationMinutes: 15,
-            curricularTraceability: ['IMSS-LA-LVA-05']
+            curricularTraceability: []
           },
           {
             activityId: 'fri-pm',
@@ -281,10 +285,11 @@ export class DeterministicPedagogicalRecommendationSource implements Pedagogical
             description: 'Caja sorpresa de donde los niños sacan objetos duros (bloques) y suaves (peluches).',
             materials: ['Caja de sorpresas', 'Peluches pequeños', 'Bloques de madera'],
             durationMinutes: 20,
-            curricularTraceability: ['IMSS-LA-PM-05']
+            curricularTraceability: []
           }
         ],
-        complementaryActivities: ['Despedida afectiva', 'Entrega a padres'],
+        complementaryActivities: [],
+        prioritizedPractices: [],
         materials: ['Botellas sensoriales', 'Materiales de texturas', 'Pelotas', 'Títeres de dedo', 'Peluches', 'Bloques'],
         evaluation: '',
         executionNotes: ''

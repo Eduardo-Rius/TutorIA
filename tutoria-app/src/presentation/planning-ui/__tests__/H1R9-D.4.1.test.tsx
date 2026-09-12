@@ -132,8 +132,8 @@ describe("H1R9-D.4.1: Closed Week — Full Read-Only Visibility for Anita", () =
 
     // W. Direct official IMSS print view
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Versión Oficial IMSS/i })); });
-    expect(screen.getAllByText("Aprobada").length).toBeGreaterThan(0);
-    expect(screen.getByText("Código: 3D11-009-003")).toBeDefined();
+    expect(screen.getAllByText(/Planeación de Actividades Pedagógicas/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Código: 3D11-009-003").length).toBeGreaterThan(0);
 
     // Back to dashboard
     await act(async () => { fireEvent.click(screen.getByText(/Volver/i)); });

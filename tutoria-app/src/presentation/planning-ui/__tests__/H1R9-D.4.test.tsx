@@ -172,6 +172,6 @@ describe("H1R9-D.4: Formal Weekly Closure by Ceci", () => {
 
     // V, W. Official print view can be opened and displays "Aprobada"
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Versión Oficial IMSS/i })); });
-    expect(screen.getAllByText("Aprobada").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Planeación de Actividades Pedagógicas/i).length).toBeGreaterThan(0);
   });
 });

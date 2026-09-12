@@ -108,6 +108,6 @@ describe("H1R9-D.1: Planning Approval ≠ Weekly Closure", () => {
     expect(officialBtn).toBeDefined();
 
     await act(async () => { fireEvent.click(officialBtn); });
-    expect(screen.getByText(/Planeación de Actividades Pedagógicas/i)).toBeDefined();
+    expect(screen.getAllByText(/Planeación de Actividades Pedagógicas/i).length).toBeGreaterThan(0);
   });
 });

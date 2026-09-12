@@ -5,6 +5,12 @@ import { PlanningActorRole, PlanningWorkflowService } from '../../application/pl
 import { PedagogicalRecommendationSource } from '../../application/planning/PedagogicalRecommendationSource';
 import { WeeklyPlanning, PlanningDay } from '../../domain/planning/WeeklyPlanning';
 import { RoomCatalog } from '../../domain/planning/RoomCatalog';
+import { CurricularSelectionControl } from './CurricularSelectionControl';
+import { CurricularRecommendationSource } from '../../application/planning/CurricularRecommendationSource';
+import { ComplementaryActivitiesControl } from './ComplementaryActivitiesControl';
+import { PrioritizedPracticesControl } from './PrioritizedPracticesControl';
+import { DIRECT_PDA_CATALOG } from '../../domain/planning/DirectCurricularCatalog';
+import { composeAnversoPages, ComposedAnversoPage, AnversoBlockDescriptor, USABLE_HEIGHT_MM, USABLE_WIDTH_MM, LETTER_WIDTH_MM, LETTER_HEIGHT_MM, SAFE_MARGIN_MM } from './DirectPrintPaginationComposer';
 
 const MOCK_START = '2026-08-10';
 const MOCK_END = '2026-08-14';
@@ -34,10 +40,11 @@ const VISUAL_STEPS = [
 export interface PlanningDemoAppProps {
   service: PlanningWorkflowService;
   source: PedagogicalRecommendationSource;
+  curricularRecommendationSource?: CurricularRecommendationSource;
   currentDate?: string;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, source, currentDate }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride }) => {
   const [role, setRole] = useState<PlanningActorRole>('TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
@@ -54,7 +61,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, sourc
   if (view === 'PRINT') {
     return (
       <div className="bg-white">
-        <PrintableView service={service} planId={selectedPlanId!} modality={modality} onBack={() => setView(role === 'SUPERVISOR' ? 'REVIEW' : (role === 'DIRECTOR' ? 'REVIEW' : 'CREATE'))} />
+        <PrintableView service={service} planId={selectedPlanId!} modality={modality} onBack={() => setView(role === 'SUPERVISOR' ? 'REVIEW' : (role === 'DIRECTOR' ? 'REVIEW' : 'CREATE'))} simulateMeasurementFailure={simulateMeasurementFailure} anversoComposerOverride={anversoComposerOverride} />
       </div>
     );
   }
@@ -115,7 +122,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps> = ({ service, sourc
 
       <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
         {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
-        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} planId={selectedPlanId} modality={modality} currentDate={simulatedDate} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} curricularRecommendationSource={curricularRecommendationSource} planId={selectedPlanId} modality={modality} currentDate={simulatedDate} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
         {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
@@ -328,7 +335,7 @@ export const formatDayDateMessage = (dateStr: string): string => {
   return `${dayNames[dateObj.getUTCDay()]} ${d} de ${monthNames[dateObj.getUTCMonth()]}`;
 };
 
-const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
   const [specialSituations, setSpecialSituations] = useState('');
@@ -377,7 +384,7 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
 
           if (p.days.length === 0) {
             setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
-              date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], materials: []
+              date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], prioritizedPractices: [], materials: []
             })));
           } else {
             setDays(p.days);
@@ -398,9 +405,13 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
       });
     } else {
       if (role === 'TEACHER') {
-        service.createPlanning(currentPlanId, 'd1', 'lactantes-c', 't1', MOCK_START, MOCK_END, 'TEACHER').then(() => {
+        service.createPlanning(currentPlanId, 'd1', 'lactantes-c', 't1', MOCK_START, MOCK_END, 'TEACHER').then(async () => {
+          const created = await service.getPlanning(currentPlanId);
+          if (created) {
+            setPlanningObj(created);
+          }
           setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
-            date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], materials: []
+            date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], prioritizedPractices: [], materials: []
           })));
         });
       }
@@ -424,6 +435,10 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
       setIsGenerating(false);
       try {
         await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], recommended, 'TEACHER', initialSnapshot);
+        const updated = await service.getPlanning(currentPlanId);
+        if (updated) {
+          setPlanningObj(updated);
+        }
       } catch (err) {}
     }, process.env.NODE_ENV === 'test' ? 0 : 2000);
   };
@@ -613,7 +628,7 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
                     </div>
                   )}
 
-                  {hasActivities && (
+                  {hasActivities && (<>
                     <div className="space-y-4 mt-8">
                       {d.activities.map((a, j) => {
                          const isExpanded = expandedActivityId === a.activityId;
@@ -657,13 +672,111 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
                                       return obs;
                                     }));
                                  }} className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[160px] resize-y transition" />
+
+                                 {planningObj && (
+                                   modality === 'INDIRECT' ? (
+                                     <div
+                                       data-testid="indirect-curricular-info-card"
+                                       className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg text-left"
+                                     >
+                                       <h4 className="text-sm font-bold text-gray-900 mb-1">
+                                         Referentes curriculares de la modalidad
+                                       </h4>
+                                       <p className="text-sm text-gray-700 mb-1 leading-relaxed">
+                                         Para Prestación Indirecta no es necesario seleccionar elementos curriculares. El formato institucional incorpora automáticamente los referentes curriculares correspondientes.
+                                       </p>
+                                       <p className="text-xs text-gray-500 font-medium">
+                                         No se requiere ninguna acción de tu parte.
+                                       </p>
+                                     </div>
+                                   ) : (
+                                     <CurricularSelectionControl
+                                       activity={a}
+                                       dayIdentifier={d.dayOfWeek}
+                                       planning={planningObj}
+                                       readOnly={readOnly || (status !== 'DRAFT' && status !== 'REJECTED')}
+                                       modality={modality}
+                                       recommendationSource={curricularRecommendationSource}
+                                       onUpdate={async (updatedRefs) => {
+                                         const updatedDays = planningObj.days.map((dayItem: PlanningDay) => {
+                                           if (dayItem.dayOfWeek === d.dayOfWeek) {
+                                             return {
+                                               ...dayItem,
+                                               activities: dayItem.activities.map((act) =>
+                                                 act.activityId === a.activityId
+                                                   ? { ...act, curricularTraceability: updatedRefs }
+                                                   : act
+                                               ),
+                                             };
+                                           }
+                                           return dayItem;
+                                         });
+                                         setDays(updatedDays);
+                                         try {
+                                           await service.saveDraft(
+                                             currentPlanId,
+                                             obs,
+                                             needs,
+                                             specialSituations,
+                                             availableMaterials,
+                                             [],
+                                             updatedDays,
+                                             'TEACHER',
+                                             originalContext || undefined
+                                           );
+                                         } catch (err) {}
+                                       }}
+                                     />
+                                   )
+                                 )}
                                </div>
                              )}
                            </div>
                          );
                       })}
+                     </div>
 
-                                            {(status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED') && (() => {
+                      <ComplementaryActivitiesControl
+                        dayOfWeek={d.dayOfWeek}
+                        activities={d.complementaryActivities || []}
+                        planning={planningObj}
+                        readOnly={readOnly || (status !== 'DRAFT' && status !== 'REJECTED')}
+                        onSave={async (updatedActivities) => {
+                          await service.setDayComplementaryActivities(
+                            currentPlanId,
+                            d.dayOfWeek,
+                            updatedActivities,
+                            'TEACHER'
+                          );
+                          const updatedPlan = await service.getPlanning(currentPlanId);
+                          if (updatedPlan) {
+                            setPlanningObj(updatedPlan);
+                            setDays(updatedPlan.days);
+                          }
+                        }}
+                      />
+
+                      <PrioritizedPracticesControl
+                        dayOfWeek={d.dayOfWeek}
+                        practices={d.prioritizedPractices || []}
+                        planning={planningObj}
+                        readOnly={readOnly || (status !== 'DRAFT' && status !== 'REJECTED')}
+                        onSave={async (updatedPractices) => {
+                          await service.setDayPrioritizedPractices(
+                            currentPlanId,
+                            d.dayOfWeek,
+                            updatedPractices,
+                            'TEACHER'
+                          );
+                          const updatedPlan = await service.getPlanning(currentPlanId);
+                          if (updatedPlan) {
+                            setPlanningObj(updatedPlan);
+                            setDays(updatedPlan.days);
+                          }
+                        }}
+                      />
+
+                   {(status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED') && (() => {
                         const evalStatus = planningObj && typeof planningObj.getEvaluationStatus === 'function'
                           ? planningObj.getEvaluationStatus(d.dayOfWeek, currentDate)
                           : {
@@ -936,7 +1049,7 @@ const TeacherWizard = ({ service, source, planId, modality, onBack, onSaved, rol
                           </div>
                         </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               );
@@ -1414,6 +1527,15 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
                             <p className="text-base text-gray-800 leading-relaxed mb-4">{a.description}</p>
                             <p className="text-sm font-bold text-text-muted uppercase mb-6">Materiales: <span className="text-gray-800 normal-case font-medium">{a.materials.join(', ')}</span></p>
 
+                            {plan && (
+                              <CurricularSelectionControl
+                                activity={a}
+                                dayIdentifier={d.dayOfWeek}
+                                planning={plan}
+                                readOnly={true}
+                              />
+                            )}
+
                             {/* PREPARED STATE */}
                             {isPrepared && (
                               <div className="bg-orange-50 p-5 rounded-xl border border-orange-400 mt-4 mb-6 shadow-sm">
@@ -1493,6 +1615,99 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
                     );
                  })}
                </div>
+
+                {/* DIRECTOR DAILY COMPLEMENTARY ACTIVITY REVIEW (H1R9-F.3) */}
+                <div className="mt-8 pt-6 border-t border-border-soft">
+                  <div className="flex items-center justify-between mb-4">
+                    <h5 className="text-lg font-bold text-teal-900 flex items-center gap-2">
+                      <span>🧩</span> Actividades complementarias de otros programas
+                    </h5>
+                    <span className="text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 px-3 py-1 rounded-full uppercase tracking-wider">
+                      Programa institucional
+                    </span>
+                  </div>
+
+                  {(!d.complementaryActivities || d.complementaryActivities.length === 0) ? (
+                    <div className="bg-surface-soft border border-border-soft rounded-xl p-5 text-center">
+                      <p className="text-text-primary font-bold text-base mb-1">
+                        Sin actividad complementaria propuesta para este día.
+                      </p>
+                      <p className="text-text-muted text-sm font-medium">
+                        TutorIA no asignará actividades de otros programas hasta contar con una fuente institucional validada.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {d.complementaryActivities.map((ca: any, idx: number) => (
+                        <div key={idx} className="bg-white border border-border-soft rounded-xl p-5 shadow-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                              {ca.programArea}
+                            </span>
+                            {ca.sourceReference && (
+                              <span className="text-xs text-text-muted font-medium">
+                                Fuente: {ca.sourceReference}
+                              </span>
+                            )}
+                          </div>
+                          <h6 className="font-bold text-text-primary text-lg mb-1">
+                            {ca.activityName}
+                          </h6>
+                          {ca.purpose && (
+                            <p className="text-sm font-semibold text-teal-900 mb-2">
+                              <strong>Propósito:</strong> {ca.purpose}
+                            </p>
+                          )}
+                          {ca.description && (
+                            <p className="text-sm text-gray-700 leading-relaxed font-normal">
+                              {ca.description}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* DIRECTOR DAILY PRIORITIZED PRACTICES REVIEW (H1R9-F.7.4) */}
+                <div className="mt-8 pt-6 border-t border-border-soft" data-testid={`director-prioritized-practices-${d.dayOfWeek}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h5 className="text-lg font-bold text-teal-900 flex items-center gap-2">
+                      <span>🎯</span> Prácticas priorizadas
+                    </h5>
+                    <span className="text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 px-3 py-1 rounded-full uppercase tracking-wider">
+                      Instrucción institucional
+                    </span>
+                  </div>
+
+                  {(!d.prioritizedPractices || d.prioritizedPractices.length === 0) ? (
+                    <div className="bg-surface-soft border border-border-soft rounded-xl p-5 text-center">
+                      <p className="text-text-primary font-bold text-base mb-1">
+                        Sin práctica priorizada registrada para este día.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {d.prioritizedPractices.map((practice: any, idx: number) => (
+                        <div key={idx} className="bg-white border border-border-soft rounded-xl p-5 shadow-xs" data-testid={`ceci-prioritized-practice-entry-${idx}`}>
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                              Práctica priorizada
+                            </span>
+                            {practice.sourceReference && (
+                              <span className="text-xs text-text-muted font-medium">
+                                Referencia: {practice.sourceReference}
+                              </span>
+                            )}
+                          </div>
+                          <h6 className="font-bold text-text-primary text-lg mb-1">
+                            {practice.practiceName}
+                          </h6>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* DIRECTOR DAILY EVALUATION REVIEW (H1R9-C.4 & H1R9-D.2) */}
                 {d.evaluationStatus === 'IN_REVIEW' && (() => {
@@ -1812,8 +2027,111 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }:
                         {a.materials && a.materials.length > 0 && (
                           <p className="text-xs text-text-muted mt-2"><strong>Materiales:</strong> {a.materials.join(', ')}</p>
                         )}
+                        {plan && modality === 'DIRECT' && (
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            <CurricularSelectionControl
+                              activity={a}
+                              dayIdentifier={d.dayOfWeek}
+                              planning={plan}
+                              readOnly={true}
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
+                  </div>
+
+                  {/* SUPERVISOR DAILY COMPLEMENTARY ACTIVITY DETAIL (H1R9-F.4) */}
+                  <div className="mt-6 mb-6 pt-5 border-t border-border-soft">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🧩</span> Actividades complementarias de otros programas
+                      </h4>
+                      <span className="text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        Programa institucional
+                      </span>
+                    </div>
+
+                    {(!d.complementaryActivities || d.complementaryActivities.length === 0) ? (
+                      <div className="bg-white border border-border-soft rounded-lg p-4 text-center">
+                        <p className="text-text-primary font-bold text-sm mb-1">
+                          Sin actividad complementaria propuesta para este día.
+                        </p>
+                        <p className="text-text-muted text-xs font-medium">
+                          TutorIA no asignará actividades de otros programas hasta contar con una fuente institucional validada.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {d.complementaryActivities.map((ca: any, idx: number) => (
+                          <div key={idx} className="bg-white border border-border-soft rounded-lg p-4 shadow-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                {ca.programArea}
+                              </span>
+                              {ca.sourceReference && (
+                                <span className="text-xs text-text-muted font-medium">
+                                  Fuente: {ca.sourceReference}
+                                </span>
+                              )}
+                            </div>
+                            <h5 className="font-bold text-text-primary text-base mb-1">
+                              {ca.activityName}
+                            </h5>
+                            {ca.purpose && (
+                              <p className="text-xs font-semibold text-teal-900 mb-1.5">
+                                <strong>Propósito:</strong> {ca.purpose}
+                              </p>
+                            )}
+                            {ca.description && (
+                              <p className="text-xs text-gray-700 leading-relaxed font-normal">
+                                {ca.description}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SUPERVISOR DAILY PRIORITIZED PRACTICES DETAIL (H1R9-F.7.4) */}
+                  <div className="mt-6 mb-6 pt-5 border-t border-border-soft" data-testid={`supervisor-prioritized-practices-${d.dayOfWeek}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🎯</span> Prácticas priorizadas
+                      </h4>
+                      <span className="text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        Instrucción institucional
+                      </span>
+                    </div>
+
+                    {(!d.prioritizedPractices || d.prioritizedPractices.length === 0) ? (
+                      <div className="bg-white border border-border-soft rounded-lg p-4 text-center">
+                        <p className="text-text-primary font-bold text-sm mb-1">
+                          Sin práctica priorizada registrada para este día.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {d.prioritizedPractices.map((practice: any, idx: number) => (
+                          <div key={idx} className="bg-white border border-border-soft rounded-lg p-4 shadow-xs" data-testid={`tere-prioritized-practice-entry-${idx}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                Práctica priorizada
+                              </span>
+                              {practice.sourceReference && (
+                                <span className="text-xs text-text-muted font-medium">
+                                  Referencia: {practice.sourceReference}
+                                </span>
+                              )}
+                            </div>
+                            <h5 className="font-bold text-text-primary text-base mb-1">
+                              {practice.practiceName}
+                            </h5>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-green-50/60 border border-green-200 rounded-lg p-5">
@@ -1976,14 +2294,560 @@ const SupervisorList = ({ service, onSelect, refreshKey }: { service: PlanningWo
 
 
 
-const PrintableView = ({ service, planId, modality, onBack }: { service: PlanningWorkflowService, planId: string, modality: 'DIRECT'|'INDIRECT', onBack: () => void }) => {
+const PrintableView = ({
+  service,
+  planId,
+  modality,
+  onBack,
+  simulateMeasurementFailure,
+  anversoComposerOverride,
+}: {
+  service: PlanningWorkflowService;
+  planId: string;
+  modality: 'DIRECT' | 'INDIRECT';
+  onBack: () => void;
+  simulateMeasurementFailure?: boolean;
+  anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[];
+}) => {
   const [plan, setPlan] = useState<any>(null);
-  useEffect(() => { service.getPlanning(planId).then(setPlan); }, [planId, service]);
+  useEffect(() => {
+    service.getPlanning(planId).then(setPlan);
+  }, [planId, service]);
+
   if (!plan) return null;
 
   const isDirect = modality === 'DIRECT';
 
   if (isDirect) {
+    const daySpanishNames: Record<string, string> = {
+      MONDAY: 'Lunes 24',
+      TUESDAY: 'Martes 25',
+      WEDNESDAY: 'Miércoles 26',
+      THURSDAY: 'Jueves 27',
+      FRIDAY: 'Viernes 28',
+    };
+
+    const measurementFailed = simulateMeasurementFailure === true;
+
+    const renderPdaTable = (pdaEntries: typeof DIRECT_PDA_CATALOG, selectedPdaIds: Set<string>) => (
+      <table className="direct-reverso-table w-full border border-black border-collapse text-xs print:text-[8px] leading-tight">
+        <thead className="bg-gray-100 font-bold border-b border-black">
+          <tr>
+            <th className="w-[25%] p-1.5 text-left border-r border-black font-bold text-black">Campo Formativo</th>
+            <th className="w-[33%] p-1.5 text-left border-r border-black font-bold text-black">Contenidos</th>
+            <th className="w-[33%] p-1.5 text-left border-r border-black font-bold text-black">Procesos de Desarrollo de Aprendizaje</th>
+            <th className="w-[9%] p-1.5 text-center font-bold text-black">En la Planeación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pdaEntries.map((entry, idx) => {
+            const isMarked = selectedPdaIds.has(entry.id);
+            const isFirstInCampo = idx === 0 || pdaEntries[idx - 1]!.campoFormativo !== entry.campoFormativo;
+            const isFirstInContenido = idx === 0 || pdaEntries[idx - 1]!.contenido !== entry.contenido;
+
+            return (
+              <tr
+                key={entry.id}
+                data-testid={`pda-row-${entry.id}`}
+                className={`border-b border-gray-200 ${
+                  idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
+                }`}
+              >
+                <td className="w-[25%] p-1.5 align-top font-bold text-teal-900 border-r border-gray-200">
+                  {isFirstInCampo ? entry.campoFormativo : ''}
+                </td>
+                <td className="w-[33%] p-1.5 align-top text-gray-800 border-r border-gray-200">
+                  {isFirstInContenido ? entry.contenido : ''}
+                </td>
+                <td className="w-[33%] p-1.5 align-top text-gray-900 font-normal border-r border-gray-200">
+                  {entry.pda}
+                </td>
+                <td
+                  data-testid={isMarked ? `pda-mark-${entry.id}` : `pda-unmarked-${entry.id}`}
+                  className="w-[9%] p-1.5 align-top text-center font-bold text-sm print:text-xs"
+                >
+                  {isMarked ? '✓' : ''}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+
+    const getComposedAnversoPages = (d: any): ComposedAnversoPage[] => {
+      if (anversoComposerOverride) {
+        return anversoComposerOverride(d, plan);
+      }
+
+      // Authoritative normal Anverso: single explicit Letter page containing all official sections
+      const blockIds: string[] = ['header', 'obs'];
+      if (!d.activities || d.activities.length === 0) {
+        blockIds.push('act_empty');
+      } else {
+        blockIds.push('act_heading');
+        d.activities.forEach((_: any, idx: number) => {
+          blockIds.push(`act_${idx}`);
+        });
+      }
+      blockIds.push('eval', 'comp', 'mat', 'practices', 'sigs');
+
+      return [
+        {
+          pageNumber: 1,
+          blockIds,
+          totalHeightMm: 0,
+          hasContinuationHeader: false,
+        },
+      ];
+    };
+
+    const renderAnversoBlock = (bId: string, d: any, dayLabel: string, roomDisplayName: string) => {
+      const dayMaterials = (d.activities || []).flatMap((a: any) => a.materials || []).filter(Boolean);
+      const uniqueMaterials = Array.from(new Set(dayMaterials));
+
+      if (bId === 'header') {
+        return (
+          <div key="header" data-testid="section-header">
+            {/* 1. Institutional identity & Title / Código */}
+            <div className="border-b-2 border-black pb-2 mb-3 print:pb-1.5 print:mb-2 flex justify-between items-start">
+              <div>
+                <p className="font-bold text-base print:text-xs text-black tracking-tight leading-tight uppercase font-sans">
+                  Instituto Mexicano del Seguro Social
+                </p>
+                <p className="text-xs print:text-[9px] text-gray-700 tracking-wider uppercase font-sans">
+                  Seguridad y Solidaridad Social
+                </p>
+              </div>
+              <div className="text-right">
+                <h1 className="text-xl print:text-sm font-bold text-black leading-tight tracking-tight">
+                  Planeación de Actividades Pedagógicas<br/>
+                  <span className="text-sm print:text-xs font-normal text-gray-700">(Anverso)</span>
+                </h1>
+                <p className="text-xs print:text-[9px] text-gray-700 font-bold uppercase tracking-widest">
+                  Código: 3D11-009-003
+                </p>
+              </div>
+            </div>
+
+            {/* 2. Official identification lines: Guardería, Sala, Periodo stacked vertically on own lines */}
+            <div className="direct-anverso-ident-stack space-y-1 mb-2 print:space-y-0.5 print:mb-1.5 text-xs print:text-[9.5px]">
+              <div data-testid="direct-ident-field-guarderia" className="direct-ident-row flex items-baseline gap-2">
+                <span className="font-bold text-black whitespace-nowrap">Guardería No.:</span>
+                <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
+                  Guardería IMSS Demo (001)
+                </span>
+              </div>
+              <div data-testid="direct-ident-field-sala" className="direct-ident-row flex items-baseline gap-2">
+                <span className="font-bold text-black whitespace-nowrap">Sala de atención o Grupo:</span>
+                <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
+                  {roomDisplayName}
+                </span>
+              </div>
+              <div data-testid="direct-ident-field-periodo" className="direct-ident-row flex items-baseline gap-2">
+                <span className="font-bold text-black whitespace-nowrap">Periodo:</span>
+                <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
+                  <span>24 al 28 de agosto de 2026</span> ({dayLabel})
+                </span>
+              </div>
+            </div>
+
+            {/* 3. Official PLANEACIÓN bar */}
+            <div className="bg-gray-200 border-y border-black py-0.5 px-2 mb-2 print:py-0.5 print:mb-1 text-center font-bold uppercase text-xs print:text-[10px] tracking-wider text-black">
+              Planeación
+            </div>
+          </div>
+        );
+      }
+
+      if (bId === 'obs') {
+        return (
+          <div key="obs" data-testid="section-observaciones" className="mb-3 print:mb-1.5">
+            <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1 print:mb-0.5">
+              Observaciones de las y los niños
+            </h3>
+            <p className="text-xs print:text-[9px] text-black print:leading-snug">
+              {plan.observations || 'N/A'}
+            </p>
+          </div>
+        );
+      }
+
+      if (bId === 'act_heading') {
+        return (
+          <div key="act_heading" data-testid="section-actividades-heading" className="mb-1 print:mb-0.5">
+            <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1 print:mb-0.5">
+              Planteamiento de actividades a realizar con las niñas y niños durante su estancia en la guardería (actividades para la atención y el cuidado cariñoso y sensible, y pedagógicas)
+            </h3>
+          </div>
+        );
+      }
+
+      if (bId === 'act_empty') {
+        return (
+          <div key="act_empty" className="mb-3 print:mb-1.5">
+            <p className="text-black italic text-xs print:text-[9px]">Sin actividades pedagógicas planificadas para este día.</p>
+          </div>
+        );
+      }
+
+      if (bId.startsWith('act_')) {
+        const actIdx = parseInt(bId.replace('act_', ''), 10);
+        const a = d.activities && d.activities[actIdx];
+        if (!a) return null;
+        return (
+          <div key={bId} className="direct-anverso-activity border-l-2 border-black pl-2.5 print:pl-2 mb-2 print:mb-1">
+            <p className="font-bold text-xs print:text-[9px] text-black">
+              {a.objective} <span className="font-bold">({a.durationMinutes} min)</span>
+            </p>
+            <p className="text-xs print:text-[8.5px] text-black font-normal leading-snug print:leading-tight">
+              {a.description}
+            </p>
+          </div>
+        );
+      }
+
+      if (bId === 'eval') {
+        return (
+          <div key="eval" data-testid="section-evaluacion" className="mb-3 print:mb-1.5">
+            <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1 print:mb-0.5">
+              Evaluación:
+            </h3>
+            <div className="text-xs print:text-[9px] text-black leading-snug min-h-[24px] print:min-h-[16px]">
+              {d.evaluation ? (
+                <p className="whitespace-pre-wrap">{d.evaluation}</p>
+              ) : (
+                <p className="italic text-gray-700">Espacio para la evaluación posterior a la implementación.</p>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      if (bId === 'comp') {
+        return (
+          <div key="comp" data-testid="section-complementarias" className="mb-3 print:mb-1.5">
+            <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1 print:mb-0.5">
+              Actividades complementarias de otros programas
+            </h3>
+            {(!d.complementaryActivities || d.complementaryActivities.length === 0) ? (
+              <p className="text-black italic text-xs print:text-[9px]">Sin actividad complementaria registrada para este día.</p>
+            ) : (
+              <div className="space-y-1.5 print:space-y-0.5">
+                {d.complementaryActivities.map((ca: any, idx: number) => (
+                  <div key={idx} className="border-l-2 border-teal-800 pl-2 print:pl-1.5">
+                    <p className="font-bold text-xs print:text-[8.5px] text-black">
+                      <span className="text-teal-900">[{ca.programArea}]</span> {ca.activityName}
+                    </p>
+                    {ca.purpose && (
+                      <p className="text-[11px] print:text-[8px] text-gray-800"><strong>Propósito:</strong> {ca.purpose}</p>
+                    )}
+                    {ca.description && (
+                      <p className="text-[11px] print:text-[8px] text-gray-700">{ca.description}</p>
+                    )}
+                    {ca.sourceReference && (
+                      <p className="text-[10px] print:text-[7px] text-gray-600">Fuente: {ca.sourceReference}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      if (bId === 'mat') {
+        return (
+          <div key="mat" data-testid="section-materiales" className="mb-3 print:mb-1.5">
+            <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1 print:mb-0.5">
+              Materiales requeridos para las Actividades Pedagógicas
+            </h3>
+            {uniqueMaterials.length > 0 ? (
+              <p className="text-xs print:text-[8.5px] text-black">{uniqueMaterials.join(', ')}</p>
+            ) : (
+              <p className="text-black italic text-xs print:text-[9px]">Sin materiales registrados para este día.</p>
+            )}
+          </div>
+        );
+      }
+
+      if (bId === 'practices') {
+        const practices = d.prioritizedPractices || [];
+        return (
+          <div key="practices" data-testid="section-practicas" className="mb-3 print:mb-1.5">
+            <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1 print:mb-0.5">
+              Práctica(s) Priorizada(s) a implementar
+            </h3>
+            {practices.length > 0 ? (
+              <div className="space-y-1 print:space-y-0.5">
+                {practices.map((p: any, idx: number) => (
+                  <p key={idx} className="text-xs print:text-[8.5px] text-black leading-snug">
+                    {p.practiceName}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <div className="min-h-[16px] print:min-h-[12px]" />
+            )}
+          </div>
+        );
+      }
+
+      if (bId === 'sigs') {
+        return (
+          <div key="sigs" data-testid="section-firmas" className="direct-anverso-signatures mt-4 print:mt-2.5">
+            <div className="grid grid-cols-2 gap-12 text-center pt-2 border-t-2 border-black">
+              <div>
+                <div className="border-b border-black mb-1 mx-8 h-8 print:h-6"></div>
+                <p className="font-bold text-black text-xs print:text-[9.5px]">Educadora</p>
+                <p className="text-gray-600 text-[11px] print:text-[8px]">Nombre y firma</p>
+              </div>
+              <div>
+                <div className="border-b border-black mb-1 mx-8 h-8 print:h-6"></div>
+                <p className="font-bold text-black text-xs print:text-[9.5px]">Oficial de Puericultura</p>
+                <p className="text-gray-600 text-[11px] print:text-[8px]">Nombre y Firma</p>
+              </div>
+            </div>
+
+            <div data-testid="section-footer-note" className="mt-2.5 print:mt-1.5 text-[9.5px] print:text-[7.5px] text-gray-500 space-y-0.5">
+              <p>Se podrán utilizar los formatos que sean necesarios para la descripción detallada de actividades.</p>
+              <p>Nota: El lenguaje empleado en el presente documento no busca generar distinción alguna entre hombres y mujeres, por lo que las referencias o alusiones en la redacción hechas a un género representan a ambos sexos.</p>
+            </div>
+          </div>
+        );
+      }
+
+      return null;
+    };
+    return (
+      <div className="bg-white font-serif w-full text-black">
+        <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
+          <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-lg">← Volver</button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
+            {!measurementFailed && (
+              <button onClick={() => {
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                    printWindow.document.write('<html><head><title>Imprimir Planeación</title>');
+                    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('');
+                    printWindow.document.write(styles);
+                    printWindow.document.write('<style>@page { size: letter; margin: 0; } @media print { html, body { margin: 0 !important; padding: 0 !important; background: #ffffff !important; width: 215.9mm !important; } #printable-document-root { padding: 0 !important; margin: 0 !important; width: 215.9mm !important; max-width: 215.9mm !important; } .direct-daily-document { width: 215.9mm !important; box-sizing: border-box !important; } .direct-anverso-page, .direct-reverso-page { width: 215.9mm !important; min-height: 279.4mm !important; box-sizing: border-box !important; padding: 15mm !important; break-after: page; page-break-after: always; background: #ffffff !important; } .direct-reverso-table { width: 100% !important; border-collapse: collapse !important; } .direct-reverso-table thead { display: table-header-group !important; } .direct-reverso-table tr { break-inside: avoid !important; page-break-inside: avoid !important; } .direct-anverso-activity { break-inside: avoid !important; page-break-inside: avoid !important; } .direct-anverso-signatures { break-inside: avoid !important; page-break-inside: avoid !important; } }</style>');
+                    printWindow.document.write('</head><body class="bg-white">');
+                    const root = document.getElementById('printable-document-root');
+                    printWindow.document.write(root ? root.outerHTML : '');
+                    printWindow.document.write('</body></html>');
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => { printWindow.print(); }, 1000);
+                    printWindow.onafterprint = () => { printWindow.close(); };
+                }
+              }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
+            )}
+          </div>
+        </div>
+
+        {/* OFFSCREEN MEASUREMENT SANDBOX WITH EXACT PRINT CLASSES */}
+        <div
+          data-testid="direct-measurement-sandbox"
+          className="direct-measurement-sandbox bg-white font-serif text-black"
+          style={{
+            position: 'absolute',
+            left: '-99999px',
+            top: '-99999px',
+            width: '185.9mm',
+            visibility: 'hidden',
+            pointerEvents: 'none',
+          }}
+        >
+          <div id="direct-measurement-ruler" style={{ width: '100mm', height: '100mm', padding: 0, margin: 0 }} />
+        </div>
+
+        <style dangerouslySetInnerHTML={{ __html: `
+          @page {
+            size: letter;
+            margin: 0;
+          }
+          @media print {
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              width: 215.9mm !important;
+            }
+            #printable-document-root {
+              padding: 0 !important;
+              margin: 0 !important;
+              width: 215.9mm !important;
+              max-width: 215.9mm !important;
+            }
+            .direct-daily-document {
+              width: 215.9mm !important;
+              box-sizing: border-box !important;
+            }
+            .direct-anverso-page,
+            .direct-reverso-page {
+              width: 215.9mm !important;
+              min-height: 279.4mm !important;
+              box-sizing: border-box !important;
+              padding: 15mm !important;
+              break-after: page;
+              page-break-after: always;
+              background: #ffffff !important;
+            }
+            .direct-reverso-table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+            }
+            .direct-reverso-table thead {
+              display: table-header-group !important;
+            }
+            .direct-reverso-table tr {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+            .direct-anverso-activity {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+            .direct-anverso-signatures {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+          }
+        `}} />
+
+        {measurementFailed ? (
+          <div
+            data-testid="print-measurement-error"
+            className="bg-red-50 border-2 border-red-500 p-6 rounded-xl text-red-900 font-bold text-center max-w-2xl mx-auto my-12"
+          >
+            <p className="text-xl mb-2">⚠️ Error de preparación de impresión</p>
+            <p className="text-base">
+              No fue posible preparar la paginación segura del documento. Intenta generar nuevamente la versión de impresión.
+            </p>
+          </div>
+        ) : (
+          <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none print:w-full p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none space-y-16 print:space-y-0 print:m-0">
+            {plan.days.map((d: any) => {
+              const dayLabel = daySpanishNames[d.dayOfWeek] || d.dayOfWeek;
+              const composedPages = getComposedAnversoPages(d);
+
+              const dayRefs = (d.activities || []).flatMap((a: any) => a.curricularTraceability || []);
+              const selectedPdaIds = new Set(dayRefs.map((r: any) => r.pdaId));
+
+              // 19 PDA on Page 1 (Lenguajes 11 + Saberes 8)
+              const pdaGroup1 = DIRECT_PDA_CATALOG.slice(0, 19);
+              // 21 PDA on Page 2 (Ética 8 + De lo Humano 13)
+              const pdaGroup2 = DIRECT_PDA_CATALOG.slice(19, 40);
+
+              return (
+                <div key={d.dayOfWeek} className="direct-daily-document" data-testid={`direct-day-${d.dayOfWeek}`}>
+                  {/* --- DIRECT ANVERSO --- */}
+                  <div className="direct-anverso-group" data-testid={`direct-anverso-${d.dayOfWeek}`}>
+                    {composedPages.map((page) => (
+                      <div
+                        key={page.pageNumber}
+                        className="direct-anverso-page mb-16 print:mb-0 border-b-2 print:border-none pb-12 print:pb-0"
+                        data-testid={`direct-anverso-${d.dayOfWeek}-p${page.pageNumber}`}
+                      >
+                        {page.hasContinuationHeader && (
+                          <div className="border-b-2 border-black pb-2 mb-4 flex justify-between items-end">
+                            <div>
+                              <h2 className="text-xl print:text-base font-bold text-black tracking-tight">
+                                Planeación de Actividades Pedagógicas<br/>
+                                <span className="text-sm print:text-xs font-normal text-gray-700">(Anverso — continuación)</span>
+                              </h2>
+                              <p className="text-xs print:text-[10px] text-gray-700 uppercase tracking-widest font-bold">Código: 3D11-009-003</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs print:text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                                {dayLabel} — Lactantes C
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {page.blockIds.map((bId) => (
+                          <React.Fragment key={bId}>
+                            {renderAnversoBlock(bId, d, dayLabel, 'Lactantes C')}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* --- DIRECT REVERSO (EXPLICIT TWO-PAGE CANONICAL SPLIT) --- */}
+                  <div className="direct-reverso-group print:break-after-page" data-testid={`direct-reverso-${d.dayOfWeek}`}>
+                    {/* REVERSO PAGE 1 (19 PDA: Lenguajes 11 + Saberes 8) */}
+                    <div
+                      className="direct-reverso-page direct-reverso-p1 mb-16 print:mb-0 print:pt-0 border-b-4 print:border-none pb-12 print:pb-0"
+                      data-testid={`direct-reverso-${d.dayOfWeek}-p1`}
+                    >
+                      <div className="border-b-4 border-black pb-8 mb-8 flex justify-between items-end print:pb-2 print:mb-3">
+                        <div>
+                          <h1 className="text-4xl print:text-xl font-bold text-black mb-1 tracking-tight">
+                            Planeación de Actividades Pedagógicas<br/>
+                            <span className="text-2xl print:text-sm">(Reverso)</span>
+                          </h1>
+                          <p className="text-lg print:text-sm text-gray-700 uppercase tracking-widest font-bold">Código: 3D11-009-003</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm print:text-xs font-bold uppercase tracking-wider text-gray-700">
+                            {dayLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mb-6 print:mb-3">
+                        <h3 className="text-xl print:text-xs font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">
+                          Elementos curriculares del Programa Sintético de la Fase 1 para educación inicial
+                        </h3>
+                      </div>
+
+                      {renderPdaTable(pdaGroup1, selectedPdaIds)}
+                    </div>
+
+                    {/* REVERSO PAGE 2 (21 PDA: Ética 8 + De lo Humano 13) */}
+                    <div
+                      className="direct-reverso-page direct-reverso-p2 mb-16 print:mb-0 print:pt-0 border-b-4 print:border-none pb-12 print:pb-0"
+                      data-testid={`direct-reverso-${d.dayOfWeek}-p2`}
+                    >
+                      <div className="border-b-2 border-black pb-4 mb-4 flex justify-between items-end print:pb-1.5 print:mb-2">
+                        <div>
+                          <h1 className="text-2xl print:text-base font-bold text-black mb-0.5 tracking-tight">
+                            Planeación de Actividades Pedagógicas<br/>
+                            <span className="text-lg print:text-xs font-normal text-gray-700">(Reverso — continuación)</span>
+                          </h1>
+                          <p className="text-sm print:text-[10px] text-gray-700 uppercase tracking-widest font-bold">Código: 3D11-009-003</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm print:text-xs font-bold uppercase tracking-wider text-gray-700">
+                            {dayLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {renderPdaTable(pdaGroup2, selectedPdaIds)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+    // INDIRECT VIEW (AUTHORITATIVE DAILY PAIR COMPOSITION DPES/CG/2020/PDG/04)
+    const daySpanishNames: Record<string, string> = {
+      MONDAY: 'Lunes 24',
+      TUESDAY: 'Martes 25',
+      WEDNESDAY: 'Miércoles 26',
+      THURSDAY: 'Jueves 27',
+      FRIDAY: 'Viernes 28',
+    };
+
     return (
       <div className="bg-white font-serif w-full text-black">
         <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
@@ -1996,243 +2860,312 @@ const PrintableView = ({ service, planId, modality, onBack }: { service: Plannin
                   printWindow.document.write('<html><head><title>Imprimir Planeación</title>');
                   const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('');
                   printWindow.document.write(styles);
+                  printWindow.document.write('<style>@page { size: letter; margin: 0; } @media print { html, body { margin: 0 !important; padding: 0 !important; background: #ffffff !important; width: 215.9mm !important; } #printable-document-root { padding: 0 !important; margin: 0 !important; width: 215.9mm !important; max-width: 215.9mm !important; } .indirect-daily-document { width: 215.9mm !important; box-sizing: border-box !important; } .indirect-anverso-page, .indirect-reverso-page { width: 215.9mm !important; min-height: 279.4mm !important; height: 279.4mm !important; box-sizing: border-box !important; padding: 15mm !important; break-after: page; page-break-after: always; background: #ffffff !important; overflow: hidden; } }</style>');
                   printWindow.document.write('</head><body class="bg-white">');
                   const root = document.getElementById('printable-document-root');
                   printWindow.document.write(root ? root.outerHTML : '');
                   printWindow.document.write('</body></html>');
                   printWindow.document.close();
                   printWindow.focus();
-
-                  // Wait for styles/fonts to apply, then print
-                  setTimeout(() => {
-                      printWindow.print();
-                  }, 1000);
-
-                  // Only close the window AFTER the native print dialog is closed
-                  printWindow.onafterprint = () => {
-                      printWindow.close();
-                  };
+                  setTimeout(() => { printWindow.print(); }, 1000); printWindow.onafterprint = () => { printWindow.close(); };
               }
             }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
           </div>
         </div>
 
-        <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none">
-          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-2 print:mb-3">
-            <div>
-              <h1 className="text-4xl print:text-xl font-bold text-black mb-1 tracking-tight">Planeación de Actividades Pedagógicas</h1>
-              <p className="text-lg print:text-sm text-gray-700 uppercase tracking-widest font-bold">Código: 3D11-009-003</p>
-            </div>
-            <div className="text-right">
-              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-xs print:px-2 print:py-1 print:border-2 rounded-lg">{plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED' ? 'Aprobada' : 'Borrador'}</span>
-            </div>
-          </div>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @page {
+            size: letter;
+            margin: 0;
+          }
+          @media print {
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              width: 215.9mm !important;
+            }
+            #printable-document-root {
+              padding: 0 !important;
+              margin: 0 !important;
+              width: 215.9mm !important;
+              max-width: 215.9mm !important;
+            }
+            .indirect-daily-document {
+              width: 215.9mm !important;
+              box-sizing: border-box !important;
+            }
+            .indirect-anverso-page,
+            .indirect-reverso-page {
+              width: 215.9mm !important;
+              min-height: 279.4mm !important;
+              height: 279.4mm !important;
+              box-sizing: border-box !important;
+              padding: 15mm !important;
+              break-after: page;
+              page-break-after: always;
+              background: #ffffff !important;
+              overflow: hidden;
+            }
+          }
+        `}} />
 
-          <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-12 text-lg print:text-sm print:mb-8">
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">24 al 28 de agosto de 2026</p></div>
-          </div>
+        <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none print:w-full p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none space-y-16 print:space-y-0 print:m-0">
+          {plan.days.map((d: any) => {
+            const dayLabel = daySpanishNames[d.dayOfWeek] || d.dayOfWeek;
+            return (
+              <div key={d.dayOfWeek} className="indirect-daily-document" data-testid={`indirect-day-${d.dayOfWeek}`}>
+                {/* ========================================================================= */}
+                {/* DAILY ANVERSO                                                             */}
+                {/* ========================================================================= */}
+                <div
+                  className="indirect-anverso-page mb-16 print:mb-0 pb-12 print:pb-0"
+                  data-testid="indirect-anverso-page"
+                  data-day={d.dayOfWeek}
+                >
+                  {/* Title & Institutional identity */}
+                  <div className="border-b-2 border-black pb-2 mb-3 print:pb-1.5 print:mb-2 flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-base print:text-xs text-black tracking-tight leading-tight uppercase font-sans">
+                        Instituto Mexicano del Seguro Social
+                      </p>
+                      <p className="text-xs print:text-[9px] text-gray-700 tracking-wider uppercase font-sans">
+                        Seguridad y Solidaridad Social
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <h1 className="text-xl print:text-sm font-bold text-black leading-tight tracking-tight">
+                        Planeación de Acciones Pedagógicas<br/>
+                        <span className="text-sm print:text-xs font-normal text-gray-700">(Anverso)</span>
+                      </h1>
+                      <p className="text-xs print:text-[10px] text-gray-700 font-bold uppercase tracking-wider mt-0.5">
+                        {dayLabel}
+                      </p>
+                    </div>
+                  </div>
 
-          <div className="mb-12 print:mb-3">
-            <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 uppercase border-b-2 border-black print:mb-1 mb-4">Programa Sintético de la Fase 1 para educación inicial</h3>
-            <p className="text-base print:text-sm text-black italic">Campos Formativos: Lenguajes, Saberes y Pensamiento Científico, Ética, Naturaleza y Sociedades, De lo Humano y lo Comunitario</p>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 uppercase border-b-2 border-black print:mb-1 mb-4">Observaciones de las y los niños</h3>
-             <p className="text-lg print:text-[11px] text-black print:leading-snug">{plan.observations || 'N/A'}</p>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 uppercase border-b-2 border-black print:mb-1 mb-4">Planteamiento de actividades a realizar durante su estancia</h3>
-             <div className="space-y-12 print:space-y-6">
-               {plan.days.map((d: any) => (
-                 <div key={d.dayOfWeek} className="print:break-inside-avoid">
-                    <h4 className="text-2xl print:text-[11px] font-bold border-b border-black pb-2 mb-4 print:pb-0 print:mb-1 uppercase text-black">
-                      {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
-                    </h4>
-                    {(!d.activities || d.activities.length === 0) ? (
-                      <p className="text-black italic print:text-[10px]">Pendiente de planeación.</p>
-                    ) : (
-                      <div className="space-y-6 print:space-y-1">
-                        {d.activities.map((a: any) => (
-                          <div key={a.activityId} className="print:break-inside-avoid">
-                            <p className="font-bold text-lg print:text-[10px] mb-1 print:mb-0">{a.objective} <span className="font-bold">({a.durationMinutes} min)</span></p>
-                            <p className="text-black mb-2 print:text-[10px] font-normal print:mb-0 print:leading-tight">{a.description}</p>
-                            <p className="text-sm print:text-xs font-normal"><strong>Materiales requeridos para las Actividades Pedagógicas:</strong> {a.materials.join(', ')}</p>
-                          </div>
-                        ))}
+                  {/* Context & Foundation Header: Left: Vertical Stack / Right: Referentes box */}
+                  <div className="grid grid-cols-2 gap-4 items-start mb-3 print:mb-2">
+                    {/* LEFT: Identification fields stacked vertically */}
+                    <div className="direct-anverso-ident-stack space-y-1.5 text-xs print:text-[9.5px]">
+                      <div data-testid="indirect-ident-field-guarderia" className="flex items-baseline gap-2">
+                        <span className="font-bold text-black whitespace-nowrap">Guardería No.:</span>
+                        <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
+                          Guardería IMSS Demo (001)
+                        </span>
                       </div>
-                    )}
-                 </div>
-               ))}
-             </div>
-          </div>
+                      <div data-testid="indirect-ident-field-sala" className="flex items-baseline gap-2">
+                        <span className="font-bold text-black whitespace-nowrap">Sala de atención o Grupo:</span>
+                        <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
+                          Lactantes C
+                        </span>
+                      </div>
+                      <div data-testid="indirect-ident-field-periodo" className="flex items-baseline gap-2">
+                        <span className="font-bold text-black whitespace-nowrap">Periodo:</span>
+                        <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5 flex justify-between">
+                          <span>24 al 28 de agosto de 2026</span>
+                          <span className="uppercase text-gray-700 font-bold ml-2">({dayLabel})</span>
+                        </span>
+                      </div>
+                    </div>
 
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Evaluación</h3>
-             <p className="text-black italic print:text-sm">Espacio para la evaluación posterior a la implementación.</p>
-          </div>
+                    {/* RIGHT: Fixed institutional Referentes box */}
+                    <div data-testid="indirect-referentes-curriculares" className="border border-black p-2 bg-gray-50/50">
+                      <h4 className="font-bold text-[10px] print:text-[8px] uppercase border-b border-black pb-1 mb-1 text-black">
+                        Referentes curriculares: Aprendizajes clave para niños de 0 a 3 años de edad
+                      </h4>
+                      <ul className="list-disc pl-4 text-[9px] print:text-[7.5px] text-black leading-tight space-y-0.5">
+                        <li>Establecer vínculos afectivos y apegos seguros</li>
+                        <li>Construir una base de seguridad y confianza en sí mismo y en los otros, que favorezca el desarrollo de un psiquismo sano</li>
+                        <li>Desarrollar autonomía y autorregulación crecientes</li>
+                        <li>Desarrollar la curiosidad, la exploración, la imaginación y la creatividad</li>
+                        <li>Acceder al lenguaje en un sentido pleno, comunicacional y creador</li>
+                        <li>Descubrir en los libros y la lectura el gozo y la riqueza de la ficción</li>
+                        <li>Descubrir el propio cuerpo desde la libertad de movimiento y la expresividad motriz</li>
+                        <li>Convivir con otros y compartir el aprendizaje, el juego, el arte y la cultura</li>
+                      </ul>
+                    </div>
+                  </div>
 
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Actividades complementarias de otros programas</h3>
-             <p className="text-black italic print:text-sm">Pendiente</p>
-          </div>
+                  {/* Official section bar: Planeación */}
+                  <div data-testid="indirect-planeacion-bar" className="bg-gray-200 border-y border-black py-0.5 px-2 mb-2 text-center font-bold uppercase text-xs print:text-[10px] tracking-wider text-black">
+                    Planeación
+                  </div>
 
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Práctica(s) Priorizada(s) a implementar</h3>
-             <p className="text-black italic print:text-sm">Pendiente</p>
-          </div>
+                  {/* Main Planning Area Box (STRICTLY THIS DAY ONLY) */}
+                  <div data-testid="indirect-anverso-content" className="border border-black p-2.5 print:p-2 mb-2 print:mb-1.5 space-y-2.5 print:space-y-1.5">
+                    <div>
+                      <h3 className="font-bold text-xs print:text-[9.5px] uppercase text-black mb-1">
+                        Observaciones de los niños:
+                      </h3>
+                      <p className="text-xs print:text-[9px] text-black leading-snug">
+                        {plan.observations || 'N/A'}
+                      </p>
+                    </div>
+
+                    <div className="border-t border-black pt-2 print:pt-1">
+                      <h3 className="font-bold text-xs print:text-[9.5px] uppercase text-black mb-1.5">
+                        Planteamiento de acciones pedagógicas (propuesta, organización y desarrollo):
+                      </h3>
+                      {(!d.activities || d.activities.length === 0) ? (
+                        <p className="text-black italic text-xs print:text-[8.5px]">Pendiente de planeación.</p>
+                      ) : (
+                        <div className="space-y-1.5 print:space-y-1">
+                          {d.activities.map((a: any) => (
+                            <div key={a.activityId}>
+                              <p className="font-bold text-xs print:text-[8.5px] text-black">
+                                {a.objective} <span className="font-bold">({a.durationMinutes} min)</span>
+                              </p>
+                              <p className="text-black text-xs print:text-[8px] font-normal leading-tight">
+                                {a.description}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Formatting notice, code, and legal note */}
+                  <div className="mt-2 print:mt-1 flex justify-between items-start text-[9.5px] print:text-[7.5px] text-gray-700">
+                    <p data-testid="indirect-formatting-notice">
+                      Se podrán utilizar los formatos que sean necesarios para la descripción detallada de actividades.
+                    </p>
+                    <p data-testid="indirect-anverso-code" className="font-bold text-black uppercase tracking-wider text-xs print:text-[9.5px] whitespace-nowrap ml-4">
+                      DPES/CG/2020/PDG/04
+                    </p>
+                  </div>
+                  <div data-testid="indirect-legal-note" className="mt-1 text-[9px] print:text-[7px] text-gray-500">
+                    <p>
+                      Nota: El lenguaje empleado en el presente documento no busca generar distinción alguna entre hombres y mujeres, por lo que las referencias o alusiones en la redacción hechas a un género representan a ambos sexos.
+                    </p>
+                  </div>
+                </div>
+
+                {/* ========================================================================= */}
+                {/* DAILY REVERSO                                                             */}
+                {/* ========================================================================= */}
+                <div
+                  className="indirect-reverso-page mb-16 print:mb-0 pb-12 print:pb-0"
+                  data-testid="indirect-reverso-page"
+                  data-day={d.dayOfWeek}
+                >
+                  {/* Title & Institutional identity */}
+                  <div className="border-b-2 border-black pb-2 mb-3 print:pb-1.5 print:mb-2 flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-base print:text-xs text-black tracking-tight leading-tight uppercase font-sans">
+                        Instituto Mexicano del Seguro Social
+                      </p>
+                      <p className="text-xs print:text-[9px] text-gray-700 tracking-wider uppercase font-sans">
+                        Seguridad y Solidaridad Social
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <h1 className="text-xl print:text-sm font-bold text-black leading-tight tracking-tight">
+                        Planeación de Acciones Pedagógicas<br/>
+                        <span className="text-sm print:text-xs font-normal text-gray-700">(Reverso)</span>
+                      </h1>
+                      <p className="text-xs print:text-[10px] text-gray-700 font-bold uppercase tracking-wider mt-0.5">
+                        {dayLabel}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Section bar: Planeación (continúa) */}
+                  <div data-testid="indirect-reverso-planeacion-continua" className="bg-gray-200 border-y border-black py-0.5 px-2 mb-2 text-center font-bold uppercase text-xs print:text-[10px] tracking-wider text-black">
+                    Planeación (continúa)
+                  </div>
+
+                  {/* Section: Evaluación: (STRICTLY THIS DAY ONLY) */}
+                  <div data-testid="indirect-section-evaluacion" className="mb-3 print:mb-2">
+                    <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1">
+                      Evaluación:
+                    </h3>
+                    <div className="border border-black p-2 min-h-[50px] print:min-h-[35px] text-xs print:text-[9px] text-black">
+                      {d.evaluation ? (
+                        <p className="text-black">{d.evaluation}</p>
+                      ) : (
+                        <p className="italic text-gray-700">Espacio para la evaluación posterior a la implementación.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section: Actividades complementarias de otros programas (STRICTLY THIS DAY ONLY) */}
+                  <div data-testid="indirect-section-complementarias" className="mb-3 print:mb-2">
+                    <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1">
+                      Actividades complementarias de otros programas
+                    </h3>
+                    <div className="border border-black p-2 min-h-[50px] print:min-h-[35px] text-xs print:text-[9px] text-black">
+                      {(!d.complementaryActivities || d.complementaryActivities.length === 0) ? (
+                        <p className="text-black italic text-xs print:text-[8.5px]">Sin actividad complementaria registrada para este día.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {d.complementaryActivities.map((ca: any, idx: number) => (
+                            <div key={idx} className="pl-2 border-l-2 border-teal-800 ml-1">
+                              <p className="font-bold text-xs print:text-[8.5px] text-black">
+                                <span className="text-teal-900">[{ca.programArea}]</span> {ca.activityName}
+                              </p>
+                              {ca.purpose && (
+                                <p className="text-[11px] print:text-[8px] text-gray-800"><strong>Propósito:</strong> {ca.purpose}</p>
+                              )}
+                              {ca.description && (
+                                <p className="text-[11px] print:text-[8px] text-gray-700">{ca.description}</p>
+                              )}
+                              {ca.sourceReference && (
+                                <p className="text-[10px] print:text-[7px] text-gray-600">Fuente: {ca.sourceReference}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section: Materiales para ambientes de aprendizaje (STRICTLY THIS DAY ONLY) */}
+                  <div data-testid="indirect-section-materiales" className="mb-3 print:mb-2">
+                    <h3 className="text-sm print:text-[9.5px] font-bold bg-gray-200 text-black p-1 uppercase border-b border-black mb-1">
+                      Materiales para ambientes de aprendizaje
+                    </h3>
+                    <div className="border border-black p-2 min-h-[50px] print:min-h-[35px] text-xs print:text-[9px] text-black">
+                      {(() => {
+                        const dayMaterials = (d.activities || []).flatMap((a: any) => a.materials || []).filter(Boolean);
+                        const uniqueMat = Array.from(new Set(dayMaterials));
+                        if (uniqueMat.length > 0) {
+                          return <p className="text-black">{uniqueMat.join(', ')}</p>;
+                        }
+                        return <p className="italic text-gray-700">Sin materiales planeados para este día.</p>;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Signatures Block: Educadora/Coordinadora... & Asistente educativa */}
+                  <div data-testid="indirect-section-firmas" className="mt-8 print:mt-6">
+                    <div className="grid grid-cols-2 gap-12 text-center pt-4 border-t-2 border-black">
+                      <div>
+                        <div className="border-b border-black mb-1 mx-8 h-10 print:h-8"></div>
+                        <p className="font-bold text-black text-xs print:text-[9.5px]">
+                          Educadora/Coordinadora del área para apoyo terapéutico
+                        </p>
+                        <p className="text-gray-600 text-[11px] print:text-[8px]">
+                          Nombre y firma
+                        </p>
+                      </div>
+                      <div>
+                        <div className="border-b border-black mb-1 mx-8 h-10 print:h-8"></div>
+                        <p className="font-bold text-black text-xs print:text-[9.5px]">
+                          Asistente educativa
+                        </p>
+                        <p className="text-gray-600 text-[11px] print:text-[8px]">
+                          Nombre y Firma
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
-  }
-
-  // INDIRECT VIEW
-  return (
-    <div className="bg-white font-serif w-full text-black">
-      <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
-        <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-lg">← Volver</button>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
-          <button onClick={() => {
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-                printWindow.document.write('<html><head><title>Imprimir Planeación</title>');
-                const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('');
-                printWindow.document.write(styles);
-                printWindow.document.write('</head><body class="bg-white">');
-                const root = document.getElementById('printable-document-root');
-                printWindow.document.write(root ? root.outerHTML : '');
-                printWindow.document.write('</body></html>');
-                printWindow.document.close();
-                printWindow.focus();
-                setTimeout(() => { printWindow.print(); }, 1000); printWindow.onafterprint = () => { printWindow.close(); };
-            }
-          }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
-        </div>
-      </div>
-
-      <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none">
-        {/* --- ANVERSO --- */}
-        <div className="print:break-after-page mb-16 print:mb-0">
-          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-4 print:mb-8">
-            <div>
-              <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">Planeación de Acciones Pedagógicas<br/><span className="text-2xl print:text-sm">(Anverso)</span></h1>
-            </div>
-            <div className="text-right">
-              <span className="inline-block px-6 py-2 border-4 border-black text-black font-bold uppercase tracking-widest text-lg print:text-sm print:border-2 rounded-lg">{plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED' ? 'Aprobada' : 'Borrador'}</span>
-            </div>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-[11px] font-bold bg-gray-200 text-black p-1 border-b-2 border-black mb-1">Referentes curriculares: Aprendizajes clave para niños de 0 a 3 años de edad</h3>
-             <ul className="list-disc pl-6 text-base print:text-[10px] text-black print:leading-snug print:space-y-0">
-               <li>Establecer vínculos afectivos y apegos seguros</li>
-               <li>Construir una base de seguridad y confianza en sí mismo y en los otros, que favorezca el desarrollo de un psiquismo sano</li>
-               <li>Desarrollar autonomía y autorregulación crecientes</li>
-               <li>Desarrollar la curiosidad, la exploración, la imaginación y la creatividad</li>
-               <li>Acceder al lenguaje en un sentido pleno, comunicacional y creador</li>
-               <li>Descubrir en los libros y la lectura el gozo y la riqueza de la ficción</li>
-               <li>Descubrir el propio cuerpo desde la libertad de movimiento y la expresividad motriz</li>
-               <li>Convivir con otros y compartir el aprendizaje, el juego, el arte y la cultura</li>
-             </ul>
-          </div>
-
-          <div className="grid grid-cols-3 gap-y-6 gap-x-12 mb-12 text-lg print:text-xs print:mb-3 print:gap-y-2">
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Guardería No.</span><p className="font-bold text-black">Guardería IMSS Demo (001)</p></div>
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Sala de atención o Grupo</span><p className="font-bold text-black">Lactantes C</p></div>
-            <div><span className="text-gray-600 font-bold block text-sm print:text-[10px] uppercase tracking-wider print:mb-0">Periodo</span><p className="font-bold text-black">24 al 28 de agosto de 2026</p></div>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Observaciones de los niños</h3>
-             <p className="text-lg print:text-sm text-black">{plan.observations || 'N/A'}</p>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Planteamiento de acciones pedagógicas (propuesta, organización y desarrollo)</h3>
-             <div className="space-y-12 print:space-y-1 border p-4 print:p-1 min-h-[300px] print:min-h-0">
-               {plan.days.map((d: any) => (
-                 <div key={d.dayOfWeek} className="print:break-inside-avoid">
-                    <h4 className="text-2xl print:text-[11px] font-bold border-b border-black pb-2 mb-4 print:pb-0 print:mb-1 uppercase text-black">
-                      {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
-                    </h4>
-                    {(!d.activities || d.activities.length === 0) ? (
-                      <p className="text-black italic print:text-sm">Pendiente de planeación.</p>
-                    ) : (
-                      <div className="space-y-6 print:space-y-4">
-                        {d.activities.map((a: any) => (
-                          <div key={a.activityId} className="print:break-inside-avoid">
-                            <p className="font-bold text-lg print:text-[10px] mb-1 print:mb-0">{a.objective} <span className="font-bold">({a.durationMinutes} min)</span></p>
-                            <p className="text-black mb-2 print:text-[10px] font-normal print:mb-0 print:leading-tight">{a.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                 </div>
-               ))}
-             </div>
-          </div>
-
-          <div className="mt-8 text-right">
-             <p className="text-lg print:text-sm text-gray-700 font-bold">DPES/CG/2020/PDG/04</p>
-          </div>
-        </div>
-
-        {/* --- REVERSO --- */}
-        <div className="print:pt-8">
-          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end print:pb-4 print:mb-8">
-            <div>
-              <h1 className="text-4xl print:text-2xl font-bold text-black mb-2 tracking-tight">Planeación de Acciones Pedagógicas<br/><span className="text-2xl print:text-lg">(Reverso)</span></h1>
-            </div>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Evaluación:</h3>
-             <p className="text-black italic print:text-sm border p-4 min-h-[100px] print:min-h-[60px]">Espacio para la evaluación posterior a la implementación.</p>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Actividades complementarias de otros programas</h3>
-             <p className="text-black italic print:text-sm border p-4 min-h-[100px] print:min-h-[60px]">Pendiente</p>
-          </div>
-
-          <div className="mb-12 print:mb-3">
-             <h3 className="text-xl print:text-sm font-bold bg-gray-200 text-black p-2 uppercase border-b-2 border-black mb-4">Materiales para ambientes de aprendizaje</h3>
-             <div className="space-y-4 print:space-y-2 border p-4 min-h-[100px] print:min-h-[60px]">
-               {plan.days.map((d: any) => d.activities && d.activities.map((a: any) =>
-                 a.materials.length > 0 && (
-                   <p key={a.activityId} className="text-black print:text-sm">
-                     <strong>{d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'} - {a.objective}:</strong> {a.materials.join(', ')}
-                   </p>
-                 )
-               ))}
-               {!plan.days.some((d: any) => d.activities && d.activities.some((a: any) => a.materials.length > 0)) && (
-                 <p className="text-black italic print:text-sm">Sin materiales planeados.</p>
-               )}
-             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-12 mt-16 print:mt-12 text-center pt-8 border-t-2 border-black">
-             <div>
-                <div className="border-b border-black mb-2 mx-12 h-16"></div>
-                <p className="font-bold text-black print:text-sm">Educadora/Coordinadora del área para apoyo terapéutico</p>
-                <p className="text-gray-600 text-sm print:text-xs">Nombre y firma</p>
-             </div>
-             <div>
-                <div className="border-b border-black mb-2 mx-12 h-16"></div>
-                <p className="font-bold text-black print:text-sm">Asistente educativa</p>
-                <p className="text-gray-600 text-sm print:text-xs">Nombre y Firma</p>
-             </div>
-          </div>
-          <p className="text-xs print:text-[10px] text-gray-500 mt-8 print:mt-4 text-justify">
-             Nota: El lenguaje empleado en el presente documento no busca generar distinción alguna entre hombres y mujeres, por lo que las referencias o alusiones en la redacción hechas a un género representan a ambos sexos.
-          </p>
-        </div>
-
-      </div>
-    </div>
-  );
-};
+  };

@@ -6,6 +6,9 @@ export class FirestoreWeeklyPlanningRepository {
   private readonly collectionName = 'weeklyPlannings';
 
   public async save(planning: WeeklyPlanning): Promise<void> {
+    planning.assertValidCurricularInvariants();
+    planning.assertValidComplementaryInvariants();
+    planning.assertValidPrioritizedPracticeInvariants();
     const docRef = doc(db, this.collectionName, planning.planningId);
     await setDoc(docRef, this.serialize(planning));
   }
@@ -81,6 +84,9 @@ export class FirestoreWeeklyPlanningRepository {
         : new Date(record.rejectedAt as string | number),
     }));
 
+    planning.assertValidCurricularInvariants();
+    planning.assertValidComplementaryInvariants();
+    planning.assertValidPrioritizedPracticeInvariants();
     return planning;
   }
 }

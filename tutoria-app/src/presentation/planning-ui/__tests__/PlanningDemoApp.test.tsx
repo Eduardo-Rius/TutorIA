@@ -417,7 +417,7 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     await act(async () => {
       fireEvent.click(screen.getByText(/Versión Oficial IMSS/i));
     });
-    expect(screen.getByText(/Planeación de Actividades/i)).toBeDefined();
+    expect(screen.getAllByText(/Planeación de Actividades/i)[0]).toBeDefined();
   });
 
   it("12. Contexto Pedagógico is rendered at the top level", async () => {
@@ -490,7 +490,7 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     await renderApp(service, source);
     { const _btn = await screen.findByText(/Propuesta lista para usarse/i); await act(async () => { fireEvent.click(_btn); }); }
     { const _btn = await screen.findByText(/Versión Oficial IMSS/i); await act(async () => { fireEvent.click(_btn); }); }
-    expect(await screen.findByText('Espacio para la evaluación posterior a la implementación.')).toBeDefined();
+    expect((await screen.findAllByText('Espacio para la evaluación posterior a la implementación.'))[0]).toBeDefined();
     expect(screen.queryByText(/Evaluación Completada/i)).toBeNull();
   });
 
@@ -511,8 +511,8 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     await renderApp(service, source);
     { const _btn = await screen.findByText(/Propuesta lista para usarse/i); await act(async () => { fireEvent.click(_btn); }); }
     { const _btn = await screen.findByText(/Versión Oficial IMSS/i); await act(async () => { fireEvent.click(_btn); }); }
-    expect(await screen.findByText('Actividades complementarias de otros programas')).toBeDefined();
-    expect(screen.queryAllByText('Pendiente').length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Actividades complementarias de otros programas'))[0]).toBeDefined();
+    expect(screen.getAllByText('Sin actividad complementaria registrada para este día.').length).toBe(5);
   });
 
   it("18. Director sees same persisted context/purpose/material summary", async () => {

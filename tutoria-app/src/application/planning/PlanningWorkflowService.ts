@@ -1,4 +1,4 @@
-import { WeeklyPlanning, PlanningDay, WeeklyContextSnapshot } from '../../domain/planning/WeeklyPlanning';
+import { WeeklyPlanning, PlanningDay, WeeklyContextSnapshot, ComplementaryProgramActivity, PrioritizedPractice } from '../../domain/planning/WeeklyPlanning';
 import { InMemoryWeeklyPlanningRepository } from '../../infrastructure/repositories/InMemoryWeeklyPlanningRepository';
 import { RoomCatalog } from '../../domain/planning/RoomCatalog';
 
@@ -60,6 +60,36 @@ export class PlanningWorkflowService {
     if (!planning) throw new Error("Planning not found");
 
     planning.updateWeeklyContext(observations, identifiedNeeds, specialSituations, availableMaterials);
+    await this.repository.save(planning);
+  }
+
+  public async setDayComplementaryActivities(
+    planningId: string,
+    dayId: string,
+    activities: readonly ComplementaryProgramActivity[],
+    role: PlanningActorRole
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can edit complementary activities");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.setDayComplementaryActivities(dayId, activities);
+    await this.repository.save(planning);
+  }
+
+  public async setDayPrioritizedPractices(
+    planningId: string,
+    dayId: string,
+    practices: readonly PrioritizedPractice[],
+    role: PlanningActorRole
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can edit prioritized practices");
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.setDayPrioritizedPractices(dayId, practices);
     await this.repository.save(planning);
   }
 
