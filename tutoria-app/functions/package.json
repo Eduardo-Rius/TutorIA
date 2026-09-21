@@ -1,0 +1,22 @@
+{
+  "name": "tutoria-functions",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "rm -rf lib && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=lib/index.js --packages=external --sourcemap",
+    "verify:artifact": "node -e \"import(\\\"./lib/index.js\\\").then(m => { if (!m.recommendCurricularPDA) process.exit(1); console.log(\\\"ARTIFACT_VERIFIED\\\"); })\""
+  },
+  "dependencies": {
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^5.7.3"
+  }
+}

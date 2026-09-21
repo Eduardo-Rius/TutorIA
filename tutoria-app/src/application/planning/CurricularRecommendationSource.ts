@@ -3,6 +3,8 @@ import {
 } from '../../domain/planning/DirectCurricularCatalog';
 import type { CurricularPDAReference } from '../../domain/planning/CurricularPDAReference';
 import { validateCurricularPDAReference } from '../../domain/planning/CurricularPDAReference';
+import type { Room } from '../../domain/planning/RoomCatalog';
+import type { WeeklyContextSnapshot } from '../../domain/planning/WeeklyPlanning';
 
 /**
  * Custom error thrown when a curricular recommendation or request violates
@@ -18,6 +20,9 @@ export class InvalidCurricularRecommendationError extends Error {
 /**
  * Application-level request contract for proposing curricular recommendations
  * for a single pedagogical activity in Prestación Directa.
+ *
+ * Enriched under H1R9-F.8.3.1 with canonical room/group and weekly context
+ * to support rich contextual prompting by future AI providers.
  */
 export interface CurricularRecommendationRequest {
   readonly activityId: string;
@@ -26,6 +31,11 @@ export interface CurricularRecommendationRequest {
   readonly category?: string;
   readonly modality: 'DIRECT';
   readonly catalogRevision?: string;
+  readonly objective?: string;
+  readonly room?: Room;
+  readonly weeklyContext?: WeeklyContextSnapshot;
+  readonly materials?: readonly string[];
+  readonly durationMinutes?: number;
 }
 
 /**
@@ -74,6 +84,26 @@ export function validateCurricularRecommendationRequest(
       `Unknown catalog revision '${request.catalogRevision}'. Expected '${TUTORIA_DIRECT_PDA_CATALOG_REVISION}'.`
     );
   }
+
+  if (request.room !== undefined) {
+    if (!request.room || typeof request.room !== 'object' || typeof request.room.roomId !== 'string' || !request.room.roomId.trim()) {
+      throw new InvalidCurricularRecommendationError('Invalid room context in recommendation request.');
+    }
+  }
+
+  if (request.weeklyContext !== undefined) {
+    if (!request.weeklyContext || typeof request.weeklyContext !== 'object') {
+      throw new InvalidCurricularRecommendationError('Invalid weeklyContext in recommendation request.');
+    }
+  }
+
+  if (request.durationMinutes !== undefined && (typeof request.durationMinutes !== 'number' || request.durationMinutes <= 0)) {
+    throw new InvalidCurricularRecommendationError('Invalid durationMinutes in recommendation request.');
+  }
+
+  if (request.materials !== undefined && !Array.isArray(request.materials)) {
+    throw new InvalidCurricularRecommendationError('Invalid materials collection in recommendation request.');
+  }
 }
 
 /**
@@ -93,7 +123,8 @@ export function validateCurricularRecommendation(
     'confidence' in rec ||
     'confidenceScore' in rec ||
     'probability' in rec ||
-    'rankingConfidence' in rec
+    'rankingConfidence' in rec ||
+    'score' in rec
   ) {
     throw new InvalidCurricularRecommendationError(
       'Confidence scores are strictly forbidden in curricular recommendations.'

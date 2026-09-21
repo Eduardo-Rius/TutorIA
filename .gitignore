@@ -1,3 +1,6 @@
 # Ignorar archivos de sistema macOS
 .DS_Store
 *.DS_Store
+
+# Firebase Functions build artifacts
+tutoria-app/functions/lib/
