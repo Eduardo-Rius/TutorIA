@@ -241,6 +241,11 @@ describe("H1R9-C.1: Daily Evaluation Temporal Unlock", () => {
       });
     });
 
+    await act(async () => {
+      await service.saveDailyEvaluationDraft("plan-persist", "MONDAY", "El grupo respondió favorablemente a la actividad de sonidos con sonajas.", "TEACHER", "2026-08-24");
+      await service.confirmDailyEvaluation("plan-persist", "MONDAY", "TEACHER", "t1", new Date(), "2026-08-24");
+    });
+
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Enviar evaluación a Ceci/i })); });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 

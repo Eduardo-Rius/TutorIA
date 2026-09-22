@@ -49,28 +49,22 @@ describe("H1R7.4: TRUE WEEKLY TUTORIA GENERATION", () => {
       expect(screen.getByText(/Explorar sonidos/i)).toBeDefined();
     });
 
-    // Save MONDAY
-    fireEvent.click(screen.getByText("Guardar Día"));
-
-    // Save TUESDAY
+    // Navigate and inspect days without fake per-day review ceremony
+    // TUESDAY
     fireEvent.click(screen.getByRole("tab", { name: /Martes 25/i }));
     await waitFor(() => expect(screen.getByText(/Experimentar texturas/i)).toBeDefined());
-    fireEvent.click(screen.getByText("Guardar Día"));
 
-    // Save WEDNESDAY
+    // WEDNESDAY
     fireEvent.click(screen.getByRole("tab", { name: /Miércoles 26/i }));
     await waitFor(() => expect(screen.getByText(/Fomentar la expresión corporal/i)).toBeDefined());
-    fireEvent.click(screen.getByText("Guardar Día"));
 
-    // Save THURSDAY
+    // THURSDAY
     fireEvent.click(screen.getByRole("tab", { name: /Jueves 27/i }));
     await waitFor(() => expect(screen.getByText(/Favorecer la coordinación fina/i)).toBeDefined());
-    fireEvent.click(screen.getByText("Guardar Día"));
 
-    // Save FRIDAY
+    // FRIDAY
     fireEvent.click(screen.getByRole("tab", { name: /Viernes 28/i }));
     await waitFor(() => expect(screen.getByText(/Sensibilización visual/i)).toBeDefined());
-    fireEvent.click(screen.getByText("Guardar Día"));
 
     // 7. Verify no overwriting happened
     fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i }));
@@ -78,8 +72,23 @@ describe("H1R7.4: TRUE WEEKLY TUTORIA GENERATION", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Martes 25/i }));
     expect(screen.getByText(/Experimentar texturas/i)).toBeDefined();
     
-    // 8. Submit and Approve to view Official
-    fireEvent.click(screen.getByText("Enviar a Revisión"));
+    // 8. Anita reviews all 5 days before submitting
+    const anitaReviewDays = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of anitaReviewDays) {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, "i") }));
+      });
+      if (screen.queryByText("✓ Marcar día como revisado")) {
+        await act(async () => {
+          fireEvent.click(screen.getByText("✓ Marcar día como revisado"));
+        });
+      }
+    }
+
+    // Submit and Approve to view Official
+    await act(async () => {
+      fireEvent.click(screen.getByText("Enviar a Revisión"));
+    });
     
     // Switch to Director
     fireEvent.click(screen.getByText("Ceci (Directora)"));

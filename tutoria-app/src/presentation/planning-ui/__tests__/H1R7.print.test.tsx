@@ -30,6 +30,9 @@ describe("H1R7.1: PRINT WINDOW INJECTION VERIFICATION", () => {
         { dayOfWeek: "THURSDAY", date: "2026-08-13", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" },
         { dayOfWeek: "FRIDAY", date: "2026-08-14", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }
     ] as any);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     await repository.save(plan);
 

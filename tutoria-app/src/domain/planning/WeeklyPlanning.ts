@@ -95,6 +95,10 @@ export interface PlanningDay {
   evaluationReviewedBy?: string;
   evaluationResubmitted?: boolean;
   evaluationHistory?: DailyEvaluationHistoryEntry[];
+  evaluationConfirmedAt?: Date;
+  evaluationConfirmedBy?: string;
+  teacherReviewedAt?: Date;
+  teacherReviewedBy?: string;
 }
 
 export class WeeklyPlanning {
@@ -248,17 +252,17 @@ export class WeeklyPlanning {
     this.availableMaterials = availableMaterials;
     this.curricularReferences = curricularReferences;
 
-    // Preserving director review state across rounds for days with no activity changes
+    // Preserving review states across rounds when material content has not changed
     const updatedDays: PlanningDay[] = [];
     for (const newDay of days) {
       const oldDay = this.days.find(d => d.dayOfWeek === newDay.dayOfWeek);
       if (oldDay) {
-        const oldActs = JSON.stringify(oldDay.activities || []);
-        const newActs = JSON.stringify(newDay.activities || []);
-        const hasActivitiesChanged = oldActs !== newActs;
+        const hasMaterialChanged = WeeklyPlanning.hasMaterialDayContentChanged(oldDay, newDay);
         updatedDays.push({
           ...newDay,
-          directorReviewed: hasActivitiesChanged ? false : Boolean(oldDay.directorReviewed)
+          directorReviewed: hasMaterialChanged ? false : Boolean(oldDay.directorReviewed),
+          teacherReviewedAt: hasMaterialChanged ? undefined : (newDay.teacherReviewedAt || oldDay.teacherReviewedAt),
+          teacherReviewedBy: hasMaterialChanged ? undefined : (newDay.teacherReviewedBy || oldDay.teacherReviewedBy)
         });
       } else {
         updatedDays.push(newDay);
@@ -317,6 +321,13 @@ export class WeeklyPlanning {
     // Atomic validation of references before mutating activity
     validateCurricularPDAReferences(references);
 
+    const oldRefs = JSON.stringify(targetActivity.curricularTraceability || []);
+    const newRefs = JSON.stringify(references || []);
+    if (oldRefs !== newRefs) {
+      targetDay.teacherReviewedAt = undefined;
+      targetDay.teacherReviewedBy = undefined;
+    }
+
     targetActivity.curricularTraceability = [...references];
   }
 
@@ -341,6 +352,12 @@ export class WeeklyPlanning {
 
     // Atomic validation before mutation
     const validated = validateComplementaryProgramActivities(activities);
+    const oldCompJson = JSON.stringify(targetDay.complementaryActivities || []);
+    const newCompJson = JSON.stringify(validated || []);
+    if (oldCompJson !== newCompJson) {
+      targetDay.teacherReviewedAt = undefined;
+      targetDay.teacherReviewedBy = undefined;
+    }
     targetDay.complementaryActivities = validated;
   }
 
@@ -365,6 +382,12 @@ export class WeeklyPlanning {
 
     // Atomic validation before mutation
     const validated = validatePrioritizedPractices(practices);
+    const oldPractJson = JSON.stringify(targetDay.prioritizedPractices || []);
+    const newPractJson = JSON.stringify(validated || []);
+    if (oldPractJson !== newPractJson) {
+      targetDay.teacherReviewedAt = undefined;
+      targetDay.teacherReviewedBy = undefined;
+    }
     targetDay.prioritizedPractices = validated;
   }
 
@@ -378,6 +401,10 @@ export class WeeklyPlanning {
     const daysWithNoActivities = this.days.filter(d => !d.activities || d.activities.length === 0);
     if (daysWithNoActivities.length > 0) {
       throw new Error('All 5 days must contain activities to be submitted');
+    }
+    if (this.status === "DRAFT" && !this.areAllDaysTeacherReviewed()) {
+      const reviewedCount = this.teacherReviewedDaysCount;
+      throw new Error(`Cannot submit weekly planning: all 5 days must be reviewed by teacher (${reviewedCount}/5 reviewed)`);
     }
     this.status = 'IN_REVIEW';
   }
@@ -541,7 +568,96 @@ export class WeeklyPlanning {
     );
   }
 
-    public markDirectorDayReviewed(dayOfWeek: PlanningDay["dayOfWeek"]): void {
+
+  public static hasMaterialDayContentChanged(oldDay: PlanningDay, newDay: PlanningDay): boolean {
+    const normalizeActivities = (acts: PlanningActivity[] = []) =>
+      acts.map(a => ({
+        activityId: a.activityId,
+        category: a.category,
+        objective: a.objective,
+        description: a.description,
+        durationMinutes: a.durationMinutes,
+        materials: a.materials || [],
+        curricularTraceability: (a.curricularTraceability || []).map(r => ({
+          pdaId: r.pdaId,
+          campoFormativoId: r.campoFormativoId,
+          contenidoId: r.contenidoId
+        }))
+      }));
+
+    if (JSON.stringify(normalizeActivities(oldDay.activities)) !== JSON.stringify(normalizeActivities(newDay.activities))) {
+      return true;
+    }
+
+    const normalizeComp = (comps: ComplementaryProgramActivity[] = []) =>
+      comps.map(c => ({
+        activityId: c.activityId,
+        title: c.title,
+        description: c.description,
+        programType: c.programType
+      }));
+
+    if (JSON.stringify(normalizeComp(oldDay.complementaryActivities)) !== JSON.stringify(normalizeComp(newDay.complementaryActivities))) {
+      return true;
+    }
+
+    const normalizePractices = (practices: PrioritizedPractice[] = []) =>
+      practices.map(p => ({
+        practiceId: p.practiceId,
+        practiceText: p.practiceText,
+        source: p.source
+      }));
+
+    if (JSON.stringify(normalizePractices(oldDay.prioritizedPractices)) !== JSON.stringify(normalizePractices(newDay.prioritizedPractices))) {
+      return true;
+    }
+
+    if (JSON.stringify(oldDay.materials || []) !== JSON.stringify(newDay.materials || [])) {
+      return true;
+    }
+
+    return false;
+  }
+
+  public markTeacherDayReviewed(
+    dayOfWeekOrDate: string,
+    teacherId: string,
+    reviewedAt: Date = new Date()
+  ): void {
+    if (this.status !== 'DRAFT' && this.status !== 'REJECTED') {
+      throw new Error(`Cannot review day in planning status: ${this.status}`);
+    }
+    if (!teacherId || !teacherId.trim()) {
+      throw new Error('Teacher review requires an educator identity');
+    }
+    const targetDay = this.days.find(
+      d => d.dayOfWeek === dayOfWeekOrDate || d.date === dayOfWeekOrDate
+    );
+    if (!targetDay) {
+      throw new Error(`Day not found: ${dayOfWeekOrDate}`);
+    }
+    if (!targetDay.activities || targetDay.activities.length === 0) {
+      throw new Error(`Cannot review day with no activities: ${dayOfWeekOrDate}`);
+    }
+
+    targetDay.teacherReviewedBy = teacherId.trim();
+    targetDay.teacherReviewedAt = reviewedAt;
+  }
+
+  public isDayTeacherReviewed(dayOfWeekOrDate: string): boolean {
+    const day = this.days.find(d => d.dayOfWeek === dayOfWeekOrDate || d.date === dayOfWeekOrDate);
+    return Boolean(day && day.teacherReviewedAt && day.teacherReviewedBy && day.teacherReviewedBy.trim());
+  }
+
+  public get teacherReviewedDaysCount(): number {
+    return this.days.filter(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy && d.teacherReviewedBy.trim())).length;
+  }
+
+  public areAllDaysTeacherReviewed(): boolean {
+    return this.days.length === 5 && this.days.every(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy && d.teacherReviewedBy.trim()));
+  }
+
+  public markDirectorDayReviewed(dayOfWeek: PlanningDay["dayOfWeek"]): void {
     const day = this.days.find(d => d.dayOfWeek === dayOfWeek);
     if (day) {
       day.directorReviewed = true;
@@ -729,6 +845,62 @@ export class WeeklyPlanning {
     };
   }
 
+  public confirmDailyEvaluation(
+    dayOfWeekOrDate: string,
+    educatorId: string,
+    confirmedAt: Date = new Date(),
+    currentDate?: string
+  ): void {
+    if (!educatorId || !educatorId.trim()) {
+      throw new Error("Daily evaluation confirmation requires an educator identity");
+    }
+
+    if (this.status !== "APPROVED") {
+      throw new Error(`Daily evaluation confirmation is only permitted when planning is APPROVED (current status: ${this.status})`);
+    }
+
+    const targetIndex = this.days.findIndex(d => d.dayOfWeek === dayOfWeekOrDate || d.date === dayOfWeekOrDate);
+    if (targetIndex === -1) {
+      throw new Error(`Day not found in planning: ${dayOfWeekOrDate}`);
+    }
+
+    const targetDay = this.days[targetIndex]!;
+
+    if (currentDate) {
+      const effectiveDayDate = this.getDayDate(targetDay);
+      if (effectiveDayDate && currentDate < effectiveDayDate) {
+        throw new Error(`Cannot evaluate future day (${effectiveDayDate}) when current date is ${currentDate}`);
+      }
+    }
+
+    for (let i = 0; i < targetIndex; i++) {
+      const priorDay = this.days[i]!;
+      if (!this.isDayEvaluationSubmitted(priorDay)) {
+        throw new Error(
+          `Cannot evaluate ${dayOfWeekOrDate} before completing evaluation for earlier day ${priorDay.dayOfWeek}`
+        );
+      }
+    }
+
+    if (!targetDay.evaluation || !targetDay.evaluation.trim()) {
+      throw new Error("Cannot confirm empty daily evaluation");
+    }
+
+    const currentStatus = targetDay.evaluationStatus || "DRAFT";
+    if (currentStatus === "IN_REVIEW") {
+      throw new Error("Cannot confirm daily evaluation that is already IN_REVIEW");
+    }
+    if (currentStatus === "APPROVED") {
+      throw new Error("Cannot confirm daily evaluation that is already APPROVED");
+    }
+    if (currentStatus === "REJECTED") {
+      throw new Error("Cannot confirm daily evaluation that is REJECTED");
+    }
+
+    targetDay.evaluationConfirmedBy = educatorId.trim();
+    targetDay.evaluationConfirmedAt = confirmedAt ?? new Date();
+  }
+
   public saveDailyEvaluationDraft(
     dayOfWeekOrDate: string,
     evaluation: string,
@@ -769,6 +941,12 @@ export class WeeklyPlanning {
           `Cannot evaluate ${dayOfWeekOrDate} before completing evaluation for earlier day ${priorDay.dayOfWeek}`
         );
       }
+    }
+
+    // Material invalidation check: clear confirmation if text changes
+    if (targetDay.evaluation !== undefined && targetDay.evaluation !== evaluation) {
+      delete targetDay.evaluationConfirmedAt;
+      delete targetDay.evaluationConfirmedBy;
     }
 
     targetDay.evaluation = evaluation;
@@ -815,6 +993,16 @@ export class WeeklyPlanning {
       throw new Error("Cannot resubmit empty daily evaluation");
     }
 
+    if (!targetDay.evaluationConfirmedAt) {
+      throw new Error("Daily evaluation must be explicitly confirmed before submission");
+    }
+
+    if (!targetDay.evaluation || evaluation.trim() !== targetDay.evaluation.trim()) {
+      delete targetDay.evaluationConfirmedAt;
+      delete targetDay.evaluationConfirmedBy;
+      throw new Error("Daily evaluation must be explicitly confirmed before submission");
+    }
+
     if (!targetDay.evaluationHistory) {
       targetDay.evaluationHistory = [];
     }
@@ -833,6 +1021,139 @@ export class WeeklyPlanning {
     targetDay.evaluationResubmitted = true;
     targetDay.evaluationSubmittedAt = new Date();
     targetDay.evaluationSubmittedBy = teacherId || targetDay.evaluationSubmittedBy || "Anita";
+    targetDay.date = effectiveDayDate || targetDay.date;
+  }
+
+  public confirmAndSubmitDailyEvaluation(
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    educatorId: string,
+    currentDate: string,
+    confirmedAt: Date = new Date()
+  ): void {
+    if (!educatorId || !educatorId.trim()) {
+      throw new Error("Daily evaluation confirmation requires an educator identity");
+    }
+
+    if (this.status !== "APPROVED") {
+      throw new Error(`Daily evaluation is only permitted when planning is APPROVED (current status: ${this.status})`);
+    }
+
+    if (!currentDate) {
+      throw new Error("Current date is required for temporal evaluation authorization");
+    }
+
+    const targetIndex = this.days.findIndex(d => d.dayOfWeek === dayOfWeekOrDate || d.date === dayOfWeekOrDate);
+    if (targetIndex === -1) {
+      throw new Error(`Day not found in planning: ${dayOfWeekOrDate}`);
+    }
+
+    const targetDay = this.days[targetIndex]!;
+    const effectiveDayDate = this.getDayDate(targetDay);
+    if (!effectiveDayDate) {
+      throw new Error(`Cannot determine day date for ${dayOfWeekOrDate}`);
+    }
+
+    if (currentDate < effectiveDayDate) {
+      throw new Error(`Cannot evaluate future day (${effectiveDayDate}) when current date is ${currentDate}`);
+    }
+
+    if (targetDay.evaluationStatus === "IN_REVIEW" || targetDay.evaluationStatus === "APPROVED" || targetDay.evaluationStatus === "CHANGES_REQUESTED") {
+      throw new Error("Cannot submit already submitted evaluation");
+    }
+
+    if (!evaluation || !evaluation.trim()) {
+      throw new Error("Cannot submit empty daily evaluation");
+    }
+
+    for (let i = 0; i < targetIndex; i++) {
+      const priorDay = this.days[i]!;
+      if (!this.isDayEvaluationSubmitted(priorDay)) {
+        throw new Error(
+          `Cannot evaluate ${dayOfWeekOrDate} before completing evaluation for earlier day ${priorDay.dayOfWeek}`
+        );
+      }
+    }
+
+    const trimmedEval = evaluation.trim();
+    const trimmedEducator = educatorId.trim();
+    const effectiveConfirmedAt = confirmedAt ?? new Date();
+
+    targetDay.evaluation = trimmedEval;
+    targetDay.evaluationConfirmedBy = trimmedEducator;
+    targetDay.evaluationConfirmedAt = effectiveConfirmedAt;
+    targetDay.evaluationStatus = "IN_REVIEW";
+    targetDay.evaluationSubmittedAt = effectiveConfirmedAt;
+    targetDay.evaluationSubmittedBy = trimmedEducator;
+    targetDay.date = effectiveDayDate || targetDay.date;
+  }
+
+  public confirmAndResubmitDailyEvaluation(
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    educatorId: string,
+    currentDate: string,
+    confirmedAt: Date = new Date()
+  ): void {
+    if (!educatorId || !educatorId.trim()) {
+      throw new Error("Daily evaluation confirmation requires an educator identity");
+    }
+
+    if (this.status !== "APPROVED") {
+      throw new Error(`Daily evaluation resubmission is only permitted when planning is APPROVED (current status: ${this.status})`);
+    }
+
+    if (!currentDate) {
+      throw new Error("Current date is required for temporal evaluation authorization");
+    }
+
+    const targetIndex = this.days.findIndex(d => d.dayOfWeek === dayOfWeekOrDate || d.date === dayOfWeekOrDate);
+    if (targetIndex === -1) {
+      throw new Error(`Day not found in planning: ${dayOfWeekOrDate}`);
+    }
+
+    const targetDay = this.days[targetIndex]!;
+    const effectiveDayDate = this.getDayDate(targetDay);
+    if (!effectiveDayDate) {
+      throw new Error(`Cannot determine day date for ${dayOfWeekOrDate}`);
+    }
+
+    if (currentDate < effectiveDayDate) {
+      throw new Error(`Cannot evaluate future day (${effectiveDayDate}) when current date is ${currentDate}`);
+    }
+
+    if (targetDay.evaluationStatus !== "CHANGES_REQUESTED") {
+      throw new Error(`Cannot resubmit daily evaluation that is not in CHANGES_REQUESTED status (current status: ${targetDay.evaluationStatus || "DRAFT"})`);
+    }
+
+    if (!evaluation || !evaluation.trim()) {
+      throw new Error("Cannot resubmit empty daily evaluation");
+    }
+
+    const trimmedEval = evaluation.trim();
+    const trimmedEducator = educatorId.trim();
+    const effectiveConfirmedAt = confirmedAt ?? new Date();
+
+    if (!targetDay.evaluationHistory) {
+      targetDay.evaluationHistory = [];
+    }
+    targetDay.evaluationHistory.push({
+      evaluation: targetDay.evaluation || "",
+      submittedAt: targetDay.evaluationSubmittedAt || new Date(),
+      submittedBy: targetDay.evaluationSubmittedBy || trimmedEducator,
+      directorComment: targetDay.evaluationDirectorComment,
+      reviewedAt: targetDay.evaluationReviewedAt,
+      reviewedBy: targetDay.evaluationReviewedBy,
+      status: "CHANGES_REQUESTED"
+    });
+
+    targetDay.evaluation = trimmedEval;
+    targetDay.evaluationConfirmedBy = trimmedEducator;
+    targetDay.evaluationConfirmedAt = effectiveConfirmedAt;
+    targetDay.evaluationStatus = "IN_REVIEW";
+    targetDay.evaluationResubmitted = true;
+    targetDay.evaluationSubmittedAt = effectiveConfirmedAt;
+    targetDay.evaluationSubmittedBy = trimmedEducator;
     targetDay.date = effectiveDayDate || targetDay.date;
   }
 
@@ -880,6 +1201,16 @@ export class WeeklyPlanning {
           `Cannot evaluate ${dayOfWeekOrDate} before completing evaluation for earlier day ${priorDay.dayOfWeek}`
         );
       }
+    }
+
+    if (!targetDay.evaluationConfirmedAt) {
+      throw new Error("Daily evaluation must be explicitly confirmed before submission");
+    }
+
+    if (!targetDay.evaluation || evaluation.trim() !== targetDay.evaluation.trim()) {
+      delete targetDay.evaluationConfirmedAt;
+      delete targetDay.evaluationConfirmedBy;
+      throw new Error("Daily evaluation must be explicitly confirmed before submission");
     }
 
     targetDay.evaluation = evaluation.trim();
@@ -934,6 +1265,10 @@ export class WeeklyPlanning {
     targetDay.evaluationDirectorComment = comment.trim();
     targetDay.evaluationReviewedBy = directorId;
     targetDay.evaluationReviewedAt = new Date();
+
+    // Clear prior confirmation when changes are requested
+    delete targetDay.evaluationConfirmedAt;
+    delete targetDay.evaluationConfirmedBy;
   }
 
   public saveDailyEvaluation(dayOfWeekOrDate: string, evaluation: string, currentDate: string, teacherId?: string): void {

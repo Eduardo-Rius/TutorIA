@@ -75,12 +75,12 @@ describe("H1R9-A: Weekly Context & 5-Day Review Gate", () => {
     expect(tuesObj).toBeNull();
   });
 
-  it("3. Review gating (0/5 to 5/5) and submission logic", async () => {
+  it("3. Guardar Día and X/5 removed; free navigation across weekdays; Enviar a Revisión available when planning is ready", async () => {
     const { service, source } = createTestDeps();
     await renderApp(service, source);
 
     const obsInput = screen.getByPlaceholderText(/Los niños muestran interés/i);
-    fireEvent.change(obsInput, { target: { value: 'Interés' } });
+    fireEvent.change(obsInput, { target: { value: "Interés" } });
 
     await act(async () => {
       fireEvent.click(screen.getByText(/Generar Semana/i));
@@ -89,33 +89,33 @@ describe("H1R9-A: Weekly Context & 5-Day Review Gate", () => {
       await new Promise(r => setTimeout(r, 0));
     });
 
-    expect(screen.getByText("0/5 días revisados")).toBeDefined();
-    expect(screen.getByText("Enviar a Revisión").closest('button')).toHaveProperty('disabled', true);
+    // 1. Guardar Día no longer exists
+    expect(screen.queryByText("Guardar Día")).toBeNull();
+    // 2. Domain-backed review progress starts at 0/5
+    expect(screen.getByText(/0\/5 días revisados/i)).toBeDefined();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("tab", { name: "Lunes 24" }));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText("Guardar Día"));
-    });
-    expect(screen.getByText("1/5 días revisados")).toBeDefined();
-    expect(screen.getByText("Enviar a Revisión").closest('button')).toHaveProperty('disabled', true);
-
-    const days = ["Martes 25", "Miércoles 26", "Jueves 27"];
+    // 3. Free weekday navigation does NOT review any day
+    const days = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
     for (const d of days) {
       await act(async () => { fireEvent.click(screen.getByRole("tab", { name: d })); });
-      await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
+      expect(screen.getByRole("tab", { name: d })).toBeDefined();
     }
+    expect(screen.getByText(/0\/5 días revisados/i)).toBeDefined();
 
-    expect(screen.getByText("4/5 días revisados")).toBeDefined();
-    expect(screen.getByText("Enviar a Revisión").closest('button')).toHaveProperty('disabled', true);
+    // 4. Submit button is disabled before 5/5
+    const submitBtn = screen.getByText("Enviar a Revisión").closest("button");
+    expect(submitBtn).toHaveProperty("disabled", true);
 
-    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: "Viernes 28" })); });
-    await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
+    // 5. Explicitly review each day
+    for (const d of days) {
+      await act(async () => { fireEvent.click(screen.getByRole("tab", { name: d })); });
+      await act(async () => { fireEvent.click(screen.getByText("✓ Marcar día como revisado")); });
+    }
+    expect(screen.getByText(/5\/5 días revisados/i)).toBeDefined();
+    const finalSubmitBtn = screen.getByText("Enviar a Revisión").closest("button");
+    expect(finalSubmitBtn).not.toHaveProperty("disabled", true);
 
-    expect(screen.getByText("5/5 días revisados")).toBeDefined();
-    expect(screen.getByText("Enviar a Revisión").closest('button')).not.toHaveProperty('disabled', true);
-    
+    // 6. Final submission calls domain/service submission
     await act(async () => { fireEvent.click(screen.getByText("Enviar a Revisión")); });
     expect(screen.queryByText("En revisión por la Directora")).toBeDefined();
   });

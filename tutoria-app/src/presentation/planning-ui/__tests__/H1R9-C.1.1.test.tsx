@@ -136,6 +136,8 @@ describe("H1R9-C.1.1: Calendar Sanitization & Generic Week Support", () => {
       ).rejects.toThrow("Cannot evaluate future day (2026-11-13) when current date is 2026-11-10");
 
       // Saving Tuesday 10 Nov evaluation succeeds
+      await service.saveDailyEvaluationDraft("plan-nov-sec", "TUESDAY", "Evaluación martes 10 nov", "TEACHER", "2026-11-10");
+      await service.confirmDailyEvaluation("plan-nov-sec", "TUESDAY", "TEACHER", "t1", new Date(), "2026-11-10");
       await expect(
         service.saveDailyEvaluation("plan-nov-sec", "TUESDAY", "Evaluación martes 10 nov", "TEACHER", "2026-11-10")
       ).resolves.toBeUndefined();
@@ -193,9 +195,13 @@ describe("H1R9-C.1.1: Calendar Sanitization & Generic Week Support", () => {
       ).rejects.toThrow("Cannot evaluate future day (2026-09-02) when current date is 2026-09-01");
 
       // Saving Monday 31 Aug and Tuesday 1 Sep succeeds
+      await service.saveDailyEvaluationDraft("plan-sep-sec", "MONDAY", "Eval 31 ago", "TEACHER", "2026-09-01");
+      await service.confirmDailyEvaluation("plan-sep-sec", "MONDAY", "TEACHER", "t1", new Date(), "2026-09-01");
       await expect(
         service.saveDailyEvaluation("plan-sep-sec", "MONDAY", "Eval 31 ago", "TEACHER", "2026-09-01")
       ).resolves.toBeUndefined();
+      await service.saveDailyEvaluationDraft("plan-sep-sec", "TUESDAY", "Eval 1 sep", "TEACHER", "2026-09-01");
+      await service.confirmDailyEvaluation("plan-sep-sec", "TUESDAY", "TEACHER", "t1", new Date(), "2026-09-01");
       await expect(
         service.saveDailyEvaluation("plan-sep-sec", "TUESDAY", "Eval 1 sep", "TEACHER", "2026-09-01")
       ).resolves.toBeUndefined();

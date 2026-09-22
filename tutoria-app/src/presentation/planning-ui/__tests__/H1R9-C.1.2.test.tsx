@@ -78,6 +78,8 @@ describe("H1R9-C.1.2: Pre-Week Evaluation Lock & Strict Fail-Closed Temporal Aut
       expect(plan.canEvaluateDay("THURSDAY", "2026-08-24")).toBe(false);
       expect(plan.canEvaluateDay("FRIDAY", "2026-08-24")).toBe(false);
 
+      await service.saveDailyEvaluationDraft("plan-boundary", "MONDAY", "Eval lunes ok", "TEACHER", "2026-08-24");
+      await service.confirmDailyEvaluation("plan-boundary", "MONDAY", "TEACHER", "t1", new Date(), "2026-08-24");
       await expect(
         service.saveDailyEvaluation("plan-boundary", "MONDAY", "Eval lunes ok", "TEACHER", "2026-08-24")
       ).resolves.toBeUndefined();

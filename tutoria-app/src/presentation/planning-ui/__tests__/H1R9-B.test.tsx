@@ -60,7 +60,7 @@ describe("H1R9-B: Day-Level Review States & Context Lock", () => {
     expect(screen.getByText("Explorar sonidos con instrumentos de percusión simples")).toBeDefined();
   });
 
-  it("07-11. Anita initial review state and 5/5 gate", async () => {
+  it("07-11. Anita day-by-day review flow, no Guardar Día, domain-backed X/5 progress, submit gate", async () => {
     const { service, source } = createTestDeps();
     await renderApp(service, source, 'TEACHER');
     const obsInput = screen.getByPlaceholderText(/Los niños muestran interés/i);
@@ -68,33 +68,51 @@ describe("H1R9-B: Day-Level Review States & Context Lock", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Generar Semana/i)); });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 
-    // 07 PASS
-    expect(screen.getByText(/0\/5 días revisados/i)).toBeDefined();
-    
-    // 08 PASS & 09 PASS
-    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
-    
-    expect(screen.getByText(/1\/5 días revisados/i)).toBeDefined();
-    const tabLunes = screen.getByRole("tab", { name: /✓ Lunes 24/i });
-    expect(tabLunes.className).toContain("bg-green-100"); // active and reviewed
+    // 1. Guardar Día no longer exists
+    expect(screen.queryByText("Guardar Día")).toBeNull();
 
-    // 10 PASS & 11 PASS
+    // 2. Initial state: 0/5 días revisados
+    expect(screen.getByText(/Progreso de revisión: 0\/5 días revisados/i)).toBeDefined();
+
+    // 3. Anita can navigate Monday-Friday freely without marking days reviewed
+    const days = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of days) {
+      const tab = screen.getByRole("tab", { name: new RegExp(d, 'i') });
+      await act(async () => { fireEvent.click(tab); });
+      expect(tab).toBeDefined();
+      expect(tab.textContent).toContain("Pendiente");
+    }
+
+    // Submit button is disabled at 0/5
     const submitBtn = screen.getByText("Enviar a Revisión");
     expect(submitBtn.closest('button')).toHaveProperty('disabled', true);
 
-    const days = ["Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
-    for (const d of days) {
+    // 4. Mark Monday reviewed
+    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
+    await act(async () => { fireEvent.click(screen.getByText("✓ Marcar día como revisado")); });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+
+    expect(screen.getByText(/Progreso de revisión: 1\/5 días revisados/i)).toBeDefined();
+    expect(screen.getByRole("tab", { name: /Lunes 24/i }).textContent).toContain("Revisado");
+    expect(submitBtn.closest('button')).toHaveProperty('disabled', true);
+
+    // 5. Mark remaining days reviewed
+    const remaining = ["Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of remaining) {
       await act(async () => { fireEvent.click(screen.getByRole("tab", { name: new RegExp(d, 'i') })); });
-      await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
+      await act(async () => { fireEvent.click(screen.getByText("✓ Marcar día como revisado")); });
+      await act(async () => { await new Promise(r => setTimeout(r, 0)); });
     }
 
-    expect(screen.getByText(/5\/5 días revisados/i)).toBeDefined();
-    console.log("Submit button disabled attribute:", submitBtn.closest('button')?.getAttribute('disabled'));
-     const freshSubmitBtn = screen.getByText("Enviar a Revisión");
-     console.log("Fresh Submit button property:", freshSubmitBtn.closest('button')?.disabled);
-     console.log("Progress:", screen.getByText(/días revisados/i).textContent);
-     expect(freshSubmitBtn.closest('button')).not.toHaveProperty('disabled', true);
+    // 6. 5/5 reached, submit button is now enabled
+    expect(screen.getByText(/Progreso de revisión: 5\/5 días revisados/i)).toBeDefined();
+    const freshSubmitBtn = screen.getByText("Enviar a Revisión");
+    expect(freshSubmitBtn.closest('button')).not.toHaveProperty('disabled', true);
+
+    // 7. Clicking "Enviar a Revisión" submits to Ceci
+    await act(async () => { fireEvent.click(freshSubmitBtn); });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    expect(screen.getByText(/¡Listo! Planeación enviada/i)).toBeDefined();
   });
 
   it("12-18. Director independent review state and orange feedback", async () => {
@@ -102,6 +120,7 @@ describe("H1R9-B: Day-Level Review States & Context Lock", () => {
     // Setup submitted plan
     const plan = await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2026-08-24', '2026-08-28', 'TEACHER');
     const recs = await source.generateRecommendation(null as any, '', '', '', '');
+    recs.forEach(d => { d.teacherReviewedAt = new Date(); d.teacherReviewedBy = 't1'; });
     plan.days = recs;
     await (service as any).repository.save(plan);
     await service.submit('p1', 'TEACHER');
@@ -138,6 +157,7 @@ describe("H1R9-B: Day-Level Review States & Context Lock", () => {
     const { service, source } = createTestDeps();
     const plan = await service.createPlanning('p1', 'd1', 'lactantes-c', 't1', '2026-08-24', '2026-08-28', 'TEACHER');
     const recs = await source.generateRecommendation(null as any, '', '', '', '');
+    recs.forEach(d => { d.teacherReviewedAt = new Date(); d.teacherReviewedBy = 't1'; });
     plan.days = recs;
     await (service as any).repository.save(plan);
     await service.submit(plan.planningId, 'TEACHER');
@@ -160,26 +180,32 @@ describe("H1R9-B: Day-Level Review States & Context Lock", () => {
     const submitBtn = screen.getByText("Enviar correcciones a la Directora");
     expect(submitBtn.closest('button')).toHaveProperty('disabled', true);
 
-    // Resolve Lunes
+    // Resolve Lunes: editing textarea directly marks observation as CHANGED_BY_EDUCATOR, then mark reviewed
     await act(async () => { fireEvent.click(screen.getAllByText("Revisar / Editar")[0]); });
     const textareas = screen.getAllByDisplayValue(recs[0]!.activities[0]!.description);
     fireEvent.change(textareas[0], { target: { value: 'Fixed Mon' } });
-    await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 
-    // Lunes becomes Green
-    expect(screen.getByRole("tab", { name: /✓ Lunes 24/i })).toBeDefined();
-    expect(submitBtn.closest('button')).toHaveProperty('disabled', true); // Thursday still blocks
+    // Guardar Día does not exist
+    expect(screen.queryByText("Guardar Día")).toBeNull();
+
+    await act(async () => { fireEvent.click(screen.getByText("✓ Marcar día como revisado")); });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+
+    // Thursday still blocks resubmission
+    expect(submitBtn.closest('button')).toHaveProperty('disabled', true);
 
     // Resolve Thursday
-    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /🟠 Jueves 27/i })); });
+    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Jueves 27/i })); });
     await act(async () => { fireEvent.click(screen.getAllByText("Revisar / Editar")[0]); });
     const textareasThu = screen.getAllByDisplayValue(recs[3].activities[0].description);
     fireEvent.change(textareasThu[0], { target: { value: 'Fixed Thu' } });
-    await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 
-    // 23 PASS & 24 PASS
+    await act(async () => { fireEvent.click(screen.getByText("✓ Marcar día como revisado")); });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+
+    // 23 PASS & 24 PASS - Both corrections resolved and reviewed, resubmit button is enabled!
     const freshSubmitBtn2 = screen.getByText("Enviar correcciones a la Directora");
     expect(freshSubmitBtn2.closest('button')).not.toHaveProperty('disabled', true);
   });

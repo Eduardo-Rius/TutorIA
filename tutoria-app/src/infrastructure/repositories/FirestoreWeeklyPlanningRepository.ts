@@ -50,7 +50,10 @@ export class FirestoreWeeklyPlanningRepository {
       observations: planning.observations,
       identifiedNeeds: planning.identifiedNeeds,
       curricularReferences: planning.curricularReferences,
-      days: planning.days,
+      days: planning.days.map(day => ({
+        ...day,
+        teacherReviewedAt: day.teacherReviewedAt ? Timestamp.fromDate(new Date(day.teacherReviewedAt)) : undefined,
+      })),
       version: planning.version,
       reviewHistory: planning.reviewHistory.map(record => ({
         reason: record.reason,
@@ -74,7 +77,12 @@ export class FirestoreWeeklyPlanningRepository {
     planning.observations = data.observations as string || '';
     planning.identifiedNeeds = data.identifiedNeeds as string || '';
     planning.curricularReferences = data.curricularReferences as string[] || [];
-    planning.days = data.days || [];
+    planning.days = ((data.days || []) as Record<string, any>[]).map(day => ({
+      ...day,
+      teacherReviewedAt: day.teacherReviewedAt instanceof Timestamp
+        ? day.teacherReviewedAt.toDate()
+        : (day.teacherReviewedAt ? new Date(day.teacherReviewedAt) : undefined),
+    })) as PlanningDay[];
     planning.version = data.version as number || 1;
     planning.reviewHistory = ((data.reviewHistory || []) as Record<string, unknown>[]).map((record) => ({
       reason: record.reason as string,

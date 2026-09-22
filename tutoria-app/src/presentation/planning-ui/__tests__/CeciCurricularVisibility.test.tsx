@@ -65,12 +65,17 @@ describe("Ceci Curricular Visibility (H1R9-F.5.3.10)", () => {
       fireEvent.click(screen.getByText("Listo"));
     });
 
-    // 4. Anita reviews each of the 5 days to enable submit
-    for (let i = 0; i < 5; i++) {
-      const saveBtn = screen.getByText("Guardar Día");
+    // 4. Anita reviews each day
+    const daysToRev = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToRev) {
       await act(async () => {
-        fireEvent.click(saveBtn);
+        fireEvent.click(screen.getByRole("tab", { name: d }));
       });
+      if (screen.queryByText("✓ Marcar día como revisado")) {
+        await act(async () => {
+          fireEvent.click(screen.getByText("✓ Marcar día como revisado"));
+        });
+      }
     }
 
     // 5. Submit planning to Director (Ceci)
@@ -164,10 +169,16 @@ describe("Ceci Curricular Visibility (H1R9-F.5.3.10)", () => {
       expect(screen.getAllByText("Revisar / Editar").length).toBeGreaterThan(0);
     });
 
-    for (let i = 0; i < 5; i++) {
+        const daysToRev = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToRev) {
       await act(async () => {
-        fireEvent.click(screen.getByText("Guardar Día"));
+        fireEvent.click(screen.getByRole("tab", { name: d }));
       });
+      if (screen.queryByText("✓ Marcar día como revisado")) {
+        await act(async () => {
+          fireEvent.click(screen.getByText("✓ Marcar día como revisado"));
+        });
+      }
     }
 
     await act(async () => {
@@ -251,10 +262,16 @@ describe("Ceci Curricular Visibility (H1R9-F.5.3.10)", () => {
       fireEvent.click(screen.getByText("Listo"));
     });
 
-    for (let i = 0; i < 5; i++) {
+        const daysToRev = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of daysToRev) {
       await act(async () => {
-        fireEvent.click(screen.getByText("Guardar Día"));
+        fireEvent.click(screen.getByRole("tab", { name: d }));
       });
+      if (screen.queryByText("✓ Marcar día como revisado")) {
+        await act(async () => {
+          fireEvent.click(screen.getByText("✓ Marcar día como revisado"));
+        });
+      }
     }
 
     await act(async () => {

@@ -140,6 +140,8 @@ describe("H1R9-D.3: Ready for Closure after 5/5 Daily Evaluations Approved", () 
     }).toThrow(/Cannot evaluate future day/i);
 
     // L. Cannot submit out of chronological order
+    plan.saveDailyEvaluationDraft("MONDAY", "Eval lunes", "t1", "2026-08-24");
+    plan.confirmDailyEvaluation("MONDAY", "t1", new Date(), "2026-08-24");
     plan.submitDailyEvaluation("MONDAY", "Eval lunes", "2026-08-24", "t1");
     expect(() => {
       plan.submitDailyEvaluation("WEDNESDAY", "Eval miercoles", "2026-08-26", "t1");

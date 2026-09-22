@@ -223,6 +223,8 @@ describe("H1R9-C.2: Strict Chronological Daily Evaluation Gate", () => {
     expect(plan.canEvaluateDay("FRIDAY", "2026-08-28")).toBe(true);
     expect(plan.getNextEvaluableDay("2026-08-28")?.dayOfWeek).toBe("FRIDAY");
 
+    await service.saveDailyEvaluationDraft("plan-fri-ready", "FRIDAY", "Eval viernes completada", "TEACHER", "2026-08-28");
+    await service.confirmDailyEvaluation("plan-fri-ready", "FRIDAY", "TEACHER", "t1", new Date(), "2026-08-28");
     await expect(
       service.saveDailyEvaluation("plan-fri-ready", "FRIDAY", "Eval viernes completada", "TEACHER", "2026-08-28")
     ).resolves.toBeUndefined();
@@ -246,6 +248,8 @@ describe("H1R9-C.2: Strict Chronological Daily Evaluation Gate", () => {
     expect(plan.getNextEvaluableDay("2026-08-29")?.dayOfWeek).toBe("WEDNESDAY");
 
     // Complete Wednesday
+    await service.saveDailyEvaluationDraft("plan-post-week", "WEDNESDAY", "Miércoles post-semana", "TEACHER", "2026-08-29");
+    await service.confirmDailyEvaluation("plan-post-week", "WEDNESDAY", "TEACHER", "t1", new Date(), "2026-08-29");
     await service.saveDailyEvaluation("plan-post-week", "WEDNESDAY", "Miércoles post-semana", "TEACHER", "2026-08-29");
     const pAfterWed = await repo.findById("plan-post-week");
     expect(pAfterWed!.canEvaluateDay("THURSDAY", "2026-08-29")).toBe(true);
@@ -292,6 +296,10 @@ describe("H1R9-C.2: Strict Chronological Daily Evaluation Gate", () => {
     const input = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
     await act(async () => {
       fireEvent.change(input, { target: { value: "Evaluación del lunes guardada" } });
+    });
+    await act(async () => {
+      await service.saveDailyEvaluationDraft("plan-lifecycle", "MONDAY", "Evaluación del lunes guardada", "TEACHER", "2026-08-24");
+      await service.confirmDailyEvaluation("plan-lifecycle", "MONDAY", "TEACHER", "t1", new Date(), "2026-08-24");
     });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Enviar evaluación a Ceci/i })); });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });

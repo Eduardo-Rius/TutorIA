@@ -27,6 +27,9 @@ describe('H1R5: State, History, and Print Remediation', () => {
         { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
         { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ]);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     await repo.save(plan);
 
@@ -155,6 +158,9 @@ describe('H1R5: State, History, and Print Remediation', () => {
         { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
         { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ]);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     plan.approve('DIRECTOR');
     await repo.save(plan);
@@ -211,6 +217,9 @@ describe('H1R5: State, History, and Print Remediation', () => {
         { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
         { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ]);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     plan.approve('DIRECTOR');
     await repo.save(plan);

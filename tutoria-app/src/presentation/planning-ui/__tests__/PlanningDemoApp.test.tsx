@@ -164,11 +164,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
       "TEACHER",
     );
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "needs", "", "", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -207,11 +207,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
       "TEACHER",
     );
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "needs", "", "", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -279,11 +279,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
       "TEACHER",
     );
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "needs", "", "", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -341,11 +341,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
       "TEACHER",
     );
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "needs", "", "", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -382,8 +382,9 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     await act(async () => {
       /* Aceptar button removed */
     });
+    expect(screen.queryByText("Guardar Día")).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByText("Guardar Día"));
+      fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i }));
     });
     expect(global.alert).not.toHaveBeenCalled();
   });
@@ -400,11 +401,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
       "TEACHER",
     );
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "needs", "", "", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -437,11 +438,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     const { service, source } = createTestDeps();
     await service.createPlanning("p1", "d1", "lactantes-c", "t1", "2026-08-10", "2026-08-14", "TEACHER");
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "need", "spec", "mat", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -457,11 +458,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     const { service, source } = createTestDeps();
     await service.createPlanning("p1", "d1", "lactantes-c", "t1", "2026-08-10", "2026-08-14", "TEACHER");
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "need", "spec", "mat", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -477,11 +478,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     const { service, source } = createTestDeps();
     await service.createPlanning("p1", "d1", "lactantes-c", "t1", "2026-08-10", "2026-08-14", "TEACHER");
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "need", "spec", "mat", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -498,11 +499,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     const { service, source } = createTestDeps();
     await service.createPlanning("p1", "d1", "lactantes-c", "t1", "2026-08-10", "2026-08-14", "TEACHER");
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "need", "spec", "mat", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -519,11 +520,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     const { service, source } = createTestDeps();
     await service.createPlanning("p1", "d1", "lactantes-c", "t1", "2026-08-10", "2026-08-14", "TEACHER");
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "DIRECTOR_CONTEXT_OBSERVATION", "DIRECTOR_CONTEXT_NEED", "DIRECTOR_CONTEXT_SPECIAL", "DIRECTOR_CONTEXT_MATERIAL", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");
@@ -561,11 +562,11 @@ describe("PlanningDemoApp UX Requirements (UX Iteration 5)", () => {
     const { service, source } = createTestDeps();
     await service.createPlanning("p1", "d1", "lactantes-c", "t1", "2026-08-10", "2026-08-14", "TEACHER");
     const days: PlanningDay[] = [
-      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m2"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m3"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m4"], durationMinutes: 20, curricularTraceability: [] }] },
-      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m5"], durationMinutes: 20, curricularTraceability: [] }] }
+      { date: "2026-08-24", dayOfWeek: "MONDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a1", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-25", dayOfWeek: "TUESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a2", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-26", dayOfWeek: "WEDNESDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a3", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-27", dayOfWeek: "THURSDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a4", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" },
+      { date: "2026-08-28", dayOfWeek: "FRIDAY", complementaryActivities: [], materials: [], activities: [{ activityId: "a5", category: "C", objective: "O", description: "D", materials: ["m1"], durationMinutes: 20, curricularTraceability: [] }], teacherReviewedAt: new Date(), teacherReviewedBy: "t1" }
     ];
     await service.saveDraft("p1", "obs", "need", "spec", "TEACHER_ONLY_MATERIAL_XYZ", [], days, "TEACHER");
     await service.submit("p1", "TEACHER");

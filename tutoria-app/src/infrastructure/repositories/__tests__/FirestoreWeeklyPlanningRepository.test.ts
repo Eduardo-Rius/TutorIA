@@ -44,6 +44,9 @@ describe('FirestoreWeeklyPlanningRepository Serialization', () => {
     }));
 
     planning.editPedagogicalContent('Obs', 'Needs', 'Special', 'Materials', ['Ref1'], days);
+    ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].forEach(d => {
+      planning.markTeacherDayReviewed(d, 't1', new Date());
+    });
     // Add a review history record
     planning.submit();
     planning.reject('Needs more details', 'director1');

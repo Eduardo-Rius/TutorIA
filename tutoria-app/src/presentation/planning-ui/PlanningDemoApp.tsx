@@ -233,7 +233,9 @@ const WeekDayTabs = ({
       } else {
         // PLANNING REVIEW WORKFLOW (Before APPROVED)
         const isReqCorrection = requiredCorrectionDays?.includes(d.dayOfWeek);
-        const isReviewed = reviewedDays?.[d.dayOfWeek] || (isCorrectionRound && !isReqCorrection);
+        const isReviewed = role === 'DIRECTOR'
+          ? (reviewedDays?.[d.dayOfWeek] || (isCorrectionRound && !isReqCorrection))
+          : Boolean(d.teacherReviewedAt && d.teacherReviewedBy);
 
         if (isReqCorrection) {
           bgClass = "bg-orange-100 text-orange-900 border-orange-300 ring-orange-200 hover:shadow-sm";
@@ -254,16 +256,23 @@ const WeekDayTabs = ({
                     d.dayOfWeek === 'TUESDAY' ? 'Martes 25' :
                     d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' :
                     d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28';
+      const isTeacher = role === 'TEACHER';
+      const isApproved = isApprovedPlanning;
+      const isTeacherRev = Boolean(d.teacherReviewedAt && d.teacherReviewedBy);
+      const tabSuffix = (!isApproved && isTeacher) ? (isTeacherRev ? " (Revisado)" : " (Pendiente)") : "";
+
       return (
         <button
           key={d.dayOfWeek}
           role="tab"
+          aria-label={`${icon}${label}`}
           aria-selected={isActive}
           aria-controls={'panel-' + d.dayOfWeek}
           onClick={() => onSelect(idx)}
           className={`flex-1 min-w-[140px] px-6 py-4 rounded-full font-bold text-lg transition border whitespace-nowrap outline-none focus:ring-4 focus:ring-brand-primary/30 ${bgClass}`}
         >
-          {icon}{label}
+          <span>{icon}{label}</span>
+          {tabSuffix && <span className="text-xs block font-normal opacity-85 mt-0.5">{tabSuffix.replace(/[()]/g, '').trim()}</span>}
         </button>
       );
     })}
@@ -356,7 +365,6 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [contextLocked, setContextLocked] = useState(false);
-  const [reviewedDays, setReviewedDays] = useState<Record<string, boolean>>({});
   const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
   const [dailyEvaluations, setDailyEvaluations] = useState<Record<string, string>>({});
@@ -429,7 +437,6 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
     };
     setTimeout(async () => {
       setDays(recommended);
-      setReviewedDays({ MONDAY: false, TUESDAY: false, WEDNESDAY: false, THURSDAY: false, FRIDAY: false });
       setOriginalContext(initialSnapshot);
       setContextLocked(true);
       setIsGenerating(false);
@@ -443,18 +450,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
     }, process.env.NODE_ENV === 'test' ? 0 : 2000);
   };
 
-  const handleSaveDay = () => {
-    const activeDayName = days[activeDayIndex]?.dayOfWeek;
-    if (activeDayName) {
-      setReviewedDays(prev => ({ ...prev, [activeDayName]: true }));
-      // Automatically move to next day if not the last one
-      if (activeDayIndex < 4) {
-        setActiveDayIndex(activeDayIndex + 1);
-      }
-    }
-  };
-
-    const handleSaveContextEdit = async () => {
+  const handleSaveContextEdit = async () => {
     setContextLocked(true);
     if (!originalContext) {
       setOriginalContext({
@@ -600,7 +596,31 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
               )}
             </div>
 
-            <WeekDayTabs days={days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} reviewedDays={reviewedDays} requiredCorrectionDays={requiredCorrectionDays} isCorrectionRound={status === 'REJECTED'} isApprovedPlanning={status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED'} role="TEACHER" />
+            {days.some(d => d.activities && d.activities.length > 0) && status !== 'APPROVED' && status !== 'APPROVED_FOR_EXECUTION' && status !== 'CLOSED' && (
+              <div className="flex flex-col sm:flex-row items-center justify-between bg-teal-50/80 border border-teal-200 px-6 py-3.5 rounded-xl mb-6 shadow-sm gap-2 animate-fade-in">
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-teal-950 text-base">
+                    Progreso de revisión: {days.filter(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy)).length}/5 días revisados
+                  </span>
+                  {days.filter(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy)).length === 5 ? (
+                    <span className="text-xs font-bold bg-green-200 text-green-900 px-2.5 py-0.5 rounded-full">
+                      ✓ Completo
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full">
+                      Pendiente
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-teal-800 font-medium text-center sm:text-right">
+                  {days.filter(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy)).length === 5
+                    ? "✓ Todos los días revisados. Puedes enviar la planeación a Ceci."
+                    : "Revisa cada día antes de enviar la planeación a Ceci."}
+                </span>
+              </div>
+            )}
+
+            <WeekDayTabs days={days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} requiredCorrectionDays={requiredCorrectionDays} isCorrectionRound={status === 'REJECTED'} isApprovedPlanning={status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED'} role="TEACHER" />
 
 
             {(() => {
@@ -613,9 +633,22 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
 
               return (
                 <div key={d.dayOfWeek} className="w-full bg-white rounded-xl shadow-sm border border-border-soft p-8 md:p-12 animate-fade-in-up">
-                  <h4 className="text-3xl font-bold text-teal-900 mb-2 uppercase tracking-widest text-center">
-                    {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
-                  </h4>
+                  {(() => {
+                    const isRev = Boolean(d.teacherReviewedAt && d.teacherReviewedBy);
+                    return (
+                      <div className="flex items-center justify-between mb-4 border-b border-teal-50 pb-3">
+                        <h4 className="text-3xl font-bold text-teal-900 uppercase tracking-widest">
+                          {d.dayOfWeek === 'MONDAY' ? 'Lunes 24' : d.dayOfWeek === 'TUESDAY' ? 'Martes 25' : d.dayOfWeek === 'WEDNESDAY' ? 'Miércoles 26' : d.dayOfWeek === 'THURSDAY' ? 'Jueves 27' : 'Viernes 28'}
+                        </h4>
+                        {status === 'DRAFT' && (
+                          <span className={`text-sm font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${isRev ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                            <span>{isRev ? '✓' : '⏳'}</span>
+                            {isRev ? 'Revisado' : 'Pendiente de revisión'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {!hasActivities && !isGenerating && (
                     <div className="mt-12 text-center text-text-muted text-lg italic">
@@ -662,6 +695,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                  <textarea disabled={readOnly} value={a.description} onChange={e => {
                                     const newDays = [...days];
                                     newDays[activeDayIndex]!.activities![j]!.description = e.target.value;
+                                    newDays[activeDayIndex]!.teacherReviewedAt = undefined;
+                                    newDays[activeDayIndex]!.teacherReviewedBy = undefined;
                                     setDays(newDays);
 
                                     // Update granular status to CHANGED_BY_EDUCATOR if it was PENDING_CORRECTION
@@ -702,6 +737,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                            if (dayItem.dayOfWeek === d.dayOfWeek) {
                                              return {
                                                ...dayItem,
+                                               teacherReviewedAt: undefined,
+                                               teacherReviewedBy: undefined,
                                                activities: dayItem.activities.map((act) =>
                                                  act.activityId === a.activityId
                                                    ? { ...act, curricularTraceability: updatedRefs }
@@ -776,6 +813,35 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                         }}
                       />
 
+                      {status !== 'APPROVED' && status !== 'APPROVED_FOR_EXECUTION' && status !== 'CLOSED' && !readOnly && hasActivities && (
+                        <div className="mt-8 pt-6 border-t border-teal-100 flex items-center justify-between flex-wrap gap-4">
+                          {Boolean(d.teacherReviewedAt && d.teacherReviewedBy) ? (
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-bold text-green-800 bg-green-50 px-4 py-2 rounded-full border border-green-200 flex items-center gap-2">
+                                <span>✓</span> Día revisado por Anita
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                await service.markTeacherDayReviewed(currentPlanId, d.dayOfWeek, 'TEACHER', 't1', undefined, days);
+                                const updatedPlan = await service.getPlanning(currentPlanId);
+                                if (updatedPlan) {
+                                  setPlanningObj(updatedPlan);
+                                  setDays(updatedPlan.days);
+                                }
+                                setToastMessage('✓ Día marcado como revisado.');
+                                setTimeout(() => setToastMessage(''), 2000);
+                                onSaved();
+                              }}
+                              className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 rounded-full shadow-sm transition flex items-center gap-2 text-base"
+                            >
+                              ✓ Marcar día como revisado
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                    {(status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED') && (() => {
                         const evalStatus = planningObj && typeof planningObj.getEvaluationStatus === 'function'
                           ? planningObj.getEvaluationStatus(d.dayOfWeek, currentDate)
@@ -788,33 +854,38 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                         const isEligible = evalStatus.isEligible;
                         const dayDate = evalStatus.dayDate || (planningObj && planningObj.getDayDate ? planningObj.getDayDate(d) : d.date);
 
+                        const currentText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
+                        const hasVisibleContent = Boolean(currentText.trim());
+
                         return (
                           <div className="mt-10 pt-8 border-t border-teal-100 bg-surface-ivory p-6 rounded-xl border">
                             <div className="flex items-center justify-between mb-4">
                               <h5 className="text-xl font-bold text-teal-900 flex items-center gap-2">
                                 <span>📝</span> Evaluación del día
                               </h5>
-                              {d.evaluationStatus === 'APPROVED' ? (
-                                <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                  <span>✓</span> Aprobada por Ceci
-                                </span>
-                              ) : d.evaluationStatus === 'CHANGES_REQUESTED' ? (
-                                <span className="text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                  <span>⚠</span> Cambio solicitado por Ceci
-                                </span>
-                              ) : d.evaluationStatus === 'IN_REVIEW' ? (
-                                <span className="text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                  <span>⏳</span> En revisión por Ceci
-                                </span>
-                              ) : !isEligible ? (
-                                <span className="text-xs font-bold bg-gray-100 text-gray-600 border border-gray-300 px-3 py-1 rounded-full flex items-center gap-1.5">
-                                  <span>🔒</span> Bloqueado
-                                </span>
-                              ) : (
-                                <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5">
-                                  <span>✓</span> Disponible para evaluar
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {d.evaluationStatus === 'APPROVED' ? (
+                                  <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                    <span>✓</span> Aprobada por Ceci
+                                  </span>
+                                ) : d.evaluationStatus === 'CHANGES_REQUESTED' ? (
+                                  <span className="text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                    <span>⚠</span> Cambio solicitado por Ceci
+                                  </span>
+                                ) : d.evaluationStatus === 'IN_REVIEW' ? (
+                                  <span className="text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                    <span>⏳</span> En revisión por Ceci
+                                  </span>
+                                ) : !isEligible ? (
+                                  <span className="text-xs font-bold bg-gray-100 text-gray-600 border border-gray-300 px-3 py-1 rounded-full flex items-center gap-1.5">
+                                    <span>🔒</span> Bloqueado
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 rounded-full flex items-center gap-1.5">
+                                    <span>✏️</span> Disponible para evaluar
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             {d.evaluationStatus === 'APPROVED' ? (
@@ -892,21 +963,18 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                   placeholder="El grupo respondió favorablemente a la actividad..."
                                   className="w-full text-base p-4 bg-white border border-orange-300 focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
                                 />
-                                <div className="mt-4 flex justify-between items-center gap-3">
+
+                                <div className="mt-4 flex flex-wrap justify-between items-center gap-3">
                                   <button
                                     onClick={async () => {
                                       const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
                                       if (!currentDate) return;
                                       await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, "t1");
-                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText || "" } : day));
-                                      if (planningObj) {
-                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
-                                        if (target) {
-                                          target.evaluation = evalText || "";
-                                        }
-                                      }
                                       const updatedPlan = await service.getPlanning(currentPlanId);
-                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      if (updatedPlan) {
+                                        setPlanningObj(updatedPlan);
+                                        setDays(updatedPlan.days);
+                                      }
                                       setToastMessage('✓ Borrador de corrección guardado.');
                                       setTimeout(() => setToastMessage(''), 2000);
                                       onSaved();
@@ -917,23 +985,16 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                   </button>
 
                                   <button
-                                    disabled={!((dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim())}
+                                    disabled={!hasVisibleContent}
                                     onClick={async () => {
                                       const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
                                       if (!currentDate || !evalText) return;
-                                      await service.resubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
-                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText, evaluationStatus: "IN_REVIEW", evaluationSubmittedAt: new Date(), evaluationSubmittedBy: "t1" } : day));
-                                      if (planningObj) {
-                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
-                                        if (target) {
-                                          target.evaluation = evalText;
-                                          target.evaluationStatus = "IN_REVIEW";
-                                          target.evaluationSubmittedAt = new Date();
-                                          target.evaluationSubmittedBy = "t1";
-                                        }
-                                      }
+                                      await service.confirmAndResubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
                                       const updatedPlan = await service.getPlanning(currentPlanId);
-                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      if (updatedPlan) {
+                                        setPlanningObj(updatedPlan);
+                                        setDays(updatedPlan.days);
+                                      }
                                       setToastMessage('✓ Evaluación reenviada a Ceci.');
                                       setTimeout(() => setToastMessage(''), 2000);
                                       onSaved();
@@ -957,9 +1018,16 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                 <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-blue-100 shadow-inner min-h-[100px]">
                                   {dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
                                 </div>
-                                <p className="text-xs text-blue-800 mt-3 font-semibold flex items-center gap-1.5">
-                                  <span>🔒</span> Evaluación registrada y en revisión por Ceci. No se permiten modificaciones.
-                                </p>
+                                <div className="flex items-center justify-between mt-3 text-xs">
+                                  <p className="text-blue-800 font-semibold flex items-center gap-1.5">
+                                    <span>🔒</span> Evaluación registrada y en revisión por Ceci. No se permiten modificaciones.
+                                  </p>
+                                  {d.evaluationSubmittedBy && (
+                                    <span className="text-teal-700 font-medium bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                                      ✓ Enviada por {d.evaluationSubmittedBy === 't1' ? 'Anita' : d.evaluationSubmittedBy}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             ) : (
                               <div>
@@ -975,22 +1043,18 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                   placeholder="El grupo respondió favorablemente a la actividad..."
                                   className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
                                 />
-                                <div className="mt-4 flex justify-between items-center gap-3">
+
+                                <div className="mt-4 flex flex-wrap justify-between items-center gap-3">
                                   <button
                                     onClick={async () => {
                                       const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
                                       if (!currentDate) return;
                                       await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, "t1");
-                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText || "", evaluationStatus: "DRAFT" } : day));
-                                      if (planningObj) {
-                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
-                                        if (target) {
-                                          target.evaluation = evalText || "";
-                                          target.evaluationStatus = "DRAFT";
-                                        }
-                                      }
                                       const updatedPlan = await service.getPlanning(currentPlanId);
-                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      if (updatedPlan) {
+                                        setPlanningObj(updatedPlan);
+                                        setDays(updatedPlan.days);
+                                      }
                                       setToastMessage('✓ Borrador de evaluación guardado.');
                                       setTimeout(() => setToastMessage(''), 2000);
                                       onSaved();
@@ -1001,23 +1065,16 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                                   </button>
 
                                   <button
-                                    disabled={!((dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim())}
+                                    disabled={!hasVisibleContent}
                                     onClick={async () => {
                                       const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
                                       if (!currentDate || !evalText) return;
-                                      await service.submitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
-                                      setDays(prev => prev.map((day: any, idx) => idx === activeDayIndex ? { ...day, evaluation: evalText, evaluationStatus: "IN_REVIEW", evaluationSubmittedAt: new Date(), evaluationSubmittedBy: "t1" } : day));
-                                      if (planningObj) {
-                                        const target = planningObj.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
-                                        if (target) {
-                                          target.evaluation = evalText;
-                                          target.evaluationStatus = "IN_REVIEW";
-                                          target.evaluationSubmittedAt = new Date();
-                                          target.evaluationSubmittedBy = "t1";
-                                        }
-                                      }
+                                      await service.confirmAndSubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
                                       const updatedPlan = await service.getPlanning(currentPlanId);
-                                      if (updatedPlan) setPlanningObj(updatedPlan);
+                                      if (updatedPlan) {
+                                        setPlanningObj(updatedPlan);
+                                        setDays(updatedPlan.days);
+                                      }
                                       setToastMessage('✓ Evaluación enviada a Ceci.');
                                       setTimeout(() => setToastMessage(''), 2000);
                                       onSaved();
@@ -1035,17 +1092,27 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
 
                       {!readOnly && (
                         <div className="mt-8">
-                          <div className="flex justify-between items-center bg-teal-50 p-4 rounded-lg mb-6 border border-teal-100">
-                            <span className="text-teal-900 font-bold text-lg">Progreso de revisión:</span>
-                            <span className="text-teal-900 font-bold text-2xl">{Object.values(reviewedDays).filter(Boolean).length}/5 días revisados</span>
+                          <div className="bg-teal-50 p-4 rounded-lg mb-6 border border-teal-100 text-center">
+                            <p className="text-teal-900 font-medium text-sm">
+                              Revisa y ajusta los días de la semana. Cuando la planeación esté lista, envíala a Ceci para revisión.
+                            </p>
                           </div>
-                          <div className="text-center flex gap-4 justify-center">
-                            <button onClick={handleSaveDay} className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-4 rounded-full transition shadow-sm">
-                              Guardar Día
-                            </button>
-                            <button onClick={handleSubmit} disabled={status === 'REJECTED' ? requiredCorrectionDays.length > 0 : Object.values(reviewedDays).filter(Boolean).length < 5} className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-8 py-4 rounded-full transition shadow-sm disabled:opacity-50">
-                              {status === 'REJECTED' ? 'Enviar correcciones a la Directora' : 'Enviar a Revisión'}
-                            </button>
+                          <div className="text-center flex justify-center">
+                            {(() => {
+                              const revCount = days.filter(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy)).length;
+                              const isSubmitDisabled = status === 'REJECTED'
+                                ? requiredCorrectionDays.length > 0
+                                : (!days || days.length < 5 || !days.every(d => d.activities && d.activities.length > 0) || revCount < 5);
+                              return (
+                                <button
+                                  onClick={handleSubmit}
+                                  disabled={isSubmitDisabled}
+                                  className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-8 py-4 rounded-full transition shadow-sm disabled:opacity-50"
+                                >
+                                  {status === 'REJECTED' ? 'Enviar correcciones a la Directora' : 'Enviar a Revisión'}
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
@@ -1737,9 +1804,16 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
                       )}
 
                       <div className="bg-white p-5 rounded-lg border border-blue-100 shadow-inner mb-4">
-                        <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-2">
-                          {isResubmitted ? 'Anita (Evaluación corregida):' : 'Anita:'}
-                        </span>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block">
+                            {isResubmitted ? 'Anita (Evaluación corregida):' : 'Anita:'}
+                          </span>
+                          {d.evaluationSubmittedBy && (
+                            <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                              ✓ Enviada por {d.evaluationSubmittedBy === 't1' ? 'Anita' : d.evaluationSubmittedBy}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap">
                           {d.evaluation}
                         </p>

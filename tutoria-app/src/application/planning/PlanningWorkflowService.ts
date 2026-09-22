@@ -142,6 +142,41 @@ export class PlanningWorkflowService {
     await this.repository.save(planning);
   }
 
+  public async markTeacherDayReviewed(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    role: PlanningActorRole,
+    teacherId: string,
+    reviewedAt?: Date,
+    currentDays?: PlanningDay[]
+  ): Promise<void> {
+    if (role !== "TEACHER") {
+      throw new Error("Only Teacher can mark a planning day as reviewed");
+    }
+    if (!teacherId || !teacherId.trim()) {
+      throw new Error("Teacher review requires an educator identity");
+    }
+    const planning = await this.repository.findById(planningId);
+    if (!planning) {
+      throw new Error(`WeeklyPlanning not found: ${planningId}`);
+    }
+
+    if (currentDays && currentDays.length === 5) {
+      planning.editPedagogicalContent(
+        planning.observations,
+        planning.identifiedNeeds,
+        planning.specialSituations,
+        planning.availableMaterials,
+        planning.curricularReferences,
+        currentDays,
+        planning.originalContext
+      );
+    }
+
+    planning.markTeacherDayReviewed(dayOfWeekOrDate, teacherId, reviewedAt);
+    await this.repository.save(planning);
+  }
+
   public async markDirectorDayReviewed(
     planningId: string,
     dayOfWeek: PlanningDay["dayOfWeek"],
@@ -186,6 +221,26 @@ export class PlanningWorkflowService {
     if (role !== 'SUPERVISOR') throw new Error('Unauthorized');
     return this.repository.listClosed();
   }
+  public async confirmDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    role: PlanningActorRole,
+    teacherId: string,
+    confirmedAt: Date = new Date(),
+    currentDate?: string
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can confirm daily evaluation");
+    if (!teacherId || !teacherId.trim()) {
+      throw new Error("Daily evaluation confirmation requires an educator identity");
+    }
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.confirmDailyEvaluation(dayOfWeekOrDate, teacherId.trim(), confirmedAt, currentDate);
+    await this.repository.save(planning);
+  }
+
   public async saveDailyEvaluationDraft(
     planningId: string,
     dayOfWeekOrDate: string,
@@ -219,6 +274,50 @@ export class PlanningWorkflowService {
     if (!planning) throw new Error("Planning not found");
 
     planning.submitDailyEvaluation(dayOfWeekOrDate, evaluation, currentDate, teacherId);
+    await this.repository.save(planning);
+  }
+
+  public async confirmAndSubmitDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    role: PlanningActorRole,
+    currentDate?: string,
+    teacherId?: string,
+    confirmedAt: Date = new Date()
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can submit daily evaluation");
+    if (!currentDate) throw new Error("Current date is required for temporal evaluation authorization");
+    if (!teacherId || !teacherId.trim()) {
+      throw new Error("Daily evaluation confirmation requires an educator identity");
+    }
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.confirmAndSubmitDailyEvaluation(dayOfWeekOrDate, evaluation, teacherId.trim(), currentDate, confirmedAt);
+    await this.repository.save(planning);
+  }
+
+  public async confirmAndResubmitDailyEvaluation(
+    planningId: string,
+    dayOfWeekOrDate: string,
+    evaluation: string,
+    role: PlanningActorRole,
+    currentDate?: string,
+    teacherId?: string,
+    confirmedAt: Date = new Date()
+  ): Promise<void> {
+    if (role !== "TEACHER") throw new Error("Only Teacher can resubmit daily evaluation");
+    if (!currentDate) throw new Error("Current date is required for temporal evaluation authorization");
+    if (!teacherId || !teacherId.trim()) {
+      throw new Error("Daily evaluation confirmation requires an educator identity");
+    }
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error("Planning not found");
+
+    planning.confirmAndResubmitDailyEvaluation(dayOfWeekOrDate, evaluation, teacherId.trim(), currentDate, confirmedAt);
     await this.repository.save(planning);
   }
 

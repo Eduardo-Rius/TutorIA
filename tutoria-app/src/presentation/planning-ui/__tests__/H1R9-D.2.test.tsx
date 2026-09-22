@@ -91,6 +91,10 @@ describe("H1R9-D.2: Daily Evaluation Correction Return Visibility", () => {
       fireEvent.change(textarea, { target: { value: correctedText } });
     });
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Guardar corrección como borrador/i }));
+    });
+
     // D. Anita resubmits Wednesday
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Reenviar evaluación a Ceci/i }));

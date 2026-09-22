@@ -171,7 +171,7 @@ describe("H1R9-B.1: Weekly Context Edit & Traceability (Bullet 1)", () => {
     expect(screen.queryByText(/AHORA:/i)).toBeNull();
   });
 
-  it("12. Existing H1R9 day-review behavior still works with context edit", async () => {
+  it("12. Context edit preserves generated days and allows navigation and submission without fake review ceremony", async () => {
     const { service, source } = createTestDeps();
     await renderApp(service, source, "TEACHER");
 
@@ -181,6 +181,7 @@ describe("H1R9-B.1: Weekly Context Edit & Traceability (Bullet 1)", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Generar Semana/i)); });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 
+    expect(screen.queryByText("Guardar Día")).toBeNull();
     expect(screen.getByText(/0\/5 días revisados/i)).toBeDefined();
 
     // Unlock context and edit it
@@ -188,10 +189,13 @@ describe("H1R9-B.1: Weekly Context Edit & Traceability (Bullet 1)", () => {
     fireEvent.change(obsInput, { target: { value: "Contexto Editado Sin Afectar Review" } });
     await act(async () => { fireEvent.click(screen.getByText(/Guardar contexto semanal/i)); });
 
-    // Review day 1
-    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    await act(async () => { fireEvent.click(screen.getByText("Guardar Día")); });
-
-    expect(screen.getByText(/1\/5 días revisados/i)).toBeDefined();
+    // Review all 5 days to reach 5/5
+    const days = ["Lunes 24", "Martes 25", "Miércoles 26", "Jueves 27", "Viernes 28"];
+    for (const d of days) {
+      await act(async () => { fireEvent.click(screen.getByRole("tab", { name: d })); });
+      await act(async () => { fireEvent.click(screen.getByText("✓ Marcar día como revisado")); });
+    }
+    expect(screen.getByText(/5\/5 días revisados/i)).toBeDefined();
+    expect(screen.getByText("Enviar a Revisión").closest("button")).not.toHaveProperty("disabled", true);
   });
 });

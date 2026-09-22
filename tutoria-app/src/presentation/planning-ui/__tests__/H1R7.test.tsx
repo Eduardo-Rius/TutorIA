@@ -24,6 +24,9 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
         { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
         { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ] as any);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     await repository.save(plan);
 
@@ -154,7 +157,10 @@ describe('H1R7: INDIRECT OFFICIAL IMSS FORM IMPLEMENTATION', () => {
   it('Ensures DIRECT Title/Code/Behavior remain unchanged', async () => {
      const plan = WeeklyPlanning.create('plan-direct', 'dc-1', 'rm-1', 't1', '2026-08-10', '2026-08-14');
      plan.editPedagogicalContent('Observaciones para DIRECT', 'needs', 'sit', 'mat', ['ref1'], [{ dayOfWeek: "MONDAY", date: "2026-08-10", activities: [{ activityId: "act1", category: "C", objective: "Obj DIRECT MONDAY", description: "Desc DIRECT", durationMinutes: 30, materials: ["Mat Direct"], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "TUESDAY", date: "2026-08-11", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "WEDNESDAY", date: "2026-08-12", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "THURSDAY", date: "2026-08-13", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }, { dayOfWeek: "FRIDAY", date: "2026-08-14", activities: [{ activityId: 'dummy', description: 'dummy', evaluation: '', materials: [] }], complementaryActivities: [], materials: [], executionNotes: "", evaluation: "" }] as any);
-     plan.submit();
+     ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
+    plan.submit();
      await repository.save(plan);
 
      render(<PlanningDemoApp service={service} source={new DeterministicPedagogicalRecommendationSource()} />);

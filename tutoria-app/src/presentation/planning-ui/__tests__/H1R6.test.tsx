@@ -24,6 +24,9 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
         { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
         { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ] as any);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     await repository.save(plan);
 
@@ -125,6 +128,9 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
         { dayOfWeek: 'THURSDAY', date: '2026-08-13', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
         { dayOfWeek: 'FRIDAY', date: '2026-08-14', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [], executionNotes: '', evaluation: '' },
     ] as any);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     await repository.save(plan);
 
@@ -249,10 +255,16 @@ describe('H1R6: Audit Snapshot Correctness + Director Authorization', () => {
                  { dayOfWeek: 'FRIDAY', activities: [{ activityId: 'a_dummy', category: 'C', objective: 'Obj', description: 'Desc', durationMinutes: 30, materials: [], curricularTraceability: [] }], complementaryActivities: [], materials: [] } as any];
 
     // Add a granular observation
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
     plan.reject('revisar', 'Ceci', [{ targetId: 'act1', observation: 'Change this', originalContent: 'ABC',  status: 'PENDING_CORRECTION', reviewer: 'Ceci', timestamp: new Date() }]);
 
     plan.editPedagogicalContent('', '', '', '', [], plan.days);
+    ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach(d => {
+      plan.markTeacherDayReviewed(d, "t1", new Date());
+    });
     plan.submit();
 
     // Director resolves but DOES NOT approve yet

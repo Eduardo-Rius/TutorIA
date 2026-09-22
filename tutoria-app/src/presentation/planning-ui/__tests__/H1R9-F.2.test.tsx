@@ -66,7 +66,6 @@ describe('H1R9-F.2: Anita Daily Complementary Activity Visibility', () => {
         'Registra este apartado únicamente cuando exista una actividad indicada por otro programa o instrucción institucional.'
       )
     ).toBeDefined();
-    expect(screen.queryByText('Pendiente')).toBeNull();
   });
 
   it('C. Empty complementary activities do NOT prevent Anita from reviewing the day', async () => {
@@ -83,17 +82,16 @@ describe('H1R9-F.2: Anita Daily Complementary Activity Visibility', () => {
       await new Promise(r => setTimeout(r, 0));
     });
 
-    expect(screen.getByText('0/5 días revisados')).toBeDefined();
+    expect(screen.queryByText('Guardar Día')).toBeNull();
+    expect(screen.getByText(/0\/5 días revisados/i)).toBeDefined();
 
-    // Click "Guardar Día" (which marks Monday reviewed)
     await act(async () => {
       fireEvent.click(screen.getByRole('tab', { name: 'Lunes 24' }));
     });
     await act(async () => {
-      fireEvent.click(screen.getByText('Guardar Día'));
+      fireEvent.click(screen.getByText('✓ Marcar día como revisado'));
     });
-
-    expect(screen.getByText('1/5 días revisados')).toBeDefined();
+    expect(screen.getByText(/1\/5 días revisados/i)).toBeDefined();
   });
 
   it('D. Empty complementary activities do NOT prevent normal weekly submission when all 5 days are reviewed', async () => {
@@ -116,11 +114,11 @@ describe('H1R9-F.2: Anita Daily Complementary Activity Visibility', () => {
         fireEvent.click(screen.getByRole('tab', { name: d }));
       });
       await act(async () => {
-        fireEvent.click(screen.getByText('Guardar Día'));
+        fireEvent.click(screen.getByText('✓ Marcar día como revisado'));
       });
     }
 
-    expect(screen.getByText('5/5 días revisados')).toBeDefined();
+    expect(screen.getByText(/5\/5 días revisados/i)).toBeDefined();
 
     const submitBtn = screen.getByText('Enviar a Revisión').closest('button');
     expect(submitBtn).not.toHaveProperty('disabled', true);

@@ -148,6 +148,10 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
       fireEvent.change(textarea, { target: { value: "Evaluación definitiva del lunes para Ceci" } });
     });
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Guardar borrador/i }));
+    });
+
     const submitBtn = screen.getByRole("button", { name: /Enviar evaluación a Ceci/i });
     await act(async () => {
       fireEvent.click(submitBtn);
@@ -228,6 +232,8 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
     const originalObservations = plan.observations;
     const originalNeeds = plan.identifiedNeeds;
 
+    await service.saveDailyEvaluationDraft("plan-immutability", "MONDAY", "Eval lunes", "TEACHER", "2026-08-24");
+    await service.confirmDailyEvaluation("plan-immutability", "MONDAY", "TEACHER", "t1", new Date(), "2026-08-24");
     await service.submitDailyEvaluation("plan-immutability", "MONDAY", "Eval lunes", "TEACHER", "2026-08-24", "t1");
 
     const reloaded = await repo.findById("plan-immutability");
@@ -255,6 +261,8 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
     expect(plan.canEvaluateDay("WEDNESDAY", "2026-08-26")).toBe(false);
 
     // Submit Tuesday
+    await service.saveDailyEvaluationDraft("plan-c2-progression", "TUESDAY", "Tue final", "TEACHER", "2026-08-26");
+    await service.confirmDailyEvaluation("plan-c2-progression", "TUESDAY", "TEACHER", "t1", new Date(), "2026-08-26");
     await service.submitDailyEvaluation("plan-c2-progression", "TUESDAY", "Tue final", "TEACHER", "2026-08-26", "t1");
     const pUpdated = await repo.findById("plan-c2-progression");
     expect(pUpdated!.canEvaluateDay("WEDNESDAY", "2026-08-26")).toBe(true);
