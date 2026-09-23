@@ -1,3 +1,4 @@
+import { createFirestoreCurricularAIAuthorizer } from './FirestoreCurricularAIAuthorizer';
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 import {
   CurricularRecommendation,
@@ -90,13 +91,13 @@ export type CurricularAIAuthorizer = (
  * Default production authorizer.
  * Invariant: Unresolved authorization defaults to DENY, never ALLOW.
  */
-export const defaultProductionAuthorizer: CurricularAIAuthorizer = async () => {
-  return {
-    authorized: false,
-    reason:
-      'Production authorization seam is unresolved: Educator role and center authorization are not yet provisioned.',
-  };
-};
+/**
+ * Default production authorizer.
+ * Backed by FirestoreCurricularAIAuthorizer (/authorizationContexts/{uid}).
+ * Invariant: Unresolved authorization or read errors strictly default to DENY, never ALLOW.
+ */
+export const defaultProductionAuthorizer: CurricularAIAuthorizer =
+  createFirestoreCurricularAIAuthorizer();
 
 /**
  * Recommendation executor seam port.
@@ -105,16 +106,16 @@ export type CurricularRecommendationExecutor = (
   request: CurricularRecommendationRequest
 ) => Promise<readonly CurricularRecommendation[]>;
 
+import { createOpenAICurricularRecommendationExecutor } from './OpenAICurricularRecommendationExecutor';
+
 /**
  * Default production recommendation executor.
- * Invariant: Never silently fall back to fake AI in production.
+ * Wires the real server execution foundation: CurricularAIProviderBoundary -> OpenAICurricularAIProvider.
+ * Fails safely with unavailable if OPENAI_API_KEY is not configured in the runtime environment.
+ * Defense in depth: defaultProductionAuthorizer remains strictly fail-closed (DENY).
  */
-export const defaultProductionExecutor: CurricularRecommendationExecutor = async () => {
-  throw new HttpsError(
-    'unavailable',
-    'Curricular AI recommendation executor is not yet configured in production.'
-  );
-};
+export const defaultProductionExecutor: CurricularRecommendationExecutor =
+  createOpenAICurricularRecommendationExecutor();
 
 /**
  * Options for configuring the gateway handler.
