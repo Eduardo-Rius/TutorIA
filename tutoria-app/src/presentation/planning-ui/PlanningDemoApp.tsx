@@ -7,6 +7,15 @@ import { WeeklyPlanning, PlanningDay } from '../../domain/planning/WeeklyPlannin
 import { RoomCatalog } from '../../domain/planning/RoomCatalog';
 import { CurricularSelectionControl } from './CurricularSelectionControl';
 import { CurricularRecommendationSource } from '../../application/planning/CurricularRecommendationSource';
+import {
+  evaluateFirstLightLabGuard,
+  FirstLightLabBanner,
+  FIRST_LIGHT_ANITA_EMAIL,
+} from './firstLightLabHarness';
+import { AuthenticationProvider } from '../../application/ports/AuthenticationProvider';
+import { FirebaseAuthenticationProvider } from '../../infrastructure/authentication/FirebaseAuthenticationProvider';
+import { FirebaseCurricularRecommendationSource } from '../../infrastructure/ai/FirebaseCurricularRecommendationSource';
+import { DeterministicCurricularRecommendationSource } from '../../application/planning/DeterministicCurricularRecommendationSource';
 import { ComplementaryActivitiesControl } from './ComplementaryActivitiesControl';
 import { PrioritizedPracticesControl } from './PrioritizedPracticesControl';
 import { DIRECT_PDA_CATALOG } from '../../domain/planning/DirectCurricularCatalog';
@@ -40,11 +49,14 @@ const VISUAL_STEPS = [
 export interface PlanningDemoAppProps {
   service: PlanningWorkflowService;
   source: PedagogicalRecommendationSource;
-  curricularRecommendationSource?: CurricularRecommendationSource;
-  currentDate?: string;
+  curricularRecommendationSource?: CurricularRecommendationSource | undefined;
+  currentDate?: string | undefined;
+  firstLightEnv?: Record<string, any> | undefined;
+  firstLightAuth?: AuthenticationProvider | undefined;
+  firstLightSource?: CurricularRecommendationSource | undefined;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource }) => {
   const [role, setRole] = useState<PlanningActorRole>('TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
@@ -55,6 +67,55 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [modality, setModality] = useState<'DIRECT' | 'INDIRECT'>('DIRECT');
+
+  // FIRST LIGHT LAB HARNESS
+  const firstLightGuard = React.useMemo(() => evaluateFirstLightLabGuard(firstLightEnv), [firstLightEnv]);
+  const [firstLightAuthInstance] = useState<AuthenticationProvider>(() => {
+    return firstLightAuth || new FirebaseAuthenticationProvider();
+  });
+  const [firstLightUser, setFirstLightUser] = useState<string | null>(null);
+  const [firstLightLoginError, setFirstLightLoginError] = useState<string | null>(null);
+  const [isFirstLightLoggingIn, setIsFirstLightLoggingIn] = useState(false);
+
+  useEffect(() => {
+    if (!firstLightGuard.isEligible) return;
+    let isMounted = true;
+    firstLightAuthInstance.restoreSession().then((uid) => {
+      if (isMounted && uid) {
+        setFirstLightUser(FIRST_LIGHT_ANITA_EMAIL);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [firstLightGuard.isEligible, firstLightAuthInstance]);
+
+  const effectiveCurricularSource = React.useMemo(() => {
+    if (!firstLightGuard.isEligible) {
+      return curricularRecommendationSource || new DeterministicCurricularRecommendationSource();
+    }
+    return firstLightSource || new FirebaseCurricularRecommendationSource();
+  }, [firstLightGuard.isEligible, curricularRecommendationSource, firstLightSource]);
+
+  const handleFirstLightLogin = async (password: string) => {
+    setIsFirstLightLoggingIn(true);
+    setFirstLightLoginError(null);
+    try {
+      await firstLightAuthInstance.login(FIRST_LIGHT_ANITA_EMAIL, password);
+      setFirstLightUser(FIRST_LIGHT_ANITA_EMAIL);
+    } catch (err: unknown) {
+      setFirstLightLoginError(err instanceof Error ? err.message : 'Error al autenticar en LAB');
+    } finally {
+      setIsFirstLightLoggingIn(false);
+    }
+  };
+
+  const handleFirstLightLogout = async () => {
+    try {
+      await firstLightAuthInstance.logout();
+      setFirstLightUser(null);
+    } catch {
+      // ignore
+    }
+  };
 
   const triggerRefresh = () => setRefreshKey(k => k + 1);
 
@@ -68,6 +129,17 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
 
   return (
     <div className="font-poppins text-text-primary min-h-screen bg-surface-soft pb-20 print:hidden">
+      {(firstLightGuard.isEligible || Boolean(firstLightGuard.error)) && (
+        <FirstLightLabBanner
+          isEligible={firstLightGuard.isEligible}
+          guardError={firstLightGuard.error}
+          authenticatedEmail={firstLightUser}
+          onLogin={handleFirstLightLogin}
+          onLogout={handleFirstLightLogout}
+          isLoggingIn={isFirstLightLoggingIn}
+          loginError={firstLightLoginError}
+        />
+      )}
       <div className="bg-[#f8f9fa] py-1.5 px-4 text-center text-xs print:hidden flex items-center justify-center gap-4 border-b border-gray-200/60">
         <span className="font-medium text-gray-400 uppercase tracking-widest text-[10px]">Modo Demo</span>
         <select value={modality} onChange={(e) => setModality(e.target.value as 'DIRECT' | 'INDIRECT')} className="text-xs bg-white border border-gray-300 rounded px-2 py-1 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary">
@@ -122,7 +194,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
 
       <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
         {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
-        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} curricularRecommendationSource={curricularRecommendationSource} planId={selectedPlanId} modality={modality} currentDate={simulatedDate} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} curricularRecommendationSource={effectiveCurricularSource} planId={selectedPlanId} modality={modality} currentDate={simulatedDate} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
         {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
         {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
@@ -344,7 +416,7 @@ export const formatDayDateMessage = (dateStr: string): string => {
   return `${dayNames[dateObj.getUTCDay()]} ${d} de ${monthNames[dateObj.getUTCMonth()]}`;
 };
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
   const [specialSituations, setSpecialSituations] = useState('');

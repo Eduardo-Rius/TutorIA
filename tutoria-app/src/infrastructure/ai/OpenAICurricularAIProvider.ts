@@ -26,15 +26,45 @@ export class CurricularAIProviderConfigurationError extends CurricularAIProvider
 }
 
 /**
+ * Safe classification of provider failure for operational diagnostics.
+ */
+export type CurricularAIProviderFailureKind = 'http' | 'transport';
+
+/**
+ * Options for configuring CurricularAIProviderNetworkError.
+ */
+export interface CurricularAIProviderNetworkErrorOptions {
+  readonly failureKind?: CurricularAIProviderFailureKind;
+  readonly upstreamStatus?: number | undefined;
+}
+
+/**
  * Error thrown when an HTTP transport failure or network error occurs.
  */
 export class CurricularAIProviderNetworkError extends CurricularAIProviderError {
+  public readonly failureKind: CurricularAIProviderFailureKind;
+  public readonly upstreamStatus?: number | undefined;
   public readonly status?: number | undefined;
 
-  constructor(message: string, status?: number | undefined) {
+  constructor(
+    message: string,
+    options?: number | CurricularAIProviderNetworkErrorOptions
+  ) {
     super(message);
     this.name = 'CurricularAIProviderNetworkError';
-    this.status = status;
+    if (typeof options === 'number') {
+      this.status = options;
+      this.upstreamStatus = options;
+      this.failureKind = 'http';
+    } else if (options && typeof options === 'object') {
+      this.failureKind = options.failureKind ?? (options.upstreamStatus !== undefined ? 'http' : 'transport');
+      this.upstreamStatus = options.upstreamStatus;
+      this.status = options.upstreamStatus;
+    } else {
+      this.failureKind = 'transport';
+      this.upstreamStatus = undefined;
+      this.status = undefined;
+    }
   }
 }
 
@@ -49,6 +79,53 @@ export class CurricularAIProviderMalformedResponseError extends CurricularAIProv
 }
 
 /**
+ * Structured token usage metadata extracted safely from provider responses.
+ */
+export interface CurricularAIUsageTelemetry {
+  readonly promptTokens: number | null;
+  readonly completionTokens: number | null;
+  readonly totalTokens: number | null;
+}
+
+/**
+ * Operational telemetry from an AI provider completion response.
+ */
+export interface CurricularAIProviderTelemetry {
+  readonly model: string;
+  readonly usage: CurricularAIUsageTelemetry | null;
+  readonly responseId?: string | null;
+  readonly failureKind?: CurricularAIProviderFailureKind;
+  readonly upstreamStatus?: number;
+}
+
+/**
+ * Callback or observer for AI provider telemetry events.
+ */
+export type CurricularAITelemetryObserver = (
+  telemetry: CurricularAIProviderTelemetry
+) => void;
+
+/**
+ * Helper to safely extract a non-negative integer token count.
+ */
+export function parseSafeTokenCount(value: unknown): number | null {
+  if (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Number.isFinite(value) &&
+    value >= 0
+  ) {
+    return value;
+  }
+  return null;
+}
+
+/**
+ * Default ceiling for generated completion tokens for Curricular AI.
+ */
+export const DEFAULT_MAX_COMPLETION_TOKENS = 800;
+
+/**
  * Configuration options for OpenAICurricularAIProvider.
  */
 export interface OpenAICurricularAIProviderConfig {
@@ -57,6 +134,8 @@ export interface OpenAICurricularAIProviderConfig {
   readonly baseUrl?: string | undefined;
   readonly timeoutMs?: number | undefined;
   readonly fetchFn?: typeof fetch | undefined;
+  readonly maxCompletionTokens?: number | undefined;
+  readonly onTelemetry?: CurricularAITelemetryObserver | undefined;
 }
 
 /**
@@ -97,15 +176,18 @@ export function buildPromptMessages(
     '',
     'STRICT PEDAGOGICAL & ARCHITECTURAL INVARIANTS:',
     `1. You must ONLY select PDA identifiers that exist in the canonical DIRECT catalog provided below (Revision: ${revision}).`,
-    '2. Invented, extrapolated, or hallucinated PDA identifiers are strictly forbidden.',
+    '2. Invented, extrapolated, or hallucinated PDA identifiers or curricular elements are strictly forbidden.',
     '3. Zero recommendations (an empty array) is valid and expected if no PDA directly aligns with the activity.',
     '4. Multiple recommendations are valid when each is distinctly and pedagogically justified.',
-    '5. Every proposed recommendation MUST include a concise pedagogical rationale explaining why it applies.',
+    '5. Every proposed recommendation MUST include a concise pedagogical rationale written strictly in natural, professional Spanish (español) for educator Anita.',
+    '   - The rationale must clearly explain why the canonical PDA aligns with the pedagogical purpose and context of the planned activity.',
+    '   - Do NOT output rationales in English or any language other than Spanish.',
+    '   - Do NOT rewrite, alter, or translate the canonical PDA or Contenido text itself.',
     '6. DO NOT provide confidence scores, probabilities, numeric rankings, or scores of any kind.',
     '7. DO NOT perform automatic curricular selection, assignment, or approval. Educator Anita is the sole human curricular authority.',
-    '8. DO NOT generate complementary activities or prioritized practices.',
+    '8. DO NOT generate complementary activities, prioritized practices, or institutional rules.',
     '9. Your output must strictly be a JSON object with a single "recommendations" array containing objects with "pdaId" and "rationale".',
-    '   Format: { "recommendations": [ { "pdaId": "TUTORIA-PDA-XXXX", "rationale": "..." } ] }',
+    '   Format: { "recommendations": [ { "pdaId": "TUTORIA-PDA-XXXX", "rationale": "Justificación pedagógica clara y concisa en español..." } ] }',
     '   If no PDA applies: { "recommendations": [] }',
   ].join('\n');
 
@@ -133,7 +215,7 @@ export function buildPromptMessages(
   }
   if (request.room) {
     contextSections.push(
-      `- Room / Group: ${request.room.name} (ID: ${request.room.roomId}) - Age Range: ${request.room.minAgeMonths}-${request.room.maxAgeMonths} months`
+      `- Room / Group: ${request.room.name} - Age Range: ${request.room.minAgeMonths}-${request.room.maxAgeMonths} months`
     );
   }
   if (request.weeklyContext) {
@@ -177,6 +259,8 @@ export class OpenAICurricularAIProvider implements CurricularAIProvider {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof fetch;
+  private readonly maxCompletionTokens: number;
+  private readonly onTelemetry?: CurricularAITelemetryObserver | undefined;
 
   constructor(config: OpenAICurricularAIProviderConfig = {}) {
     this.apiKey = this.resolveApiKey(config.apiKey);
@@ -184,6 +268,8 @@ export class OpenAICurricularAIProvider implements CurricularAIProvider {
     this.baseUrl = config.baseUrl || this.resolveEnvVariable('VITE_OPENAI_BASE_URL') || 'https://api.openai.com/v1';
     this.timeoutMs = config.timeoutMs ?? 30000;
     this.fetchFn = config.fetchFn ?? globalThis.fetch;
+    this.maxCompletionTokens = config.maxCompletionTokens ?? DEFAULT_MAX_COMPLETION_TOKENS;
+    this.onTelemetry = config.onTelemetry;
   }
 
   /**
@@ -222,34 +308,66 @@ export class OpenAICurricularAIProvider implements CurricularAIProvider {
           messages,
           temperature: 0.2,
           response_format: { type: 'json_object' },
+          max_completion_tokens: this.maxCompletionTokens,
         }),
         signal: controller.signal,
       });
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      const isTimeout = err instanceof Error && err.name === 'AbortError';
+      const failureKind: CurricularAIProviderFailureKind = 'transport';
+
+      if (this.onTelemetry) {
+        try {
+          this.onTelemetry({
+            model: this.model,
+            usage: null,
+            failureKind,
+          });
+        } catch {
+          // Non-fatal: telemetry callback must never disrupt curricular recommendations
+        }
+      }
+
+      if (isTimeout) {
         throw new CurricularAIProviderNetworkError(
-          `Curricular AI provider request timed out after ${this.timeoutMs}ms.`
+          `Curricular AI provider request timed out after ${this.timeoutMs}ms.`,
+          { failureKind }
         );
       }
-      const message = err instanceof Error ? err.message : String(err);
       throw new CurricularAIProviderNetworkError(
-        `Curricular AI provider network failure: ${message}`
+        'Curricular AI provider transport failure during request dispatch.',
+        { failureKind }
       );
     } finally {
       clearTimeout(timer);
     }
 
     if (!response.ok) {
-      let errorDetail = '';
-      try {
-        const errorJson = await response.json();
-        errorDetail = errorJson?.error?.message || JSON.stringify(errorJson);
-      } catch {
-        errorDetail = await response.text().catch(() => '');
+      // Consume body to free socket resources safely without logging or exposing content
+      await response.text().catch(() => '');
+
+      const failureKind: CurricularAIProviderFailureKind = 'http';
+      const upstreamStatus = response.status;
+
+      if (this.onTelemetry) {
+        try {
+          this.onTelemetry({
+            model: this.model,
+            usage: null,
+            failureKind,
+            upstreamStatus,
+          });
+        } catch {
+          // Non-fatal: telemetry callback must never disrupt curricular recommendations
+        }
       }
+
       throw new CurricularAIProviderNetworkError(
-        `Curricular AI provider HTTP error (${response.status} ${response.statusText}): ${errorDetail || 'Unknown error'}`,
-        response.status
+        `Curricular AI provider HTTP error (${upstreamStatus}).`,
+        {
+          failureKind,
+          upstreamStatus,
+        }
       );
     }
 
@@ -261,6 +379,37 @@ export class OpenAICurricularAIProvider implements CurricularAIProvider {
       throw new CurricularAIProviderMalformedResponseError(
         `Curricular AI provider returned invalid JSON response: ${message}`
       );
+    }
+
+    // Safely extract token usage and operational metadata (non-fatal, non-blocking)
+    let usage: CurricularAIUsageTelemetry | null = null;
+    const rawUsage = payload?.usage;
+    if (rawUsage && typeof rawUsage === 'object') {
+      usage = {
+        promptTokens: parseSafeTokenCount(rawUsage.prompt_tokens),
+        completionTokens: parseSafeTokenCount(rawUsage.completion_tokens),
+        totalTokens: parseSafeTokenCount(rawUsage.total_tokens),
+      };
+    }
+
+    const responseId = typeof payload?.id === 'string' ? payload.id : null;
+    const responseModel =
+      typeof payload?.model === 'string' && payload.model.trim()
+        ? payload.model.trim()
+        : this.model;
+
+    const telemetryData: CurricularAIProviderTelemetry = {
+      model: responseModel,
+      usage,
+      responseId,
+    };
+
+    if (this.onTelemetry) {
+      try {
+        this.onTelemetry(telemetryData);
+      } catch {
+        // Non-fatal: telemetry callback must never disrupt curricular recommendations
+      }
     }
 
     const rawContent = payload?.choices?.[0]?.message?.content;

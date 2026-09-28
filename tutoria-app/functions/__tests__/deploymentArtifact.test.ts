@@ -67,4 +67,31 @@ describe("H1R9-F.8.3.4.2 — Deployment Artifact Self-Containment Regression", (
     // Zero remote network calls upon loading
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("5. H1R10.7: Deployment artifact exports openAIApiKey and binds OPENAI_API_KEY to callable", async () => {
+    const bundledModule = await import(indexPath);
+
+    // Verify openAIApiKey export
+    expect(bundledModule.openAIApiKey).toBeDefined();
+    expect(bundledModule.openAIApiKey.name).toBe("OPENAI_API_KEY");
+
+    // Verify callable secret binding in endpoint metadata
+    const fn = bundledModule.recommendCurricularPDA;
+    expect(fn).toBeDefined();
+    expect(fn.__endpoint?.secretEnvironmentVariables).toContainEqual({ key: "OPENAI_API_KEY" });
+    expect(fn.__trigger?.secrets?.some((s: any) => s?.name === "OPENAI_API_KEY" || s === "OPENAI_API_KEY")).toBe(true);
+  });
+
+  it("6. H1R10.7: Deployment artifact contains zero embedded real secrets or credentials", () => {
+    const code = fs.readFileSync(indexPath, "utf8");
+
+    // Must not contain any real API key patterns or private keys
+    expect(code).not.toMatch(/sk-[a-zA-Z0-9_-]{20,}/);
+    expect(code).not.toContain("-----BEGIN PRIVATE KEY-----");
+    expect(code).not.toContain("-----BEGIN RSA PRIVATE KEY-----");
+    expect(code).not.toContain("client_secret");
+
+    // Secret parameter name is present as metadata, but no secret value
+    expect(code).toContain('"OPENAI_API_KEY"');
+  });
 });

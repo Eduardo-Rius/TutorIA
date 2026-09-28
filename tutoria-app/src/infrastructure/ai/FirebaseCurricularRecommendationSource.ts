@@ -124,7 +124,7 @@ export class FirebaseCurricularRecommendationSource implements CurricularRecomme
       );
     }
 
-    // 3. Map application request strictly to server gateway payload (ensuring data minimization)
+    // 3. Map application request strictly to server gateway payload (ensuring data minimization and optional field omission)
     const payload: FirebaseCurricularPDAGatewayRequest = {
       activityId: request.activityId,
       activityTitle: request.activityTitle,
@@ -136,18 +136,20 @@ export class FirebaseCurricularRecommendationSource implements CurricularRecomme
         minAgeMonths: request.room.minAgeMonths,
         maxAgeMonths: request.room.maxAgeMonths,
       },
-      description: request.description,
-      category: request.category,
-      materials: request.materials ? [...request.materials] : undefined,
-      durationMinutes: request.durationMinutes,
-      weeklyContext: request.weeklyContext
+      ...(request.description !== undefined ? { description: request.description } : {}),
+      ...(request.category !== undefined ? { category: request.category } : {}),
+      ...(request.materials !== undefined ? { materials: [...request.materials] } : {}),
+      ...(request.durationMinutes !== undefined ? { durationMinutes: request.durationMinutes } : {}),
+      ...(request.weeklyContext !== undefined
         ? {
-            observations: request.weeklyContext.observations || '',
-            identifiedNeeds: request.weeklyContext.identifiedNeeds || '',
-            specialSituations: request.weeklyContext.specialSituations || '',
-            availableMaterials: request.weeklyContext.availableMaterials || '',
+            weeklyContext: {
+              observations: request.weeklyContext.observations || '',
+              identifiedNeeds: request.weeklyContext.identifiedNeeds || '',
+              specialSituations: request.weeklyContext.specialSituations || '',
+              availableMaterials: request.weeklyContext.availableMaterials || '',
+            },
           }
-        : undefined,
+        : {}),
     };
 
     // 4. Invoke Firebase Callable through injected transport or live Functions SDK

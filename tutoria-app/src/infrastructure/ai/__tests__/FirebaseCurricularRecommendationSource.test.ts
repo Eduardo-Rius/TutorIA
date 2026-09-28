@@ -367,4 +367,64 @@ describe('H1R10.2 — FirebaseCurricularRecommendationSource Client Remote Adapt
     expect(mockFactory).toHaveBeenCalledWith(mockFunctions, 'recommendCurricularPDA');
     expect(mockCallableInstance).toHaveBeenCalled();
   });
+
+  it('15. Optional undefined request fields are omitted from callable payload, while defined values are preserved', async () => {
+    let capturedPayload: any = null;
+    const mockCallable = vi.fn().mockImplementation(async (payload) => {
+      capturedPayload = payload;
+      return {
+        data: {
+          recommendations: [],
+          catalogRevision: TUTORIA_DIRECT_PDA_CATALOG_REVISION,
+        },
+      };
+    });
+
+    const source = new FirebaseCurricularRecommendationSource({
+      callableFn: mockCallable,
+    });
+
+    // 1. When optional fields are undefined in the request:
+    const minimalRequest: CurricularRecommendationRequest = {
+      activityId: 'act-001',
+      activityTitle: 'Exploración sensorial con texturas naturales',
+      modality: 'DIRECT',
+      room: {
+        roomId: 'lactantes-c',
+        name: 'Lactantes C',
+        minAgeMonths: 12,
+        maxAgeMonths: 18,
+      },
+      durationMinutes: undefined,
+      materials: undefined,
+      description: undefined,
+      category: undefined,
+      weeklyContext: undefined,
+    };
+
+    await source.recommend(minimalRequest);
+
+    expect(capturedPayload).not.toBeNull();
+    // Prove absence of own properties to prevent @firebase/functions from encoding null
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'durationMinutes')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'materials')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'description')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'category')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'weeklyContext')).toBe(false);
+
+    // 2. When optional fields are defined:
+    const definedRequest: CurricularRecommendationRequest = {
+      ...minimalRequest,
+      durationMinutes: 20,
+      materials: ['Sonajas', 'Cascabeles', 'Música suave'],
+    };
+
+    await source.recommend(definedRequest);
+
+    expect(capturedPayload).not.toBeNull();
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'durationMinutes')).toBe(true);
+    expect(capturedPayload.durationMinutes).toBe(20);
+    expect(Object.prototype.hasOwnProperty.call(capturedPayload, 'materials')).toBe(true);
+    expect(capturedPayload.materials).toEqual(['Sonajas', 'Cascabeles', 'Música suave']);
+  });
 });

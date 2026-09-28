@@ -6,7 +6,8 @@ import {
   DirectPDAEntry,
 } from "../../domain/planning/DirectCurricularCatalog";
 import { CurricularPDAReference } from "../../domain/planning/CurricularPDAReference";
-import { PlanningActivity, WeeklyPlanning } from "../../domain/planning/WeeklyPlanning";
+import { PlanningActivity, WeeklyPlanning, WeeklyContextSnapshot } from "../../domain/planning/WeeklyPlanning";
+import { Room, RoomCatalog } from "../../domain/planning/RoomCatalog";
 import {
   CurricularRecommendation,
   CurricularRecommendationService,
@@ -20,8 +21,10 @@ export interface CurricularSelectionControlProps {
   planning: WeeklyPlanning;
   readOnly?: boolean;
   modality?: "DIRECT" | "INDIRECT";
-  recommendationSource?: CurricularRecommendationSource;
+  recommendationSource?: CurricularRecommendationSource | undefined;
   onUpdate?: (updatedRefs: CurricularPDAReference[]) => void | Promise<void>;
+  room?: Room;
+  weeklyContext?: WeeklyContextSnapshot;
 }
 
 export const CurricularSelectionControl: React.FC<CurricularSelectionControlProps> = ({
@@ -32,6 +35,8 @@ export const CurricularSelectionControl: React.FC<CurricularSelectionControlProp
   modality = "DIRECT",
   recommendationSource,
   onUpdate,
+  room: propRoom,
+  weeklyContext: propWeeklyContext,
 }) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [activeCampo, setActiveCampo] = useState<string>("Lenguajes");
@@ -43,6 +48,28 @@ export const CurricularSelectionControl: React.FC<CurricularSelectionControlProp
   const [suggestionServiceError, setSuggestionServiceError] = useState<string | null>(null);
 
   const isDirect = modality === "DIRECT";
+
+  // Resolve canonical room context from props or planning aggregate
+  const resolvedRoom: Room | undefined =
+    propRoom ??
+    (planning.roomId ? RoomCatalog.getRoom(planning.roomId) : undefined);
+
+  // Resolve authentic weekly context snapshot from props or planning aggregate without fabrication
+  const resolvedWeeklyContext: WeeklyContextSnapshot | undefined =
+    propWeeklyContext ??
+    (planning.originalContext
+      ? planning.originalContext
+      : (planning.observations ||
+         planning.identifiedNeeds ||
+         planning.specialSituations ||
+         planning.availableMaterials)
+        ? {
+            observations: planning.observations,
+            identifiedNeeds: planning.identifiedNeeds,
+            specialSituations: planning.specialSituations,
+            availableMaterials: planning.availableMaterials,
+          }
+        : undefined);
 
   const selectedRefs = activity.curricularTraceability || [];
   const selectedIds = new Set(selectedRefs.map((r) => r.pdaId));
@@ -119,9 +146,14 @@ export const CurricularSelectionControl: React.FC<CurricularSelectionControlProp
       const results = await service.getRecommendations({
         activityId: activity.activityId,
         activityTitle: activity.objective,
+        objective: activity.objective,
         modality: "DIRECT",
         description: activity.description,
         category: activity.category,
+        durationMinutes: activity.durationMinutes,
+        materials: activity.materials,
+        room: resolvedRoom,
+        weeklyContext: resolvedWeeklyContext,
       });
       setSuggestions(results);
     } catch (err: any) {

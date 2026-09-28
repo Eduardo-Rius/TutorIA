@@ -6,6 +6,7 @@ export {
   defaultProductionExecutor,
   MAX_PAYLOAD_BYTES,
   MAX_TEXT_FIELD_LENGTH,
+  openAIApiKey,
 } from './recommendCurricularPDA';
 
 export {

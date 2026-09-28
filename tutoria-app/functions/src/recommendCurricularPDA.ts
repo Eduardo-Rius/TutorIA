@@ -1,12 +1,23 @@
+import { randomUUID } from 'node:crypto';
+import { write as functionsWrite } from 'firebase-functions/logger';
 import { createFirestoreCurricularAIAuthorizer } from './FirestoreCurricularAIAuthorizer';
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
 import {
   CurricularRecommendation,
   CurricularRecommendationRequest,
+  InvalidCurricularRecommendationError,
 } from '../../src/application/planning/CurricularRecommendationSource';
 import {
   TUTORIA_DIRECT_PDA_CATALOG_REVISION,
 } from '../../src/domain/planning/DirectCurricularCatalog';
+import {
+  CurricularAITelemetryObserver,
+  CurricularAIProviderConfigurationError,
+  CurricularAIProviderNetworkError,
+  CurricularAIProviderMalformedResponseError,
+  CurricularAIProviderFailureKind,
+} from '../../src/infrastructure/ai/OpenAICurricularAIProvider';
 
 /**
  * Maximum allowed payload size in bytes (10 KB).
@@ -50,6 +61,7 @@ export interface RecommendCurricularPDAGatewayRequest {
   readonly baseUrl?: never;
   readonly systemPrompt?: never;
   readonly catalog?: never;
+  readonly correlationId?: never;
 }
 
 /**
@@ -118,11 +130,135 @@ export const defaultProductionExecutor: CurricularRecommendationExecutor =
   createOpenAICurricularRecommendationExecutor();
 
 /**
+ * Safe normalized failure categories for Curricular AI execution.
+ */
+export type SafeCurricularAIErrorCategory =
+  | 'configuration'
+  | 'network'
+  | 'timeout'
+  | 'malformed_response'
+  | 'canonical_validation'
+  | 'authorization'
+  | 'internal';
+
+/**
+ * Maps arbitrary runtime or upstream errors into safe, normalized categories.
+ */
+export function mapToSafeErrorCategory(err: unknown): SafeCurricularAIErrorCategory {
+  if (err instanceof CurricularAIProviderConfigurationError) {
+    return 'configuration';
+  }
+  if (err instanceof CurricularAIProviderNetworkError) {
+    if (err.message.includes('timed out') || (err as any).isTimeout === true) {
+      return 'timeout';
+    }
+    return 'network';
+  }
+  if (err instanceof CurricularAIProviderMalformedResponseError) {
+    return 'malformed_response';
+  }
+  if (err instanceof InvalidCurricularRecommendationError) {
+    return 'canonical_validation';
+  }
+  if (err instanceof HttpsError) {
+    if (err.code === 'permission-denied' || err.code === 'unauthenticated') {
+      return 'authorization';
+    }
+    if (err.code === 'deadline-exceeded') {
+      return 'timeout';
+    }
+    if (err.code === 'unavailable') {
+      if (err.message.includes('configuration')) return 'configuration';
+      return 'network';
+    }
+    if (err.code === 'internal') {
+      if (err.message.includes('boundary validation') || err.message.includes('canonical')) {
+        return 'canonical_validation';
+      }
+      if (err.message.includes('invalid response') || err.message.includes('malformed')) {
+        return 'malformed_response';
+      }
+      return 'internal';
+    }
+  }
+  if (err instanceof Error) {
+    if (err.name === 'AbortError' || err.message.toLowerCase().includes('timeout') || err.message.toLowerCase().includes('timed out')) {
+      return 'timeout';
+    }
+  }
+  return 'internal';
+}
+
+/**
+ * Structured event payload contract for safe Curricular AI observability.
+ */
+export interface CurricularAILogEntry {
+  readonly severity: 'INFO' | 'ERROR';
+  readonly correlationId: string;
+  readonly event: 'curricular_ai.started' | 'curricular_ai.completed' | 'curricular_ai.failed';
+  readonly model: string;
+  readonly latencyMs?: number;
+  readonly promptTokens?: number | null;
+  readonly completionTokens?: number | null;
+  readonly totalTokens?: number | null;
+  readonly safeErrorCategory?: SafeCurricularAIErrorCategory;
+  readonly failureKind?: CurricularAIProviderFailureKind;
+  readonly upstreamStatus?: number;
+}
+
+/**
+ * Structured logger port for server-side Curricular AI events.
+ */
+export interface CurricularAILogger {
+  write(entry: CurricularAILogEntry): void;
+}
+
+/**
+ * Default production logger delegating to Google Cloud / Firebase Functions structured logging.
+ */
+export const defaultCurricularAILogger: CurricularAILogger = {
+  write: (entry) => functionsWrite(entry as any),
+};
+
+/**
+ * Transient execution context propagated across asynchronous server operations.
+ */
+export interface CurricularAIExecutionContext {
+  readonly correlationId: string;
+  model: string;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  failureKind?: CurricularAIProviderFailureKind;
+  upstreamStatus?: number;
+}
+
+/**
+ * Recommendation executor factory creating request-scoped executors with telemetry observation.
+ */
+export type CurricularRecommendationExecutorFactory = (options: {
+  readonly onTelemetry: CurricularAITelemetryObserver;
+}) => CurricularRecommendationExecutor;
+
+/**
+ * Default production executor factory creating request-scoped executor instances with telemetry observation.
+ */
+export const defaultProductionExecutorFactory: CurricularRecommendationExecutorFactory =
+  (options) =>
+    createOpenAICurricularRecommendationExecutor({
+      providerConfig: {
+        onTelemetry: options.onTelemetry,
+      },
+    });
+
+/**
  * Options for configuring the gateway handler.
  */
 export interface RecommendCurricularPDAHandlerOptions {
   readonly authorizer?: CurricularAIAuthorizer;
   readonly executor?: CurricularRecommendationExecutor;
+  readonly createExecutor?: CurricularRecommendationExecutorFactory;
+  readonly logger?: CurricularAILogger;
 }
 
 /**
@@ -156,6 +292,9 @@ export function validateGatewayPayload(data: unknown): RecommendCurricularPDAGat
   }
   if ('catalog' in raw || 'catalogEntries' in raw || 'pdaList' in raw) {
     throw new HttpsError('invalid-argument', 'Canonical curricular catalog cannot be supplied by client.');
+  }
+  if ('correlationId' in raw) {
+    throw new HttpsError('invalid-argument', 'Correlation identifier cannot be supplied by client.');
   }
 
   // 3. Modality validation: Strictly DIRECT only
@@ -256,9 +395,12 @@ export async function handleRecommendCurricularPDA(
   options: RecommendCurricularPDAHandlerOptions = {}
 ): Promise<RecommendCurricularPDAGatewayResponse> {
   const authorizer = options.authorizer ?? defaultProductionAuthorizer;
-  const executor = options.executor ?? defaultProductionExecutor;
+  const logger = options.logger ?? defaultCurricularAILogger;
 
-  // 1. Authenticate caller: Reject unauthenticated callers
+  // 1. Generate server-side correlation identifier for this invocation
+  const correlationId = randomUUID();
+
+  // 2. Authenticate caller: Reject unauthenticated callers
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError('unauthenticated', 'User must be authenticated to request curricular recommendations.');
   }
@@ -266,10 +408,10 @@ export async function handleRecommendCurricularPDA(
   const authenticatedUid = request.auth.uid;
   const tokenClaims = request.auth.token as Record<string, unknown> | undefined;
 
-  // 2. Validate request schema & bounds
+  // 3. Validate request schema & bounds
   const validatedPayload = validateGatewayPayload(request.data);
 
-  // 3. Authorize caller via explicit authorization seam
+  // 4. Authorize caller via explicit authorization seam
   const authDecision = await authorizer({
     uid: authenticatedUid,
     tokenClaims,
@@ -283,7 +425,7 @@ export async function handleRecommendCurricularPDA(
     );
   }
 
-  // 4. Map to application recommendation request (Deriving canonical revision server-side)
+  // 5. Map to application recommendation request (Deriving canonical revision server-side)
   const appRequest: CurricularRecommendationRequest = {
     activityId: validatedPayload.activityId,
     activityTitle: validatedPayload.activityTitle,
@@ -305,10 +447,86 @@ export async function handleRecommendCurricularPDA(
       : undefined,
   };
 
-  // 5. Execute recommendation through injected executor seam
-  const recommendations = await executor(appRequest);
+  // 6. Execute recommendation through request-scoped executor seam with safe observability
+  const executionContext: CurricularAIExecutionContext = {
+    correlationId,
+    model: 'gpt-4o-mini',
+    promptTokens: null,
+    completionTokens: null,
+    totalTokens: null,
+  };
 
-  // 6. Return minimal canonical safe response
+  const onTelemetry: CurricularAITelemetryObserver = (telemetry) => {
+    if (telemetry.model) {
+      executionContext.model = telemetry.model;
+    }
+    if (telemetry.usage) {
+      executionContext.promptTokens = telemetry.usage.promptTokens;
+      executionContext.completionTokens = telemetry.usage.completionTokens;
+      executionContext.totalTokens = telemetry.usage.totalTokens;
+    }
+    if (telemetry.failureKind) {
+      executionContext.failureKind = telemetry.failureKind;
+    }
+    if (telemetry.upstreamStatus !== undefined) {
+      executionContext.upstreamStatus = telemetry.upstreamStatus;
+    }
+  };
+
+  const executor =
+    options.executor ??
+    (options.createExecutor ?? defaultProductionExecutorFactory)({ onTelemetry });
+
+  logger.write({
+    severity: 'INFO',
+    correlationId,
+    event: 'curricular_ai.started',
+    model: executionContext.model,
+  });
+
+  const startMs = performance.now();
+  let recommendations: readonly CurricularRecommendation[];
+
+  try {
+    recommendations = await executor(appRequest);
+  } catch (err: unknown) {
+    const latencyMs = Math.max(0, Math.round(performance.now() - startMs));
+    const safeErrorCategory = mapToSafeErrorCategory(err);
+
+    let failureKind = executionContext.failureKind;
+    let upstreamStatus = executionContext.upstreamStatus;
+
+    if (!failureKind && err instanceof CurricularAIProviderNetworkError) {
+      failureKind = err.failureKind;
+      upstreamStatus = err.upstreamStatus;
+    }
+
+    logger.write({
+      severity: 'ERROR',
+      correlationId,
+      event: 'curricular_ai.failed',
+      model: executionContext.model,
+      latencyMs,
+      safeErrorCategory,
+      ...(failureKind ? { failureKind } : {}),
+      ...(upstreamStatus !== undefined ? { upstreamStatus } : {}),
+    });
+    throw err;
+  }
+
+  const latencyMs = Math.max(0, Math.round(performance.now() - startMs));
+  logger.write({
+    severity: 'INFO',
+    correlationId,
+    event: 'curricular_ai.completed',
+    model: executionContext.model,
+    latencyMs,
+    promptTokens: executionContext.promptTokens,
+    completionTokens: executionContext.completionTokens,
+    totalTokens: executionContext.totalTokens,
+  });
+
+  // 7. Return minimal canonical safe response
   return {
     recommendations: recommendations.map((rec) => ({
       pdaId: rec.reference.pdaId,
@@ -319,12 +537,20 @@ export async function handleRecommendCurricularPDA(
 }
 
 /**
+ * Secret parameter for OpenAI API key.
+ * Managed strictly through Google Cloud Secret Manager.
+ * Injected into process.env.OPENAI_API_KEY at runtime by Cloud Functions v2 / Cloud Run.
+ */
+export const openAIApiKey = defineSecret('OPENAI_API_KEY');
+
+/**
  * Production Firebase Callable Function: recommendCurricularPDA
  */
 export const recommendCurricularPDA = onCall(
   {
     enforceAppCheck: false, // Can be set to true when App Check is provisioned
     maxInstances: 10,
+    secrets: [openAIApiKey],
   },
   async (request) => {
     return handleRecommendCurricularPDA(request);

@@ -7,7 +7,9 @@ import {
   DIRECT_PDA_CATALOG_BY_ID,
   TUTORIA_DIRECT_PDA_CATALOG_REVISION,
 } from "../../../domain/planning/DirectCurricularCatalog";
-import { WeeklyPlanning, PlanningDay, PlanningActivity } from "../../../domain/planning/WeeklyPlanning";
+import { WeeklyPlanning, PlanningDay, PlanningActivity, WeeklyContextSnapshot } from "../../../domain/planning/WeeklyPlanning";
+import { Room, RoomCatalog } from "../../../domain/planning/RoomCatalog";
+import { FirebaseCurricularRecommendationSource } from "../../../infrastructure/ai/FirebaseCurricularRecommendationSource";
 import { DeterministicCurricularRecommendationSource } from "../../../application/planning/DeterministicCurricularRecommendationSource";
 import {
   CurricularRecommendationSource,
@@ -16,7 +18,8 @@ import {
 } from "../../../application/planning/CurricularRecommendationSource";
 
 const createTestPlan = (
-  status: "DRAFT" | "IN_REVIEW" | "APPROVED_FOR_EXECUTION" | "REJECTED" | "CLOSED" = "DRAFT"
+  status: "DRAFT" | "IN_REVIEW" | "APPROVED_FOR_EXECUTION" | "REJECTED" | "CLOSED" = "DRAFT",
+  roomId: string = "room-01"
 ): WeeklyPlanning => {
   const activity: PlanningActivity = {
     activityId: "act-test-1",
@@ -42,7 +45,7 @@ const createTestPlan = (
   return new WeeklyPlanning(
     "plan-test-suggestions",
     "dc-01",
-    "room-01",
+    roomId,
     "teacher-01",
     "2026-08-24",
     "2026-08-28",
@@ -809,4 +812,280 @@ describe("H1R9-F.8.2 — Anita Curricular Suggestions UI", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  describe("H1R10.8 — Client Curricular Call Seam Enrichment (Room & WeeklyContext)", () => {
+    it("1. DIRECT recommendation request includes canonical room context from planning aggregate", async () => {
+      let capturedRequest: CurricularRecommendationRequest | null = null;
+      const spySource: CurricularRecommendationSource = {
+        recommend: async (req) => {
+          capturedRequest = req;
+          return [
+            {
+              reference: { pdaId: "TUTORIA-PDA-0001", catalogRevision: TUTORIA_DIRECT_PDA_CATALOG_REVISION },
+              rationale: "Fomenta la expresión sonora.",
+            },
+          ];
+        },
+      };
+
+      const plan = createTestPlan("DRAFT", "lactantes-c");
+      const activity = plan.days[0]!.activities[0]!;
+
+      render(
+        <CurricularSelectionControl
+          activity={activity}
+          dayIdentifier="MONDAY"
+          planning={plan}
+          readOnly={false}
+          modality="DIRECT"
+          recommendationSource={spySource}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sugerir elementos curriculares/i }));
+      await screen.findByText(/Sugerencias de TutorIA/i);
+
+      expect(capturedRequest).not.toBeNull();
+      expect(capturedRequest!.room).toBeDefined();
+      expect(capturedRequest!.room!.roomId).toBe("lactantes-c");
+      expect(capturedRequest!.room!.name).toBe("Lactantes C");
+      expect(capturedRequest!.room!.minAgeMonths).toBe(13);
+      expect(capturedRequest!.room!.maxAgeMonths).toBe(18);
+    });
+
+    it("2. Room age range reaches the recommendation source unchanged", async () => {
+      let capturedRequest: CurricularRecommendationRequest | null = null;
+      const customRoom: Room = {
+        roomId: "maternal-a",
+        name: "Maternal A",
+        minAgeMonths: 19,
+        maxAgeMonths: 24,
+      };
+
+      const spySource: CurricularRecommendationSource = {
+        recommend: async (req) => {
+          capturedRequest = req;
+          return [];
+        },
+      };
+
+      const plan = createTestPlan("DRAFT");
+      const activity = plan.days[0]!.activities[0]!;
+
+      render(
+        <CurricularSelectionControl
+          activity={activity}
+          dayIdentifier="MONDAY"
+          planning={plan}
+          room={customRoom}
+          readOnly={false}
+          modality="DIRECT"
+          recommendationSource={spySource}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sugerir elementos curriculares/i }));
+      await waitFor(() => expect(capturedRequest).not.toBeNull());
+
+      expect(capturedRequest!.room).toEqual(customRoom);
+      expect(capturedRequest!.room!.minAgeMonths).toBe(19);
+      expect(capturedRequest!.room!.maxAgeMonths).toBe(24);
+    });
+
+    it("3-7. Weekly context reaches recommendation source unchanged without synthesis or alteration", async () => {
+      let capturedRequest: CurricularRecommendationRequest | null = null;
+      const spySource: CurricularRecommendationSource = {
+        recommend: async (req) => {
+          capturedRequest = req;
+          return [];
+        },
+      };
+
+      const plan = createTestPlan("DRAFT");
+      plan.observations = "Los lactantes muestran interés en texturas y música instrumental.";
+      plan.identifiedNeeds = "Fortalecer gateo y coordinación ojo-mano.";
+      plan.specialSituations = "Dos infantes en período de adaptación.";
+      plan.availableMaterials = "Sonajas de tela, cojines suaves, tapetes sensoriales.";
+
+      const activity = plan.days[0]!.activities[0]!;
+
+      render(
+        <CurricularSelectionControl
+          activity={activity}
+          dayIdentifier="MONDAY"
+          planning={plan}
+          readOnly={false}
+          modality="DIRECT"
+          recommendationSource={spySource}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sugerir elementos curriculares/i }));
+      await waitFor(() => expect(capturedRequest).not.toBeNull());
+
+      expect(capturedRequest!.weeklyContext).toBeDefined();
+      // 4. Observations not synthesized
+      expect(capturedRequest!.weeklyContext!.observations).toBe("Los lactantes muestran interés en texturas y música instrumental.");
+      // 5. Identified needs not synthesized
+      expect(capturedRequest!.weeklyContext!.identifiedNeeds).toBe("Fortalecer gateo y coordinación ojo-mano.");
+      // 6. Special situations not synthesized
+      expect(capturedRequest!.weeklyContext!.specialSituations).toBe("Dos infantes en período de adaptación.");
+      // 7. Available materials not synthesized
+      expect(capturedRequest!.weeklyContext!.availableMaterials).toBe("Sonajas de tela, cojines suaves, tapetes sensoriales.");
+    });
+
+    it("8-10. Existing activityId, activityTitle, description, and category reach source unchanged", async () => {
+      let capturedRequest: CurricularRecommendationRequest | null = null;
+      const spySource: CurricularRecommendationSource = {
+        recommend: async (req) => {
+          capturedRequest = req;
+          return [];
+        },
+      };
+
+      const plan = createTestPlan("DRAFT");
+      const activity = plan.days[0]!.activities[0]!;
+
+      render(
+        <CurricularSelectionControl
+          activity={activity}
+          dayIdentifier="MONDAY"
+          planning={plan}
+          readOnly={false}
+          modality="DIRECT"
+          recommendationSource={spySource}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sugerir elementos curriculares/i }));
+      await waitFor(() => expect(capturedRequest).not.toBeNull());
+
+      // 8. activityId
+      expect(capturedRequest!.activityId).toBe("act-test-1");
+      // 9. activityTitle
+      expect(capturedRequest!.activityTitle).toBe("Exploración sonora y corporal");
+      // 10. description and category
+      expect(capturedRequest!.description).toBe("Cantar nanas y producir sonidos con sonajas suaves.");
+      expect(capturedRequest!.category).toBe("EXPERIENCIAS ARTÍSTICAS");
+      expect(capturedRequest!.modality).toBe("DIRECT");
+    });
+
+    it("11. Preserves canonical absence: empty context results in undefined weeklyContext without fabrication", async () => {
+      let capturedRequest: CurricularRecommendationRequest | null = null;
+      const spySource: CurricularRecommendationSource = {
+        recommend: async (req) => {
+          capturedRequest = req;
+          return [];
+        },
+      };
+
+      const plan = createTestPlan("DRAFT");
+      plan.observations = "";
+      plan.identifiedNeeds = "";
+      plan.specialSituations = "";
+      plan.availableMaterials = "";
+      plan.originalContext = undefined;
+
+      const activity = plan.days[0]!.activities[0]!;
+
+      render(
+        <CurricularSelectionControl
+          activity={activity}
+          dayIdentifier="MONDAY"
+          planning={plan}
+          readOnly={false}
+          modality="DIRECT"
+          recommendationSource={spySource}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sugerir elementos curriculares/i }));
+      await waitFor(() => expect(capturedRequest).not.toBeNull());
+
+      expect(capturedRequest!.weeklyContext).toBeUndefined();
+    });
+
+    it("12. Firebase source compatibility: UI emitted request shape satisfies FirebaseCurricularRecommendationSource room and weeklyContext contracts", async () => {
+      let capturedRequest: CurricularRecommendationRequest | null = null;
+      const spySource: CurricularRecommendationSource = {
+        recommend: async (req) => {
+          capturedRequest = req;
+          return [
+            {
+              reference: { pdaId: "TUTORIA-PDA-0001", catalogRevision: TUTORIA_DIRECT_PDA_CATALOG_REVISION },
+              rationale: "Fomenta la expresión sonora.",
+            },
+          ];
+        },
+      };
+
+      const plan = createTestPlan("DRAFT", "lactantes-c");
+      plan.observations = "Observaciones de sala";
+      plan.identifiedNeeds = "Necesidades de sala";
+      plan.specialSituations = "Situaciones de sala";
+      plan.availableMaterials = "Materiales de sala";
+
+      const activity = plan.days[0]!.activities[0]!;
+      activity.materials = ['Sonajas', 'Cascabeles', 'Música suave'];
+
+      render(
+        <CurricularSelectionControl
+          activity={activity}
+          dayIdentifier="MONDAY"
+          planning={plan}
+          readOnly={false}
+          modality="DIRECT"
+          recommendationSource={spySource}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /Sugerir elementos curriculares/i }));
+      await screen.findByText(/Sugerencias de TutorIA/i);
+
+      expect(capturedRequest).not.toBeNull();
+      expect(capturedRequest!.durationMinutes).toBe(20);
+      expect(capturedRequest!.materials).toEqual(['Sonajas', 'Cascabeles', 'Música suave']);
+
+      // Test against FirebaseCurricularRecommendationSource validation without network
+      let callablePayloadSent: any = null;
+      const fakeCallable = async (payload: any) => {
+        callablePayloadSent = payload;
+        return {
+          data: {
+            catalogRevision: TUTORIA_DIRECT_PDA_CATALOG_REVISION,
+            recommendations: [
+              { pdaId: "TUTORIA-PDA-0001", rationale: "Fomenta expresión sonora." },
+            ],
+          },
+        };
+      };
+
+      const firebaseSource = new FirebaseCurricularRecommendationSource({
+        callableFn: fakeCallable,
+      });
+
+      // The emitted request must execute successfully through FirebaseCurricularRecommendationSource
+      const fbResult = await firebaseSource.recommend(capturedRequest!);
+      expect(fbResult).toHaveLength(1);
+      expect(fbResult[0].reference.pdaId).toBe("TUTORIA-PDA-0001");
+
+      // Verify the payload constructed for remote gateway has room, weeklyContext, durationMinutes, and materials
+      expect(callablePayloadSent).not.toBeNull();
+      expect(callablePayloadSent.durationMinutes).toBe(20);
+      expect(callablePayloadSent.materials).toEqual(['Sonajas', 'Cascabeles', 'Música suave']);
+      expect(callablePayloadSent.room).toEqual({
+        roomId: "lactantes-c",
+        name: "Lactantes C",
+        minAgeMonths: 13,
+        maxAgeMonths: 18,
+      });
+      expect(callablePayloadSent.weeklyContext).toEqual({
+        observations: "Observaciones de sala",
+        identifiedNeeds: "Necesidades de sala",
+        specialSituations: "Situaciones de sala",
+        availableMaterials: "Materiales de sala",
+      });
+    });
+  });
+
 });
