@@ -4,22 +4,31 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlanningActorRole, PlanningWorkflowService } from '../../application/planning/PlanningWorkflowService';
 import { PedagogicalRecommendationSource } from '../../application/planning/PedagogicalRecommendationSource';
 import { WeeklyPlanning, PlanningDay } from '../../domain/planning/WeeklyPlanning';
-import { RoomCatalog } from '../../domain/planning/RoomCatalog';
+import { RoomCatalog, Room } from '../../domain/planning/RoomCatalog';
 import { CurricularSelectionControl } from './CurricularSelectionControl';
 import { CurricularRecommendationSource } from '../../application/planning/CurricularRecommendationSource';
 import {
   evaluateFirstLightLabGuard,
   FirstLightLabBanner,
   FIRST_LIGHT_ANITA_EMAIL,
+  FIRST_LIGHT_DAYCARE_ID,
+  FIRST_LIGHT_ROOM_ID,
 } from './firstLightLabHarness';
 import { AuthenticationProvider } from '../../application/ports/AuthenticationProvider';
 import { FirebaseAuthenticationProvider } from '../../infrastructure/authentication/FirebaseAuthenticationProvider';
 import { FirebaseCurricularRecommendationSource } from '../../infrastructure/ai/FirebaseCurricularRecommendationSource';
+import { FirebaseWeeklyPlanningProposalSource } from '../../infrastructure/ai/FirebaseWeeklyPlanningProposalSource';
 import { DeterministicCurricularRecommendationSource } from '../../application/planning/DeterministicCurricularRecommendationSource';
 import { ComplementaryActivitiesControl } from './ComplementaryActivitiesControl';
 import { PrioritizedPracticesControl } from './PrioritizedPracticesControl';
 import { DIRECT_PDA_CATALOG } from '../../domain/planning/DirectCurricularCatalog';
 import { composeAnversoPages, ComposedAnversoPage, AnversoBlockDescriptor, USABLE_HEIGHT_MM, USABLE_WIDTH_MM, LETTER_WIDTH_MM, LETTER_HEIGHT_MM, SAFE_MARGIN_MM } from './DirectPrintPaginationComposer';
+import type {
+  WeeklyPlanningProposalSource,
+  WeeklyPlanningProposalRequest,
+  WeeklyPlanningProposalResponse,
+} from '../../application/planning/WeeklyPlanningProposalSource';
+import { WeeklyPlanningProposalHumanGate } from './WeeklyPlanningProposalHumanGate';
 
 const MOCK_START = '2026-08-10';
 const MOCK_END = '2026-08-14';
@@ -50,13 +59,16 @@ export interface PlanningDemoAppProps {
   service: PlanningWorkflowService;
   source: PedagogicalRecommendationSource;
   curricularRecommendationSource?: CurricularRecommendationSource | undefined;
+  weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined;
   currentDate?: string | undefined;
   firstLightEnv?: Record<string, any> | undefined;
   firstLightAuth?: AuthenticationProvider | undefined;
   firstLightSource?: CurricularRecommendationSource | undefined;
+  firstLightWeeklyPlanningSource?: WeeklyPlanningProposalSource | undefined;
+  roomOverride?: Room | undefined;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride }) => {
   const [role, setRole] = useState<PlanningActorRole>('TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
@@ -70,6 +82,30 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
 
   // FIRST LIGHT LAB HARNESS
   const firstLightGuard = React.useMemo(() => evaluateFirstLightLabGuard(firstLightEnv), [firstLightEnv]);
+
+  // CANONICAL ACTIVE ROOM: Single source of truth for presentation and generation
+  const activeRoom = React.useMemo<Room>(() => {
+    if (roomOverride) return roomOverride;
+    if (firstLightGuard.isEligible) {
+      return (
+        RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) || {
+          roomId: FIRST_LIGHT_ROOM_ID,
+          name: 'Lactantes A',
+          minAgeMonths: 0,
+          maxAgeMonths: 6,
+        }
+      );
+    }
+    return (
+      RoomCatalog.getRoom('lactantes-c') || {
+        roomId: 'lactantes-c',
+        name: 'Lactantes C',
+        minAgeMonths: 12,
+        maxAgeMonths: 18,
+      }
+    );
+  }, [roomOverride, firstLightGuard.isEligible]);
+
   const [firstLightAuthInstance] = useState<AuthenticationProvider>(() => {
     return firstLightAuth || new FirebaseAuthenticationProvider();
   });
@@ -94,6 +130,31 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     }
     return firstLightSource || new FirebaseCurricularRecommendationSource();
   }, [firstLightGuard.isEligible, curricularRecommendationSource, firstLightSource]);
+
+  const effectiveWeeklyPlanningProposalSource = React.useMemo(() => {
+    if (weeklyPlanningProposalSource) {
+      return weeklyPlanningProposalSource;
+    }
+
+    if (firstLightGuard.isEligible) {
+      return (
+        firstLightWeeklyPlanningSource ??
+        new FirebaseWeeklyPlanningProposalSource({
+          operationalContext: {
+            daycareId: FIRST_LIGHT_DAYCARE_ID,
+            roomId: activeRoom.roomId,
+          },
+        })
+      );
+    }
+
+    return undefined;
+  }, [
+    firstLightGuard.isEligible,
+    weeklyPlanningProposalSource,
+    firstLightWeeklyPlanningSource,
+    activeRoom.roomId,
+  ]);
 
   const handleFirstLightLogin = async (password: string) => {
     setIsFirstLightLoggingIn(true);
@@ -122,7 +183,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   if (view === 'PRINT') {
     return (
       <div className="bg-white">
-        <PrintableView service={service} planId={selectedPlanId!} modality={modality} onBack={() => setView(role === 'SUPERVISOR' ? 'REVIEW' : (role === 'DIRECTOR' ? 'REVIEW' : 'CREATE'))} simulateMeasurementFailure={simulateMeasurementFailure} anversoComposerOverride={anversoComposerOverride} />
+        <PrintableView service={service} planId={selectedPlanId!} modality={modality} activeRoom={activeRoom} onBack={() => setView(role === 'SUPERVISOR' ? 'REVIEW' : (role === 'DIRECTOR' ? 'REVIEW' : 'CREATE'))} simulateMeasurementFailure={simulateMeasurementFailure} anversoComposerOverride={anversoComposerOverride} />
       </div>
     );
   }
@@ -184,7 +245,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-semibold text-text-primary">{role === 'TEACHER' ? 'Anita' : role === 'DIRECTOR' ? 'Ceci' : 'Tere'}</p>
-                <p className="text-xs font-medium text-text-muted">{role === 'TEACHER' ? 'Pedagoga · Lactantes C' : role === 'DIRECTOR' ? 'Directora' : 'Supervisora'}</p>
+                <p className="text-xs font-medium text-text-muted">{role === 'TEACHER' ? `Pedagoga · ${activeRoom.name}` : role === 'DIRECTOR' ? 'Directora' : 'Supervisora'}</p>
               </div>
               <img src={role === 'TEACHER' ? personas.anita : role === 'DIRECTOR' ? personas.ceci : personas.tere} alt="Perfil" className="w-[128px] h-[128px] object-contain" />
             </div>
@@ -193,28 +254,46 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       </div>
 
       <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
-        {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
-        {role === 'TEACHER' && view === 'CREATE' && <TeacherWizard role={role} service={service} source={source} curricularRecommendationSource={effectiveCurricularSource} planId={selectedPlanId} modality={modality} currentDate={simulatedDate} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
-        {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
-        {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
-        {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
-        {role === 'SUPERVISOR' && view === 'REVIEW' && <SupervisorReview service={service} planId={selectedPlanId!} modality={modality} onBack={() => setView('LIST')} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} roomName={activeRoom.name} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
+        {role === 'TEACHER' && view === 'CREATE' && (
+          <TeacherWizard
+            role={role}
+            service={service}
+            source={source}
+            curricularRecommendationSource={effectiveCurricularSource}
+            weeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
+            isFirstLight={firstLightGuard.isEligible}
+            activeRoom={activeRoom}
+            planId={selectedPlanId}
+            modality={modality}
+            currentDate={simulatedDate}
+            onBack={() => setView('LIST')}
+            onSaved={triggerRefresh}
+            onViewOfficial={() => setView('PRINT')}
+          />
+        )}
+        {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
+        {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
+        {role === 'SUPERVISOR' && view === 'REVIEW' && <SupervisorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} modality={modality} onBack={() => setView('LIST')} onViewOfficial={() => setView('PRINT')} />}
 
       </div>
     </div>
   );
 };
 
-const TeacherList = ({ service, onNew, onSelect, refreshKey, modality }: { service: PlanningWorkflowService, onNew: () => void, onSelect: (id: string) => void, refreshKey: number, modality: string }) => {
+const TeacherList = ({ service, onNew, onSelect, refreshKey, modality, roomName }: { service: PlanningWorkflowService, onNew: () => void, onSelect: (id: string) => void, refreshKey: number, modality: string, roomName?: string }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   useEffect(() => { service.listTeacherPlanning('t1').then(setPlans); }, [refreshKey, service]);
+
+  const effectiveRoomLabel = roomName || 'Lactantes C';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
       <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola Anita 👋</h2>
       <p className="text-2xl text-text-muted mb-8 max-w-xl leading-relaxed">
         Vamos a preparar tu semana.<br/>
-        Del 24 al 28 de agosto para <span className="font-bold text-text-primary">Lactantes C</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
+        Del 24 al 28 de agosto para <span className="font-bold text-text-primary">{effectiveRoomLabel}</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
       </p>
 
       <p className="text-sm font-medium text-brand-primary bg-surface-ivory px-6 py-3 rounded-full mb-10 shadow-sm border border-brand-primary/20">
@@ -416,7 +495,7 @@ export const formatDayDateMessage = (dateStr: string): string => {
   return `${dayNames[dateObj.getUTCDay()]} ${d} de ${monthNames[dateObj.getUTCMonth()]}`;
 };
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, isFirstLight, activeRoom, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
   const [specialSituations, setSpecialSituations] = useState('');
@@ -436,6 +515,11 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
   const currentPlanId = planId || stableIdRef.current;
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
+  const [pendingWeeklyProposal, setPendingWeeklyProposal] = useState<WeeklyPlanningProposalResponse | null>(null);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [isAcceptingProposal, setIsAcceptingProposal] = useState<boolean>(false);
+
   const [contextLocked, setContextLocked] = useState(false);
   const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
@@ -485,7 +569,9 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
       });
     } else {
       if (role === 'TEACHER') {
-        service.createPlanning(currentPlanId, 'd1', 'lactantes-c', 't1', MOCK_START, MOCK_END, 'TEACHER').then(async () => {
+        const initialRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
+        const initialDaycareId = isFirstLight ? FIRST_LIGHT_DAYCARE_ID : 'd1';
+        service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, 't1', MOCK_START, MOCK_END, 'TEACHER').then(async () => {
           const created = await service.getPlanning(currentPlanId);
           if (created) {
             setPlanningObj(created);
@@ -496,11 +582,58 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
         });
       }
     }
-  }, [planId, currentPlanId, service, role]);
+  }, [planId, currentPlanId, service, role, isFirstLight, activeRoom]);
 
   const handleGenerateWeek = async () => {
+    if (isGeneratingRef.current || isGenerating) return;
+    isGeneratingRef.current = true;
     setIsGenerating(true);
-    const recommended = await source.generateRecommendation(RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
+    setProposalError(null);
+
+    // Governed WeeklyPlanningProposalSource Human Gate path
+    if (weeklyPlanningProposalSource) {
+      try {
+        const effectiveRoom = activeRoom
+          || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
+          || RoomCatalog.getRoom('lactantes-c')
+          || {
+            roomId: 'lactantes-c',
+            name: 'Lactantes C',
+            minAgeMonths: 12,
+            maxAgeMonths: 18,
+          };
+
+        const req: WeeklyPlanningProposalRequest = {
+          planningId: currentPlanId,
+          ...(isFirstLight ? { daycareId: FIRST_LIGHT_DAYCARE_ID } : {}),
+          weekStart: weekStart || MOCK_START,
+          weekEnd: MOCK_END,
+          modality,
+          room: effectiveRoom,
+          currentContext: {
+            observations: obs,
+            identifiedNeeds: needs,
+            specialSituations: specialSituations,
+            availableMaterials: availableMaterials,
+          },
+        };
+        const proposal = await weeklyPlanningProposalSource.propose(req);
+        // Human Gate: Store proposal transiently in memory for Anita's review.
+        // ZERO saveDraft, ZERO persistence, ZERO aggregate mutation!
+        setPendingWeeklyProposal(proposal);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error al generar la propuesta de planeación.';
+        setProposalError(message);
+        setToastMessage(message);
+      } finally {
+        isGeneratingRef.current = false;
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    // Legacy fallback path for existing tests without weeklyPlanningProposalSource
+    const recommended = await source.generateRecommendation(activeRoom || RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
     const initialSnapshot = {
       observations: obs,
       identifiedNeeds: needs,
@@ -511,6 +644,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
       setDays(recommended);
       setOriginalContext(initialSnapshot);
       setContextLocked(true);
+      isGeneratingRef.current = false;
       setIsGenerating(false);
       try {
         await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], recommended, 'TEACHER', initialSnapshot);
@@ -520,6 +654,88 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
         }
       } catch (err) {}
     }, process.env.NODE_ENV === 'test' ? 0 : 2000);
+  };
+
+  const handleDiscardProposal = () => {
+    setPendingWeeklyProposal(null);
+    setProposalError(null);
+    // Context (obs, needs, specialSituations, availableMaterials) is strictly preserved!
+    // No saveDraft, no persistence, no aggregate mutation.
+  };
+
+  const handleAcceptProposal = async () => {
+    if (!pendingWeeklyProposal || isAcceptingProposal) return;
+    setIsAcceptingProposal(true);
+    const initialSnapshot = {
+      observations: obs,
+      identifiedNeeds: needs,
+      specialSituations: specialSituations,
+      availableMaterials: availableMaterials,
+    };
+
+    // Existing complementary activities and prioritized practices preservation
+    const existingComplementary: Record<string, any[]> = {};
+    const existingPrioritized: Record<string, any[] | undefined> = {};
+    for (const d of days) {
+      if (d.complementaryActivities && d.complementaryActivities.length > 0) {
+        existingComplementary[d.dayOfWeek] = d.complementaryActivities;
+      }
+      if (d.prioritizedPractices && d.prioritizedPractices.length > 0) {
+        existingPrioritized[d.dayOfWeek] = d.prioritizedPractices;
+      }
+    }
+
+    const convertedDays: PlanningDay[] = pendingWeeklyProposal.days.map((pDay, idx) => {
+      const dNum = 24 + idx;
+      const dateStr = pDay.date || `2026-08-${dNum}`;
+      return {
+        date: dateStr,
+        dayOfWeek: pDay.dayOfWeek,
+        activities: pDay.activities.map((a, aIdx) => ({
+          activityId: `act-${pDay.dayOfWeek.toLowerCase()}-${aIdx + 1}-${Date.now()}`,
+          category: a.category,
+          objective: a.objective,
+          description: a.description,
+          durationMinutes: a.durationMinutes,
+          materials: [...a.materials],
+          curricularTraceability: [],
+        })),
+        complementaryActivities: existingComplementary[pDay.dayOfWeek] || [],
+        ...(existingPrioritized[pDay.dayOfWeek] ? { prioritizedPractices: existingPrioritized[pDay.dayOfWeek] } : {}),
+        materials: Array.from(new Set(pDay.activities.flatMap(a => a.materials))),
+      };
+    });
+
+    setDays(convertedDays);
+    setOriginalContext(initialSnapshot);
+    setContextLocked(true);
+    setPendingWeeklyProposal(null);
+
+    // Call service.saveDraft EXACTLY ONCE upon human acceptance
+    try {
+      await service.saveDraft(
+        currentPlanId,
+        obs,
+        needs,
+        specialSituations,
+        availableMaterials,
+        [],
+        convertedDays,
+        'TEACHER',
+        initialSnapshot
+      );
+      const updated = await service.getPlanning(currentPlanId);
+      if (updated) {
+        setPlanningObj(updated);
+      }
+      setToastMessage('✓ Propuesta incorporada a tu planeación como borrador.');
+      setTimeout(() => setToastMessage(''), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar el borrador.';
+      setToastMessage(msg);
+    } finally {
+      setIsAcceptingProposal(false);
+    }
   };
 
   const handleSaveContextEdit = async () => {
@@ -660,10 +876,16 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
 
               {!days.some(d => d.activities && d.activities.length > 0) && !isGenerating && !readOnly && (
                 <div className="text-center mt-8 pt-6 border-t border-teal-100">
-                  <button onClick={handleGenerateWeek} disabled={!obs || readOnly} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
-                    ✨ Ayúdame con TutorIA (Generar Semana)
+                  <button onClick={handleGenerateWeek} disabled={!obs || readOnly || isGenerating} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
+                    {isGenerating ? 'Preparando propuesta semanal…' : '✨ Ayúdame con TutorIA (Generar Semana)'}
                   </button>
                   <p className="text-xs text-text-muted mt-3 uppercase tracking-wider font-bold">Generará los 5 días basándose en este contexto</p>
+                </div>
+              )}
+
+              {proposalError && (
+                <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm max-w-md mx-auto text-center" role="alert">
+                  {proposalError}
                 </div>
               )}
             </div>
@@ -729,7 +951,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
                   )}
                   {isGenerating && (
                     <div className="mt-12 text-center text-brand-primary font-bold text-xl animate-pulse">
-                      Consultando referencias curriculares y generando propuesta semanal...
+                      Preparando propuesta semanal…
                     </div>
                   )}
 
@@ -1196,10 +1418,18 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, planId
           </>
         )}
       </div>
+      {pendingWeeklyProposal && (
+        <WeeklyPlanningProposalHumanGate
+          proposal={pendingWeeklyProposal}
+          onAccept={handleAcceptProposal}
+          onDiscard={handleDiscardProposal}
+          isAccepting={isAcceptingProposal}
+        />
+      )}
     </div>
   );
 };
-const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number }) => {
+const DirectorList = ({ service, onSelect, refreshKey, activeRoom }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number, activeRoom?: Room | undefined }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   useEffect(() => {
     Promise.all([
@@ -1223,7 +1453,7 @@ const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWork
                <span className="font-bold text-text-primary text-2xl">Anita</span>
                <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-status-review/20 text-status-review">Lista para conversar</span>
              </div>
-             <p className="text-base text-text-muted font-medium">Lactantes C • Semana del 24 al 28 de agosto</p>
+             <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
            </button>
         ))}
         {plans.length === 0 && <p className="text-text-muted text-center mt-12 text-xl font-medium">No tenemos propuestas para conversar en este momento.</p>}
@@ -1236,7 +1466,7 @@ const DirectorList = ({ service, onSelect, refreshKey }: { service: PlanningWork
 
 
 
-const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { service: PlanningWorkflowService, planId: string, onBack: () => void, onSaved: () => void, onViewOfficial: () => void }) => {
+const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, activeRoom }: { service: PlanningWorkflowService, planId: string, onBack: () => void, onSaved: () => void, onViewOfficial: () => void, activeRoom?: Room | undefined }) => {
   const [plan, setPlan] = useState<any>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
@@ -1445,7 +1675,7 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
 
       <div className="text-center mb-12">
         <h2 className="text-5xl font-bold mb-4">Anita</h2>
-        <p className="text-text-muted font-bold text-2xl uppercase tracking-widest">Lactantes C</p>
+        <p className="text-text-muted font-bold text-2xl uppercase tracking-widest">{((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'}</p>
       </div>
 
       {(() => {
@@ -2097,7 +2327,7 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial }: { 
   );
 };
 
-const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }: { service: PlanningWorkflowService, planId: string, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onViewOfficial: () => void }) => {
+const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, activeRoom }: { service: PlanningWorkflowService, planId: string, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onViewOfficial: () => void, activeRoom?: Room | undefined }) => {
   const [plan, setPlan] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'PLAN' | 'HISTORY'>('PLAN');
 
@@ -2127,7 +2357,7 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }:
 
       <div className="text-center mb-8">
         <h2 className="text-4xl font-bold mb-2">Anita</h2>
-        <p className="text-text-muted font-bold text-xl uppercase tracking-widest">Guardería IMSS Demo (001) • Sala: Lactantes C • Periodo: 24 al 28 de agosto de 2026</p>
+        <p className="text-text-muted font-bold text-xl uppercase tracking-widest">Guardería IMSS Demo (001) • Sala: {((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Periodo: 24 al 28 de agosto de 2026</p>
       </div>
 
       {activeTab === 'PLAN' && (
@@ -2407,7 +2637,7 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial }:
     </div>
   );
 };
-const SupervisorList = ({ service, onSelect, refreshKey }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number }) => {
+const SupervisorList = ({ service, onSelect, refreshKey, activeRoom }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number, activeRoom?: Room | undefined }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   useEffect(() => { service.listSupervisorClosedPlanning('SUPERVISOR').then(setPlans); }, [refreshKey, service]);
   return (
@@ -2421,7 +2651,7 @@ const SupervisorList = ({ service, onSelect, refreshKey }: { service: PlanningWo
              <div>
                <span className="font-bold text-text-primary text-2xl mb-1 block">Anita</span>
                <p className="text-sm font-semibold text-teal-800 mb-1">Guardería IMSS Demo (001)</p>
-               <p className="text-base text-text-muted font-medium">Lactantes C • Semana del 24 al 28 de agosto</p>
+               <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
                {p.closedBy && (
                  <p className="text-xs text-text-muted mt-2 font-medium">Cerrada por: {p.closedBy} {p.closedAt ? `• ${new Date(p.closedAt).toLocaleDateString()}` : ''}</p>
                )}
@@ -2447,6 +2677,7 @@ const PrintableView = ({
   onBack,
   simulateMeasurementFailure,
   anversoComposerOverride,
+  activeRoom,
 }: {
   service: PlanningWorkflowService;
   planId: string;
@@ -2454,6 +2685,7 @@ const PrintableView = ({
   onBack: () => void;
   simulateMeasurementFailure?: boolean;
   anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[];
+  activeRoom?: Room | undefined;
 }) => {
   const [plan, setPlan] = useState<any>(null);
   useEffect(() => {
@@ -2461,6 +2693,8 @@ const PrintableView = ({
   }, [planId, service]);
 
   if (!plan) return null;
+
+  const officialRoomName = ((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C';
 
   const isDirect = modality === 'DIRECT';
 
@@ -2908,14 +3142,14 @@ const PrintableView = ({
                             </div>
                             <div className="text-right">
                               <span className="text-xs print:text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                                {dayLabel} — Lactantes C
+                                {dayLabel} — {officialRoomName}
                               </span>
                             </div>
                           </div>
                         )}
                         {page.blockIds.map((bId) => (
                           <React.Fragment key={bId}>
-                            {renderAnversoBlock(bId, d, dayLabel, 'Lactantes C')}
+                            {renderAnversoBlock(bId, d, dayLabel, officialRoomName)}
                           </React.Fragment>
                         ))}
                       </div>
@@ -3103,7 +3337,7 @@ const PrintableView = ({
                       <div data-testid="indirect-ident-field-sala" className="flex items-baseline gap-2">
                         <span className="font-bold text-black whitespace-nowrap">Sala de atención o Grupo:</span>
                         <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
-                          Lactantes C
+                          {officialRoomName}
                         </span>
                       </div>
                       <div data-testid="indirect-ident-field-periodo" className="flex items-baseline gap-2">

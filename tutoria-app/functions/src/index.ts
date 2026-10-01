@@ -10,6 +10,24 @@ export {
 } from './recommendCurricularPDA';
 
 export {
+  proposeWeeklyPlanning,
+  handleProposeWeeklyPlanning,
+  validateProposeWeeklyPlanningGatewayPayload,
+  defaultProductionWeeklyPlanningAuthorizer,
+  defaultProductionWeeklyPlanningExecutor,
+  createWeeklyPlanningProposalExecutor,
+  mapToSafeWeeklyPlanningError,
+  MAX_WEEKLY_PLANNING_PAYLOAD_BYTES,
+  MAX_WEEKLY_PLANNING_TEXT_FIELD_LENGTH,
+  MAX_WEEKLY_PLANNING_SHORT_FIELD_LENGTH,
+} from './proposeWeeklyPlanning';
+
+export {
+  FirestoreWeeklyPlanningAuthorizer,
+  createFirestoreWeeklyPlanningAuthorizer,
+} from './FirestoreWeeklyPlanningAuthorizer';
+
+export {
   OpenAICurricularRecommendationExecutor,
   createOpenAICurricularRecommendationExecutor,
 } from './OpenAICurricularRecommendationExecutor';
@@ -33,6 +51,23 @@ export type {
 } from './recommendCurricularPDA';
 
 export type {
+  ProposeWeeklyPlanningGatewayRequest,
+  ProposeWeeklyPlanningGatewayResponse,
+  WeeklyPlanningProposalExecutor,
+  WeeklyPlanningProposalExecutorOptions,
+  ProposeWeeklyPlanningHandlerOptions,
+  WeeklyPlanningGatewayLogger,
+  WeeklyPlanningGatewayLogEntry,
+} from './proposeWeeklyPlanning';
+
+export type {
+  WeeklyPlanningAuthorizer,
+  WeeklyPlanningAuthorizationContext,
+  WeeklyPlanningAuthorizationResult,
+  FirestoreWeeklyPlanningAuthorizerOptions,
+} from './FirestoreWeeklyPlanningAuthorizer';
+
+export type {
   OpenAICurricularRecommendationExecutorOptions,
 } from './OpenAICurricularRecommendationExecutor';
 
@@ -41,3 +76,4 @@ export type {
   AuthorizationContextReader,
   FirestoreCurricularAIAuthorizerOptions,
 } from './FirestoreCurricularAIAuthorizer';
+

@@ -6,16 +6,18 @@ import { Sidebar } from './Sidebar';
 export interface AppShellProps extends React.HTMLAttributes<HTMLDivElement> {
   sidebar?: React.ReactNode;
   topbar?: React.ReactNode;
+  roomName?: string;
 }
 
 export function AppShell({
   sidebar,
   topbar,
+  roomName,
   className = '',
   children,
   ...props
 }: AppShellProps) {
-  const defaultSidebar = <Sidebar />;
+  const defaultSidebar = <Sidebar roomName={roomName} />;
 
   const activeSidebar = sidebar || defaultSidebar;
 

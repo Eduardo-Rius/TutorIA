@@ -7,6 +7,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { PresencePolicy } from '../../presentation/experience/presence/PresencePolicy';
 import { ANITA_ID } from '../../presentation/experience/characters/CharacterDefinitionCatalog';
 import { InstitutionalPresenceRenderer } from '../../presentation/experience/presence/InstitutionalPresenceRenderer';
+import { RoomCatalog } from '../../domain/planning/RoomCatalog';
+import { FIRST_LIGHT_ROOM_ID } from '../../presentation/planning-ui/firstLightLabHarness';
 interface SidebarItem {
   icon: React.ElementType;
   label: string;
@@ -24,9 +26,19 @@ const ITEMS: SidebarItem[] = [
   { icon: Settings, label: 'Configuración', path: '/workspace/settings' },
 ];
 
-export const Sidebar: React.FC = () => {
+export interface SidebarProps {
+  readonly roomName?: string;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ roomName }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isFirstLight = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TUTORIA_FIRST_LIGHT_LAB === 'true';
+  const defaultRoomName = isFirstLight
+    ? (RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID)?.name || 'Lactantes A')
+    : 'Lactantes C';
+  const effectiveRoomName = roomName || defaultRoomName;
 
   const resolution = PresencePolicy.resolve({
     institutionalRole: 'Docente Maternal',
@@ -78,7 +90,7 @@ export const Sidebar: React.FC = () => {
           <div className="flex flex-col items-center text-center">
             <p className="text-lg font-bold text-white font-poppins tracking-tight leading-tight mb-1">Anita</p>
             <p className="text-sm text-brandPrimary font-inter font-medium leading-tight mb-1">Pedagoga</p>
-            <p className="text-xs text-textLight font-inter font-medium leading-tight">Lactantes C</p>
+            <p className="text-xs text-textLight font-inter font-medium leading-tight">{effectiveRoomName}</p>
           </div>
         </button>
       </div>

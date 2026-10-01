@@ -54,7 +54,7 @@ describe("H1R9-F.8.3.4.2 — Deployment Artifact Self-Containment Regression", (
     // Load bundled module dynamically
     const bundledModule = await import(indexPath);
 
-    // Verify expected exports
+    // Verify expected exports for recommendCurricularPDA
     expect(bundledModule).toBeDefined();
     expect(bundledModule.recommendCurricularPDA).toBeDefined();
     expect(typeof bundledModule.handleRecommendCurricularPDA).toBe("function");
@@ -64,22 +64,37 @@ describe("H1R9-F.8.3.4.2 — Deployment Artifact Self-Containment Regression", (
     expect(bundledModule.MAX_PAYLOAD_BYTES).toBe(10240);
     expect(bundledModule.MAX_TEXT_FIELD_LENGTH).toBe(500);
 
+    // Verify expected exports for proposeWeeklyPlanning (H1R11.5)
+    expect(bundledModule.proposeWeeklyPlanning).toBeDefined();
+    expect(typeof bundledModule.handleProposeWeeklyPlanning).toBe("function");
+    expect(typeof bundledModule.validateProposeWeeklyPlanningGatewayPayload).toBe("function");
+    expect(typeof bundledModule.defaultProductionWeeklyPlanningAuthorizer).toBe("function");
+    expect(typeof bundledModule.defaultProductionWeeklyPlanningExecutor).toBe("function");
+    expect(bundledModule.MAX_WEEKLY_PLANNING_PAYLOAD_BYTES).toBe(16384);
+    expect(bundledModule.MAX_WEEKLY_PLANNING_TEXT_FIELD_LENGTH).toBe(1000);
+
     // Zero remote network calls upon loading
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("5. H1R10.7: Deployment artifact exports openAIApiKey and binds OPENAI_API_KEY to callable", async () => {
+  it("5. H1R10.7 & H1R11.5: Deployment artifact exports openAIApiKey and binds OPENAI_API_KEY to both callables", async () => {
     const bundledModule = await import(indexPath);
 
     // Verify openAIApiKey export
     expect(bundledModule.openAIApiKey).toBeDefined();
     expect(bundledModule.openAIApiKey.name).toBe("OPENAI_API_KEY");
 
-    // Verify callable secret binding in endpoint metadata
-    const fn = bundledModule.recommendCurricularPDA;
-    expect(fn).toBeDefined();
-    expect(fn.__endpoint?.secretEnvironmentVariables).toContainEqual({ key: "OPENAI_API_KEY" });
-    expect(fn.__trigger?.secrets?.some((s: any) => s?.name === "OPENAI_API_KEY" || s === "OPENAI_API_KEY")).toBe(true);
+    // Verify recommendCurricularPDA secret binding
+    const fnRecommend = bundledModule.recommendCurricularPDA;
+    expect(fnRecommend).toBeDefined();
+    expect(fnRecommend.__endpoint?.secretEnvironmentVariables).toContainEqual({ key: "OPENAI_API_KEY" });
+    expect(fnRecommend.__trigger?.secrets?.some((s: any) => s?.name === "OPENAI_API_KEY" || s === "OPENAI_API_KEY")).toBe(true);
+
+    // Verify proposeWeeklyPlanning secret binding
+    const fnPropose = bundledModule.proposeWeeklyPlanning;
+    expect(fnPropose).toBeDefined();
+    expect(fnPropose.__endpoint?.secretEnvironmentVariables).toContainEqual({ key: "OPENAI_API_KEY" });
+    expect(fnPropose.__trigger?.secrets?.some((s: any) => s?.name === "OPENAI_API_KEY" || s === "OPENAI_API_KEY")).toBe(true);
   });
 
   it("6. H1R10.7: Deployment artifact contains zero embedded real secrets or credentials", () => {
