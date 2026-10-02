@@ -1,16 +1,22 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import type {
   WeeklyPlanningProposalResponse,
   ProposedPlanningDay,
   ProposedActivity,
   WeeklyPlanningWeekday,
 } from '../../application/planning/WeeklyPlanningProposalSource';
+import {
+  type WeeklyPlanningEvidenceContext,
+  serializeWeeklyPlanningProposalEvidence,
+} from './weeklyPlanningProposalEvidence';
 
 export interface WeeklyPlanningProposalHumanGateProps {
   readonly proposal: WeeklyPlanningProposalResponse;
   readonly onAccept: () => void;
   readonly onDiscard: () => void;
   readonly isAccepting?: boolean;
+  readonly isLabMode?: boolean;
+  readonly evidenceContext?: WeeklyPlanningEvidenceContext;
 }
 
 const WEEKDAY_SPANISH_NAMES: Readonly<Record<WeeklyPlanningWeekday, string>> = Object.freeze({
@@ -32,13 +38,50 @@ const WEEKDAY_SPANISH_NAMES: Readonly<Record<WeeklyPlanningWeekday, string>> = O
  * 2. TRANSIENT REVIEW: Displays the complete 5-day week without technical metadata.
  * 3. EXPLICIT HUMAN ACTIONS: Anita must explicitly choose "Usar esta propuesta" or "Descartar".
  * 4. LIFECYCLE SEPARATION: "Usar esta propuesta" creates an editable DRAFT; it is NOT approval/closure.
+ * 5. LAB EVIDENCE ONLY: In LAB mode, offers deterministic evidence capture without governance intrusion.
  */
 export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHumanGateProps> = ({
   proposal,
   onAccept,
   onDiscard,
   isAccepting = false,
+  isLabMode = false,
+  evidenceContext,
 }) => {
+  const [copied, setCopied] = useState(false);
+
+  const evidenceJson = useMemo(() => {
+    if (!isLabMode || !evidenceContext) return null;
+    try {
+      return serializeWeeklyPlanningProposalEvidence(proposal, evidenceContext);
+    } catch {
+      return null;
+    }
+  }, [isLabMode, evidenceContext, proposal]);
+
+  const handleCopyEvidence = async () => {
+    if (!evidenceJson) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(evidenceJson);
+      } else if (typeof document !== 'undefined') {
+        const textarea = document.createElement('textarea');
+        textarea.value = evidenceJson;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Passive fallback: never crash UI on clipboard permission issue
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
@@ -57,9 +100,22 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
               <p className="text-sm text-teal-100 mt-1 font-medium">
                 TutorIA preparó una propuesta para tu semana. Revísala antes de incorporarla a tu planeación.
               </p>
-              <div className="mt-2 inline-flex items-center gap-1.5 bg-teal-700/60 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full border border-teal-500/40">
-                <span>🛡️</span>
-                <span>Tú decides qué usar.</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1.5 bg-teal-700/60 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full border border-teal-500/40">
+                  <span>🛡️</span>
+                  <span>Tú decides qué usar.</span>
+                </div>
+                {isLabMode && (
+                  <button
+                    type="button"
+                    data-testid="copy-lab-evidence-button"
+                    onClick={handleCopyEvidence}
+                    disabled={!evidenceJson}
+                    className="inline-flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/40 text-xs font-semibold px-3 py-0.5 rounded-full transition cursor-pointer disabled:opacity-50"
+                  >
+                    <span>{copied ? '✓ Evidencia copiada' : '📋 Copiar evidencia LAB'}</span>
+                  </button>
+                )}
               </div>
             </div>
             <button
@@ -169,6 +225,17 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
             {isAccepting ? 'Guardando borrador…' : 'Usar esta propuesta'}
           </button>
         </div>
+
+        {/* Testable LAB evidence surface (LAB only) */}
+        {isLabMode && evidenceJson && (
+          <pre
+            data-testid="lab-evidence-json"
+            style={{ display: 'none' }}
+            aria-hidden="true"
+          >
+            {evidenceJson}
+          </pre>
+        )}
       </div>
     </div>
   );

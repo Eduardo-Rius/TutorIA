@@ -314,6 +314,17 @@ export class OpenAIWeeklyPlanningExecutor implements WeeklyPlanningAIExecutor {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
+    const responseFormat = payload.responseSchema
+      ? {
+          type: 'json_schema' as const,
+          json_schema: {
+            name: 'weekly_planning_proposal',
+            strict: true,
+            schema: payload.responseSchema,
+          },
+        }
+      : { type: 'json_object' as const };
+
     // 3. Dispatch HTTP request with explicit bounded parameters (exactly 1 call, 0 retries)
     let response: Response;
     try {
@@ -330,7 +341,7 @@ export class OpenAIWeeklyPlanningExecutor implements WeeklyPlanningAIExecutor {
             { role: 'user', content: payload.userPrompt },
           ],
           temperature: this.temperature,
-          response_format: { type: 'json_object' },
+          response_format: responseFormat,
           max_completion_tokens: this.maxCompletionTokens,
         }),
         signal: controller.signal,

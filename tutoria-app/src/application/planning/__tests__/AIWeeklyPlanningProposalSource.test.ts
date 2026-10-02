@@ -71,43 +71,43 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       activities: [
         {
           category: 'EXPERIENCIAS ARTÍSTICAS',
-          objective: 'Estimulación auditiva y rítmica suave con música infantil',
-          description:
-            'La educadora reproduce música infantil suave y canta nanas sosteniendo contacto visual afectivo.',
+          objective: 'Estimulación auditiva y rítmica suave con nanas',
+          proceduralAction:
+            'Reproducir {material} suave y cantar nanas sosteniendo contacto visual afectivo.',
           durationMinutes: 15,
-          materials: ['música infantil'],
+          materialRefs: ['MAT-01'],
         },
         {
           category: 'AMBIENTES DE APRENDIZAJE',
-          objective: 'Exploración táctil con telas suaves de diferentes texturas',
-          description:
-            'Se deslizan telas de diferentes texturas suavemente sobre los brazos del lactante sobre superficie segura.',
+          objective: 'Exploración táctil suave en brazos del lactante',
+          proceduralAction:
+            'Deslizar {material} suavemente sobre los brazos del lactante sobre superficie segura.',
           durationMinutes: 15,
-          materials: ['telas de diferentes texturas'],
+          materialRefs: ['MAT-02'],
         },
         {
           category: 'ACTIVACIÓN FÍSICA',
           objective: 'Movimiento guiado de pataleo libre y flexión suave',
-          description:
-            'Pataleo libre y flexión guiada de extremidades sobre colchoneta mientras se entona una melodía suave.',
+          proceduralAction:
+            'Presentar {material} frente al lactante durante el pataleo libre y flexión guiada de extremidades.',
           durationMinutes: 10,
-          materials: ['recipientes plásticos'],
+          materialRefs: ['MAT-03'],
         },
         {
           category: 'LECTURA EN VOZ ALTA',
           objective: 'Vínculo afectivo mediante narración sonora y rimas',
-          description:
-            'La educadora entona rimas breves con voz suave y cercana observando las respuestas del lactante.',
+          proceduralAction:
+            'Entonar rimas breves con voz suave y acompañar con {material} de fondo observando las respuestas.',
           durationMinutes: 10,
-          materials: ['música infantil'],
+          materialRefs: ['MAT-01'],
         },
         {
           category: 'PENSAMIENTO MATEMÁTICO',
-          objective: 'Seguimiento visual y noción de permanencia con pelota suave',
-          description:
-            'Desplazamiento lento de una pelota suave frente al campo visual del lactante para favorecer la fijación ocular.',
+          objective: 'Seguimiento visual y noción de permanencia ocular',
+          proceduralAction:
+            'Desplazar lentamente {material} frente al campo visual del lactante para favorecer la fijación ocular.',
           durationMinutes: 10,
-          materials: ['Pelotas suaves'],
+          materialRefs: ['MAT-01'],
         },
       ],
     })),
@@ -126,11 +126,11 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         activities: [
           {
             category: 'EXPERIENCIAS ARTÍSTICAS',
-            objective: 'Manipulación y moldeado de plastilina',
-            description:
-              'Los niños amasan la plastilina con sus manos formando pequeñas bolitas y viboritas sobre la mesa.',
+            objective: 'Manipulación y moldeado temprano',
+            proceduralAction:
+              'Los niños amasan la plastilina con sus manos formando pequeñas bolitas y viboritas sobre la mesa con {material}.',
             durationMinutes: 20,
-            materials: ['plastilina'],
+            materialRefs: ['MAT-03'],
           },
         ],
       },
@@ -140,11 +140,11 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         activities: [
           {
             category: 'ACTIVACIÓN FÍSICA',
-            objective: 'Desplazamiento motor hacia aros en el suelo',
-            description:
-              'Se colocan aros en el suelo para invitar a los niños a gatear o rodar hacia los aros.',
+            objective: 'Desplazamiento motor en el suelo',
+            proceduralAction:
+              'Se colocan aros en el suelo para invitar a los niños a gatear o rodar hacia los aros frente a {material}.',
             durationMinutes: 20,
-            materials: ['aros'],
+            materialRefs: ['MAT-03'],
           },
         ],
       },
@@ -154,11 +154,11 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         activities: [
           {
             category: 'AMBIENTES DE APRENDIZAJE',
-            objective: 'Exploración sensorial con semillas de diferentes texturas',
-            description:
-              'Se colocan semillas de diferentes tamaños y texturas para que los niños las toquen y manipulen.',
+            objective: 'Exploración sensorial táctil',
+            proceduralAction:
+              'Se colocan semillas de diferentes tamaños y texturas para que los niños las toquen y manipulen en {material}.',
             durationMinutes: 20,
-            materials: ['semillas'],
+            materialRefs: ['MAT-03'],
           },
         ],
       },
@@ -168,11 +168,11 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         activities: [
           {
             category: 'PENSAMIENTO MATEMÁTICO',
-            objective: 'Clasificar bloques por color y tamaño',
-            description:
-              'Los niños agrupan los bloques separando los grandes de los pequeños y los rojos de los azules.',
+            objective: 'Clasificación cognitiva temprana',
+            proceduralAction:
+              'Los niños agrupan los bloques separando los grandes de los pequeños y los rojos de los azules con {material}.',
             durationMinutes: 20,
-            materials: ['bloques'],
+            materialRefs: ['MAT-03'],
           },
         ],
       },
@@ -182,11 +182,11 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         activities: [
           {
             category: 'LECTURA EN VOZ ALTA',
-            objective: 'Participar activamente en cuento imitando sonidos o movimientos',
-            description:
-              'Lectura de cuento interactivo donde los lactantes imitan sonidos de animales.',
+            objective: 'Participar activamente en narración',
+            proceduralAction:
+              'Lectura interactiva donde los lactantes imitan sonidos de animales acompañados de {material}.',
             durationMinutes: 15,
-            materials: ['cuento'],
+            materialRefs: ['MAT-01'],
           },
         ],
       },
@@ -376,13 +376,22 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
     });
 
     it('plastilina manipulation blocks with PedagogicalPolicyViolationError', async () => {
+      const requestWithPlastilina = createRequest({
+        currentContext: {
+          observations: 'Observaciones',
+          identifiedNeeds: 'Necesidades',
+          specialSituations: 'Ninguna',
+          availableMaterials: 'Pelotas suaves, telas de diferentes texturas, plastilina',
+        },
+      });
       const output = createValid25ActivityResponse();
+      // MAT-03 resolves to 'plastilina'
       (output['days'] as any[])[0].activities[0] = {
         category: 'EXPERIENCIAS ARTÍSTICAS',
-        objective: 'Modelado con plastilina',
-        description: 'Manipulación de plastilina formando bolitas con las manos.',
+        objective: 'Modelado y motricidad fina',
+        proceduralAction: 'Manipulación de {material} formando bolitas con las manos.',
         durationMinutes: 15,
-        materials: ['plastilina'],
+        materialRefs: ['MAT-03'],
       };
 
       const mockExecutor: WeeklyPlanningAIExecutor = {
@@ -390,19 +399,28 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       };
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
-      await expect(provider.propose(createRequest())).rejects.toThrow(
+      await expect(provider.propose(requestWithPlastilina)).rejects.toThrow(
         PedagogicalPolicyViolationError
       );
     });
 
     it('loose seeds block with PedagogicalPolicyViolationError (choking hazard)', async () => {
+      const requestWithSeeds = createRequest({
+        currentContext: {
+          observations: 'Observaciones',
+          identifiedNeeds: 'Necesidades',
+          specialSituations: 'Ninguna',
+          availableMaterials: 'Pelotas suaves, telas de diferentes texturas, semillas',
+        },
+      });
       const output = createValid25ActivityResponse();
+      // MAT-03 resolves to 'semillas'
       (output['days'] as any[])[2].activities[0] = {
         category: 'AMBIENTES DE APRENDIZAJE',
-        objective: 'Exploración con semillas',
-        description: 'Se colocan semillas sueltas para manipulación sensorial.',
+        objective: 'Exploración sensorial táctil',
+        proceduralAction: 'Se colocan {material} sueltas para manipulación sensorial.',
         durationMinutes: 15,
-        materials: ['semillas', 'recipientes plásticos'],
+        materialRefs: ['MAT-03'],
       };
 
       const mockExecutor: WeeklyPlanningAIExecutor = {
@@ -410,7 +428,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       };
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
-      await expect(provider.propose(createRequest())).rejects.toThrow(
+      await expect(provider.propose(requestWithSeeds)).rejects.toThrow(
         PedagogicalPolicyViolationError
       );
     });
@@ -420,9 +438,9 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       (output['days'] as any[])[1].activities[0] = {
         category: 'ACTIVACIÓN FÍSICA',
         objective: 'Desplazamiento motor',
-        description: 'Invitar a los lactantes a gatear hacia los aros.',
+        proceduralAction: 'Invitar a los lactantes a gatear hacia los aros frente a {material}.',
         durationMinutes: 15,
-        materials: ['recipientes plásticos'],
+        materialRefs: ['MAT-03'],
       };
 
       const mockExecutor: WeeklyPlanningAIExecutor = {
@@ -440,9 +458,9 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       (output['days'] as any[])[3].activities[0] = {
         category: 'PENSAMIENTO MATEMÁTICO',
         objective: 'Clasificar objetos por color y tamaño',
-        description: 'Los niños agrupan bloques separando rojos de azules.',
+        proceduralAction: 'Los niños agrupan bloques separando rojos de azules con {material}.',
         durationMinutes: 15,
-        materials: ['recipientes plásticos'],
+        materialRefs: ['MAT-03'],
       };
 
       const mockExecutor: WeeklyPlanningAIExecutor = {
@@ -455,10 +473,10 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       );
     });
 
-    it('unsupplied material blocks with BlockingMaterialPolicyViolationError', async () => {
+    it('unsupplied material blocks with InvalidWeeklyPlanningProposalError', async () => {
       const output = createValid25ActivityResponse();
-      // Introduce an invented material not present in sampleAvailableMaterials
-      (output['days'] as any[])[0].activities[0].materials = ['acuarelas líquidas'];
+      // Introduce an unknown material ref not present in request-scoped table
+      (output['days'] as any[])[0].activities[0].materialRefs = ['MAT-99'];
 
       const mockExecutor: WeeklyPlanningAIExecutor = {
         execute: vi.fn().mockResolvedValue(output),
@@ -466,7 +484,27 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
       await expect(provider.propose(createRequest())).rejects.toThrow(
-        BlockingMaterialPolicyViolationError
+        InvalidWeeklyPlanningProposalError
+      );
+    });
+
+    it('legacy { description, materials } payload is rejected in production provider path', async () => {
+      const output = createValid25ActivityResponse();
+      (output['days'] as any[])[0].activities[0] = {
+        category: 'EXPERIENCIAS ARTÍSTICAS',
+        objective: 'Estimular la respuesta auditiva',
+        description: 'Utilizar sonajas suaves para captar la atención de los lactantes.',
+        materials: [],
+        durationMinutes: 10,
+      };
+
+      const mockExecutor: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue(output),
+      };
+      const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
+
+      await expect(provider.propose(createRequest())).rejects.toThrow(
+        InvalidWeeklyPlanningProposalError
       );
     });
 
@@ -480,9 +518,9 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'EXPERIENCIAS ARTÍSTICAS',
               objective: 'Estimulación auditiva suave',
-              description: 'Nanas suaves con música.',
+              proceduralAction: 'Nanas suaves con {material}.',
               durationMinutes: 15,
-              materials: ['música infantil'],
+              materialRefs: ['MAT-01'],
             },
           ],
         })),
@@ -499,14 +537,22 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
     });
 
     it('no partial unsafe proposal returned on failure', async () => {
+      const requestWithPlastilina = createRequest({
+        currentContext: {
+          observations: 'Observaciones',
+          identifiedNeeds: 'Necesidades',
+          specialSituations: 'Ninguna',
+          availableMaterials: 'Pelotas suaves, telas de diferentes texturas, recipientes plásticos, plastilina',
+        },
+      });
       const outputWithSingleUnsafeDay = createValid25ActivityResponse();
-      // Friday has one unsafe activity
+      // Friday has one unsafe activity using MAT-04 (plastilina)
       (outputWithSingleUnsafeDay['days'] as any[])[4].activities[4] = {
         category: 'PENSAMIENTO MATEMÁTICO',
-        objective: 'Manipulación de plastilina',
-        description: 'Amasar plastilina.',
+        objective: 'Manipulación y modelado',
+        proceduralAction: 'Amasar {material} con las manos.',
         durationMinutes: 15,
-        materials: ['plastilina'],
+        materialRefs: ['MAT-04'],
       };
 
       const mockExecutor: WeeklyPlanningAIExecutor = {
@@ -515,7 +561,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
       // Must reject completely; no partial 4-day plan is returned
-      await expect(provider.propose(createRequest())).rejects.toThrow();
+      await expect(provider.propose(requestWithPlastilina)).rejects.toThrow();
     });
 
     it('no silent rewrite occurs: input model response is strictly parsed without modification', async () => {

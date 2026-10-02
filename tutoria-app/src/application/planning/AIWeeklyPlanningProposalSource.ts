@@ -5,6 +5,7 @@ import {
   WeeklyPlanningProposalSource,
   WeeklyPlanningProposalConstraints,
   WeeklyPlanningModality,
+  ProposedActivity,
   InvalidWeeklyPlanningProposalError,
   UnsupportedPedagogicalPolicyError,
   PedagogicalPolicyViolationError,
@@ -102,12 +103,225 @@ export interface PrivacyMinimizedPlanningInput {
 }
 
 /**
+ * Single entry in the request-scoped ephemeral material symbol table.
+ */
+export interface RequestScopedMaterialEntry {
+  readonly refId: string;
+  readonly displayName: string;
+  readonly source: 'EDUCATOR_SUPPLIED' | 'APPROVED_FIXTURE';
+}
+
+/**
+ * Ephemeral, request-scoped material symbol table.
+ *
+ * Guaranteed invariants:
+ * - Deterministic IDs (MAT-01, MAT-02, ...)
+ * - Deterministic order (educator materials first, then approved room fixtures)
+ * - Request-scoped only (pure in-memory object, zero persistence, zero Firebase)
+ * - No timestamps, no random UUIDs
+ * - Preserves educator-facing display text for server-controlled projection.
+ */
+export interface RequestScopedMaterialTable {
+  readonly entries: readonly RequestScopedMaterialEntry[];
+  readonly refMap: ReadonlyMap<string, RequestScopedMaterialEntry>;
+  readonly displayNameMap: ReadonlyMap<string, RequestScopedMaterialEntry>;
+}
+
+/**
+ * Deterministically constructs a request-scoped material symbol table.
+ */
+export function createRequestScopedMaterialTable(
+  allowedMaterials: readonly string[],
+  approvedRoomFixtures: readonly string[] = []
+): RequestScopedMaterialTable {
+  const entries: RequestScopedMaterialEntry[] = [];
+  const refMap = new Map<string, RequestScopedMaterialEntry>();
+  const displayNameMap = new Map<string, RequestScopedMaterialEntry>();
+  const seenNormalizedNames = new Set<string>();
+
+  let counter = 1;
+
+  for (const rawName of allowedMaterials) {
+    const trimmed = rawName.trim();
+    if (!trimmed) continue;
+    const normalized = trimmed.toLowerCase();
+    if (seenNormalizedNames.has(normalized)) continue;
+    seenNormalizedNames.add(normalized);
+
+    const refId = `MAT-${String(counter).padStart(2, '0')}`;
+    counter++;
+
+    const entry: RequestScopedMaterialEntry = Object.freeze({
+      refId,
+      displayName: trimmed,
+      source: 'EDUCATOR_SUPPLIED',
+    });
+    entries.push(entry);
+    refMap.set(refId, entry);
+    displayNameMap.set(normalized, entry);
+  }
+
+  for (const rawFixture of approvedRoomFixtures) {
+    const trimmed = rawFixture.trim();
+    if (!trimmed) continue;
+    const normalized = trimmed.toLowerCase();
+    if (seenNormalizedNames.has(normalized)) continue;
+    seenNormalizedNames.add(normalized);
+
+    const refId = `MAT-${String(counter).padStart(2, '0')}`;
+    counter++;
+
+    const entry: RequestScopedMaterialEntry = Object.freeze({
+      refId,
+      displayName: trimmed,
+      source: 'APPROVED_FIXTURE',
+    });
+    entries.push(entry);
+    refMap.set(refId, entry);
+    displayNameMap.set(normalized, entry);
+  }
+
+  return Object.freeze({
+    entries: Object.freeze(entries),
+    refMap,
+    displayNameMap,
+  });
+}
+
+/**
+ * Builds the strict JSON Schema for weekly planning AI generation.
+ * Restricts materialRefs items dynamically to the request-scoped ref enum.
+ */
+export function buildWeeklyPlanningJsonSchema(
+  table: RequestScopedMaterialTable,
+  allowedCategories: readonly string[] = IMSS_CATEGORIES,
+  maxDurationMinutes = 60
+): Record<string, unknown> {
+  const allowedRefs = table.entries.map((e) => e.refId);
+  const refEnum = allowedRefs.length > 0 ? allowedRefs : ['SIN_MATERIAL'];
+
+  return {
+    type: 'object',
+    properties: {
+      days: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            dayOfWeek: {
+              type: 'string',
+              enum: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+            },
+            activities: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  category: {
+                    type: 'string',
+                    enum: [...allowedCategories],
+                  },
+                  objective: {
+                    type: 'string',
+                    description:
+                      'Pedagogical/developmental objective in natural Spanish. Must be strictly material-agnostic.',
+                  },
+                  proceduralAction: {
+                    type: 'string',
+                    description:
+                      'Procedural interaction in Spanish. In material-bearing activities, use {material} for the resolved material.',
+                  },
+                  materialRefs: {
+                    type: 'array',
+                    items: {
+                      type: 'string',
+                      enum: [...refEnum],
+                    },
+                    description:
+                      'Array of material reference IDs from the allowed set, or empty array if no physical material is needed.',
+                  },
+                  durationMinutes: {
+                    type: 'integer',
+                    minimum: 1,
+                    maximum: maxDurationMinutes,
+                  },
+                },
+                required: [
+                  'category',
+                  'objective',
+                  'proceduralAction',
+                  'materialRefs',
+                  'durationMinutes',
+                ],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ['dayOfWeek', 'activities'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['days'],
+    additionalProperties: false,
+  };
+}
+
+/**
+ * Deterministically formats a list of material names into natural Spanish conjunction.
+ */
+export function formatSpanishMaterialList(materials: readonly string[]): string {
+  if (materials.length === 0) return '';
+  if (materials.length === 1) return materials[0] ?? '';
+  if (materials.length === 2) return `${materials[0] ?? ''} y ${materials[1] ?? ''}`;
+  const last = materials[materials.length - 1] ?? '';
+  return `${materials.slice(0, -1).join(', ')} y ${last}`;
+}
+
+/**
+ * Validates that an activity objective is strictly material-agnostic:
+ * - Must NOT contain material ref syntax (e.g. MAT-01, {material})
+ * - Must NOT name any request-scoped material display name from the educator set.
+ *
+ * NOTE ON HONESTY BOUNDARY:
+ * Does NOT use an open-ended dictionary or claim 100% Spanish NLP coverage.
+ * Deterministically rejects the request-scoped material set display names and ref syntax.
+ */
+export function validateObjectiveForMaterialAgnosticism(
+  objective: string,
+  table: RequestScopedMaterialTable
+): void {
+  if (typeof objective !== 'string' || !objective.trim()) {
+    throw new InvalidWeeklyPlanningProposalError('Activity objective must be a non-empty string.');
+  }
+
+  // Ref syntax check
+  if (/MAT-\d+/i.test(objective) || /\{material(es)?\}/i.test(objective)) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity objective must be material-agnostic and cannot contain material reference syntax: "${objective}"`
+    );
+  }
+
+  // Request-scoped material display names check
+  const lowerObjective = objective.toLowerCase();
+  for (const entry of table.entries) {
+    const lowerName = entry.displayName.toLowerCase();
+    if (lowerObjective.includes(lowerName)) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity objective must be material-agnostic and cannot name physical materials. Found "${entry.displayName}" in objective: "${objective}"`
+      );
+    }
+  }
+}
+
+/**
  * Payload sent to the WeeklyPlanningAIExecutor seam.
  */
 export interface WeeklyPlanningAIPromptPayload {
   readonly systemPrompt: string;
   readonly userPrompt: string;
   readonly minimizedInput: PrivacyMinimizedPlanningInput;
+  readonly responseSchema?: Record<string, unknown>;
 }
 
 /**
@@ -176,8 +390,8 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     'Your role is to propose a weekly pedagogical plan containing candidate activities for educator Anita.',
     '',
     'STRICT PEDAGOGICAL & ARCHITECTURAL INVARIANTS:',
-    '1. LANGUAGE: All generated pedagogical content (objectives, descriptions, materials) MUST be written strictly in natural, professional Spanish (español).',
-    '   - Do NOT output objectives, descriptions, or pedagogical explanations in English or any language other than Spanish.',
+    '1. LANGUAGE: All generated pedagogical content (objectives, procedural actions) MUST be written strictly in natural, professional Spanish (español).',
+    '   - Do NOT output objectives, actions, or pedagogical explanations in English or any language other than Spanish.',
     '2. HUMAN AUTHORITY: TutorIA proposes; educator Anita decides.',
     '   - You are NOT authorized to approve, submit, persist, evaluate, or close any planning.',
     '   - You must NEVER generate approval status, signatures, review states, or institutional closure metadata.',
@@ -187,17 +401,23 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     `   - For current product behavior, you MUST generate exactly ${policy?.targetActivitiesPerDay ?? 5} activities per operational day (total of 25 activities for Monday–Friday).`,
     '   - Note: This is a TutorIA product default designed to structure the daily pedagogical routine across diverse moments; it is NOT an IMSS normative requirement.',
     `   - Do NOT generate fewer than ${policy?.targetActivitiesPerDay ?? 5} activities for any weekday.`,
-    '5. STRICT MATERIAL ENCLOSURE BOUNDARY:',
+    '5. STRICT MATERIAL ENCLOSURE BOUNDARY & MATERIAL REFS (DEFENSE IN DEPTH):',
     '   - Activity materials MUST be selected ONLY from: A. educator-provided available materials + B. explicitly approved room fixtures.',
-    '   - Use only the materials explicitly provided in the allowed material set. Do not introduce, require, recommend, substitute, or assume any other material.',
-    '   - If the allowed material set is insufficient for a proposed activity, adapt the activity to the allowed materials. Do NOT invent another material under any circumstances.',
-    '6. ACTIVITIES CONTENT & TAXONOMY:',
-    '   - Each proposed activity may contain ONLY the following fields: "category", "objective", "description", "durationMinutes", "materials".',
+    '   - Do not introduce, require, recommend, substitute, or assume any other material.',
+    '   - "materialRefs" is the ONLY authoritative physical material channel.',
+    '   - Select materialRefs ONLY from the provided request-scoped allowed ref set (e.g. "MAT-01", "MAT-02").',
+    '   - NEVER invent, require, introduce, or assume a physical material, toy, prop, instrument, or classroom object outside the allowed set.',
+    '   - Do NOT name physical materials in the "objective". The objective describes WHAT developmental capability or pedagogical purpose is intended and MUST be strictly material-agnostic.',
+    '   - Do NOT smuggle unavailable physical objects into the "proceduralAction" or free text.',
+    '   - If an activity would require an unavailable material, choose another activity that uses only allowed materials or no materials.',
+    '   - An empty "materialRefs" array ([]) means the activity genuinely requires NO physical material (relies exclusively on vocal, body, movement, or caregiver-child interaction). In zero-material activities, do NOT use object-introducing verbs ("utilizar", "usar", "emplear", "ocupar") and do NOT introduce physical props or toys.',
+    '6. ACTIVITIES CONTENT & TAXONOMY (PROVIDER-INTERNAL STRUCTURED CONTRACT):',
+    '   - Each proposed activity MUST contain EXACTLY the following fields: "category", "objective", "proceduralAction", "materialRefs", "durationMinutes".',
     `   - The "category" must strictly be one of the allowed canonical IMSS categories: ${categoriesList}.`,
-    '   - The "objective" must clearly state the pedagogical purpose for the children in natural Spanish.',
-    '   - The "description" must describe the procedural pedagogical activity for the classroom.',
+    '   - The "objective" describes the developmental capability or pedagogical purpose in natural Spanish. It MUST NOT name physical materials or toys.',
+    '   - The "proceduralAction" describes the pedagogical teacher action/interaction. In material-bearing activities, use the placeholder "{material}" where the material is used. In non-material activities, describe direct educator-child interactions without physical props.',
+    '   - The "materialRefs" must be an array of ref IDs from the allowed set, or [] if no material is needed.',
     `   - The "durationMinutes" must be an integer duration in minutes appropriate for early childhood${policy?.recommendedMaxDurationMinutes ? ` (recommended max: ${policy.recommendedMaxDurationMinutes} minutes)` : ''}.`,
-    '   - The "materials" must be an array of non-empty strings chosen strictly from the allowed material set.',
   ];
 
   if (policy) {
@@ -234,10 +454,10 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '         "activities": [',
     '           {',
     '             "category": "EXPERIENCIAS ARTÍSTICAS",',
-    '             "objective": "Objetivo pedagógico en español...",',
-    '             "description": "Descripción de la actividad en español...",',
-    '             "durationMinutes": 15,',
-    '             "materials": ["Material de la lista permitida"]',
+    '             "objective": "Estimular el seguimiento visual y la atención compartida...",',
+    '             "proceduralAction": "Desplazar lentamente {material} frente al campo visual observando la respuesta.",',
+    '             "materialRefs": ["MAT-01"],',
+    '             "durationMinutes": 15',
     '           }',
     '           ... (exactly 5 activities)',
     '         ]',
@@ -253,7 +473,10 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
 /**
  * Constructs the user prompt containing classroom specs and untrusted context tagged as inert data.
  */
-export function buildWeeklyPlanningAIUserPrompt(input: PrivacyMinimizedPlanningInput): string {
+export function buildWeeklyPlanningAIUserPrompt(
+  input: PrivacyMinimizedPlanningInput,
+  materialTable?: RequestScopedMaterialTable
+): string {
   const sections: string[] = [
     '# CLASSROOM & WEEK SPECIFICATIONS',
     `- Modality: ${input.modality}`,
@@ -262,7 +485,13 @@ export function buildWeeklyPlanningAIUserPrompt(input: PrivacyMinimizedPlanningI
     `- Week Range: ${input.weekStart} to ${input.weekEnd}`,
   ];
 
-  if (input.generationPolicy) {
+  if (materialTable && materialTable.entries.length > 0) {
+    sections.push(
+      '# REQUEST-SCOPED MATERIAL SYMBOL TABLE (AUTHORITATIVE ALLOWED REFS)',
+      ...materialTable.entries.map((e) => `- ${e.refId}: ${e.displayName} (${e.source})`),
+      '- Boundary Instruction: "materialRefs" is the ONLY authoritative physical material channel. You MUST select materialRefs ONLY from the ref IDs listed above. Any other material, toy, or prop is strictly forbidden. If an activity requires no physical material, use [].'
+    );
+  } else if (input.generationPolicy) {
     sections.push(
       '# AUTHORITATIVE ALLOWED MATERIALS SET (STRICT ENCLOSURE)',
       '- Educator-Provided Available Materials: ' +
@@ -273,7 +502,7 @@ export function buildWeeklyPlanningAIUserPrompt(input: PrivacyMinimizedPlanningI
         (input.generationPolicy.approvedRoomFixtures.length > 0
           ? input.generationPolicy.approvedRoomFixtures.join(', ')
           : '(None approved)'),
-      '- Boundary Instruction: You MUST select materials ONLY from the items listed above. Any other material is strictly prohibited.'
+      '- Boundary Instruction: You MUST select materials ONLY from the items listed above. Any other material is strictly prohibited. If an activity requires no physical material, use [].'
     );
   }
 
@@ -319,26 +548,239 @@ export function buildWeeklyPlanningAIUserPrompt(input: PrivacyMinimizedPlanningI
  * Builds the complete prompt payload for execution.
  */
 export function buildWeeklyPlanningAIPromptPayload(
-  input: PrivacyMinimizedPlanningInput
+  input: PrivacyMinimizedPlanningInput,
+  materialTable?: RequestScopedMaterialTable
 ): WeeklyPlanningAIPromptPayload {
+  const responseSchema = materialTable
+    ? buildWeeklyPlanningJsonSchema(
+        materialTable,
+        input.constraints?.allowedCategories,
+        input.constraints?.maxDurationMinutes ?? 60
+      )
+    : undefined;
+
   return Object.freeze({
     systemPrompt: buildWeeklyPlanningAISystemPrompt(input),
-    userPrompt: buildWeeklyPlanningAIUserPrompt(input),
+    userPrompt: buildWeeklyPlanningAIUserPrompt(input, materialTable),
     minimizedInput: input,
+    ...(responseSchema ? { responseSchema } : {}),
   });
 }
 
 /**
- * Strictly parses and allowlists the raw untrusted AI model output.
+ * Validates that proceduralAction does not smuggle unauthorized physical materials,
+ * does not use unprojected ref syntax, does not mention unselected request materials,
+ * and does not use object-introducing action verbs when materialRefs is empty.
+ *
+ * In addition, blocks the known Case A defect ("sonajas suaves" / "sonajas")
+ * unless explicitly authorized in the request-scoped table.
+ */
+export function validateProceduralActionEnclosure(
+  proceduralAction: string,
+  resolvedMaterials: readonly string[],
+  table: RequestScopedMaterialTable,
+  dayIndex: number,
+  actIndex: number
+): void {
+  // 1. Ref syntax leakage check
+  if (/MAT-\d+/i.test(proceduralAction)) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction contains unprojected material ref syntax: "${proceduralAction}"`
+    );
+  }
+
+  // 2. Case A Golden Regression: Block unauthorized 'sonaja' / 'sonajas' / 'sonajas suaves'
+  // if not authorized in the request-scoped symbol table
+  const isSonajaAuthorized =
+    table.displayNameMap.has('sonaja') ||
+    table.displayNameMap.has('sonajas') ||
+    table.displayNameMap.has('sonajas suaves');
+
+  if (!isSonajaAuthorized && /\bsonajas?\b/i.test(proceduralAction)) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction introduces unauthorized material 'sonaja(s)' not present in request-scoped authorized materials.`
+    );
+  }
+
+  // 3. Undeclared request-scoped materials check:
+  // Cannot mention a material from the table without declaring its ref in materialRefs
+  for (const entry of table.entries) {
+    if (!resolvedMaterials.includes(entry.displayName)) {
+      const escaped = entry.displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+      if (regex.test(proceduralAction)) {
+        throw new InvalidWeeklyPlanningProposalError(
+          `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction mentions material '${entry.displayName}' without declaring its ref in materialRefs.`
+        );
+      }
+    }
+  }
+
+  // 4. Invariants for empty materialRefs (pure non-material interactions)
+  if (resolvedMaterials.length === 0) {
+    if (/\{material(es)?\}/i.test(proceduralAction)) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} with empty materialRefs cannot reference {material} in proceduralAction: "${proceduralAction}"`
+      );
+    }
+
+    // A non-material activity describes direct caregiver-child interaction and cannot use
+    // verbs of object utilization/employment (utilizar, usar, emplear, ocupar).
+    const objectVerbMatch = proceduralAction.match(/\b(utiliz|usar|emple|ocup)\w*\b/i);
+    if (objectVerbMatch) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} with empty materialRefs cannot use object-introducing action verb '${objectVerbMatch[0]}' without declaring authorized materialRefs: "${proceduralAction}"`
+      );
+    }
+  }
+}
+
+/**
+ * Projects a raw activity object into a canonical ProposedActivity.
+ * Enforces the provider-internal contract and projects resolved materials.
+ */
+export function projectInternalActivityToCanonical(
+  rawAct: Record<string, unknown>,
+  table: RequestScopedMaterialTable,
+  dayIndex: number,
+  actIndex: number
+): ProposedActivity {
+  // Strict Provider-Internal Contract: exactly category, objective, proceduralAction, materialRefs, durationMinutes
+  const allowedKeys = new Set([
+    'category',
+    'objective',
+    'proceduralAction',
+    'materialRefs',
+    'durationMinutes',
+  ]);
+
+  for (const key of Object.keys(rawAct)) {
+    if (!allowedKeys.has(key)) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} contains unexpected or forbidden property '${key}'.`
+      );
+    }
+  }
+
+  for (const reqKey of [
+    'category',
+    'objective',
+    'proceduralAction',
+    'materialRefs',
+    'durationMinutes',
+  ]) {
+    if (rawAct[reqKey] === undefined || rawAct[reqKey] === null) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} missing required property '${reqKey}'.`
+      );
+    }
+  }
+
+  const category = rawAct['category'] as ImssCategory;
+  const rawObjective = rawAct['objective'];
+  const rawProceduralAction = rawAct['proceduralAction'];
+  const rawMaterialRefs = rawAct['materialRefs'];
+  const durationMinutes = rawAct['durationMinutes'];
+
+  if (typeof rawObjective !== 'string' || !rawObjective.trim()) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} objective must be a non-empty string.`
+    );
+  }
+
+  if (typeof rawProceduralAction !== 'string' || !rawProceduralAction.trim()) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction must be a non-empty string.`
+    );
+  }
+
+  if (!Array.isArray(rawMaterialRefs)) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} materialRefs must be an array.`
+    );
+  }
+
+  if (typeof durationMinutes !== 'number' || durationMinutes < 1) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} durationMinutes must be a positive integer.`
+    );
+  }
+
+  const proceduralAction = rawProceduralAction.trim();
+  const objective = rawObjective.trim();
+
+  // Validate objective material-agnosticism
+  validateObjectiveForMaterialAgnosticism(objective, table);
+
+  // Validate and resolve materialRefs
+  const resolvedMaterials: string[] = [];
+  for (const ref of rawMaterialRefs) {
+    if (typeof ref !== 'string') {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} materialRef must be a string.`
+      );
+    }
+    const entry = table.refMap.get(ref.trim());
+    if (!entry) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Unknown material ref '${ref}' at day index ${dayIndex}, activity index ${actIndex}. Must be within request-scoped allowed set.`
+      );
+    }
+    resolvedMaterials.push(entry.displayName);
+  }
+
+  // Validate proceduralAction material enclosure
+  validateProceduralActionEnclosure(
+    proceduralAction,
+    resolvedMaterials,
+    table,
+    dayIndex,
+    actIndex
+  );
+
+  // Material-bearing procedural composition
+  let finalDescription: string;
+  if (resolvedMaterials.length === 0) {
+    finalDescription = proceduralAction;
+  } else {
+    // Material-bearing activity: project resolved material names into description
+    const formattedMaterials = formatSpanishMaterialList(resolvedMaterials);
+    if (/\{material(es)?\}/i.test(proceduralAction)) {
+      finalDescription = proceduralAction.replace(/\{material(es)?\}/gi, formattedMaterials);
+    } else {
+      finalDescription = `Con ${formattedMaterials}: ${proceduralAction}`;
+    }
+
+    if (/MAT-\d+/i.test(finalDescription)) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Composed description contains unprojected material ref syntax: "${finalDescription}"`
+      );
+    }
+  }
+
+  return {
+    category,
+    objective,
+    description: finalDescription,
+    durationMinutes,
+    materials: Object.freeze(resolvedMaterials),
+  };
+}
+
+/**
+ * Strictly parses, projects materialRefs, and allowlists the raw untrusted AI model output.
  *
  * Rejects unexpected, forbidden, or injected properties at all hierarchical levels:
  * - Root level: ONLY "days" permitted.
  * - Day level: ONLY "dayOfWeek", "date", "activities" permitted.
- * - Activity level: ONLY "category", "objective", "description", "durationMinutes", "materials" permitted.
+ * - Activity level: strictly projects provider-internal contract to canonical ProposedActivity.
  *
- * FAILS CLOSED on any lifecycle, evaluation, PII, or unexpected field.
+ * FAILS CLOSED on any lifecycle, evaluation, PII, unknown ref, or unexpected field.
  */
-export function parseAndAllowlistUntrustedProposal(rawOutput: unknown): WeeklyPlanningProposalResponse {
+export function parseAndAllowlistUntrustedProposal(
+  rawOutput: unknown,
+  materialTable?: RequestScopedMaterialTable
+): WeeklyPlanningProposalResponse {
   if (rawOutput === null || rawOutput === undefined) {
     throw new InvalidWeeklyPlanningProposalError('AI proposal output cannot be null or undefined.');
   }
@@ -401,14 +843,7 @@ export function parseAndAllowlistUntrustedProposal(rawOutput: unknown): WeeklyPl
 
     const rawActivities = dayObj['activities'] as unknown[];
 
-    // 3. Strict Activity Key Allowlist
-    const allowedActKeys = new Set([
-      'category',
-      'objective',
-      'description',
-      'durationMinutes',
-      'materials',
-    ]);
+    const effectiveTable = materialTable ?? createRequestScopedMaterialTable([]);
 
     const sanitizedActivities = rawActivities.map((rawAct, actIndex) => {
       if (!rawAct || typeof rawAct !== 'object' || Array.isArray(rawAct)) {
@@ -418,15 +853,7 @@ export function parseAndAllowlistUntrustedProposal(rawOutput: unknown): WeeklyPl
       }
 
       const actObj = rawAct as Record<string, unknown>;
-      for (const key of Object.keys(actObj)) {
-        if (!allowedActKeys.has(key)) {
-          throw new InvalidWeeklyPlanningProposalError(
-            `Activity at day index ${dayIndex}, activity index ${actIndex} contains unexpected or forbidden property '${key}'.`
-          );
-        }
-      }
-
-      return actObj as any;
+      return projectInternalActivityToCanonical(actObj, effectiveTable, dayIndex, actIndex);
     });
 
     return {
@@ -491,13 +918,19 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
     // 3. Pre-Generation Policy Projection
     const generationPolicy = projectPedagogicalGenerationPolicy(policy, request);
 
-    // 4. Build privacy-minimized input incorporating generation policy
+    // 4. Construct Request-Scoped Material Symbol Table
+    const materialTable = createRequestScopedMaterialTable(
+      generationPolicy.allowedMaterials,
+      generationPolicy.approvedRoomFixtures
+    );
+
+    // 5. Build privacy-minimized input incorporating generation policy
     const minimizedInput = buildPrivacyMinimizedAIInput(request, generationPolicy);
 
-    // 5. Build prompt payload
-    const promptPayload = buildWeeklyPlanningAIPromptPayload(minimizedInput);
+    // 6. Build prompt payload incorporating dynamic strict JSON schema and symbol table
+    const promptPayload = buildWeeklyPlanningAIPromptPayload(minimizedInput, materialTable);
 
-    // 6. Invoke injected executor seam
+    // 7. Invoke injected executor seam
     let rawOutput: unknown;
     try {
       rawOutput = await this.executor.execute(promptPayload);
@@ -508,16 +941,16 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       throw wrapped;
     }
 
-    // 7. Strict untrusted parsing and allowlist validation (Structural)
-    const allowlistedResponse = parseAndAllowlistUntrustedProposal(rawOutput);
+    // 8. Strict untrusted parsing, material projection, and allowlist validation (Structural)
+    const allowlistedResponse = parseAndAllowlistUntrustedProposal(rawOutput, materialTable);
 
-    // 8. Canonical H1R11.1 contract validator ensuring zero domain leakage
+    // 9. Canonical H1R11.1 contract validator ensuring zero domain leakage
     const canonicalResponse = validateWeeklyPlanningProposalResponse(
       allowlistedResponse,
       request.constraints
     );
 
-    // 9. Post-Generation Pedagogical Safety Gate
+    // 10. Post-Generation Pedagogical Safety Gate
     const evaluation = PedagogicalSafetyValidator.evaluatePlan(
       canonicalResponse,
       policy,
@@ -541,7 +974,7 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       );
     }
 
-    // 10. Density Target Validation (Current Product Default = 5/day)
+    // 11. Density Target Validation (Current Product Default = 5/day)
     const shouldEnforceTarget = this.options?.enforceDailyTarget !== false;
     if (shouldEnforceTarget) {
       const target = policy.densityPolicy.targetActivitiesPerDay;

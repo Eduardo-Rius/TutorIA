@@ -1,6 +1,6 @@
 import { logos } from '../../theme/logos';
 import { personas } from '../../theme/personas';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PlanningActorRole, PlanningWorkflowService } from '../../application/planning/PlanningWorkflowService';
 import { PedagogicalRecommendationSource } from '../../application/planning/PedagogicalRecommendationSource';
 import { WeeklyPlanning, PlanningDay } from '../../domain/planning/WeeklyPlanning';
@@ -514,6 +514,23 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
   const stableIdRef = useRef(`p-demo-${Date.now()}`);
   const currentPlanId = planId || stableIdRef.current;
 
+  const effectiveRoom = activeRoom
+    || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
+    || RoomCatalog.getRoom('lactantes-c')
+    || {
+      roomId: 'lactantes-c',
+      name: 'Lactantes C',
+      minAgeMonths: 12,
+      maxAgeMonths: 18,
+    };
+
+  const evidenceContext = useMemo(() => ({
+    room: effectiveRoom,
+    modality,
+    weekStart: weekStart || MOCK_START,
+    weekEnd: MOCK_END,
+  }), [effectiveRoom, modality, weekStart]);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const isGeneratingRef = useRef(false);
   const [pendingWeeklyProposal, setPendingWeeklyProposal] = useState<WeeklyPlanningProposalResponse | null>(null);
@@ -593,16 +610,6 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
     // Governed WeeklyPlanningProposalSource Human Gate path
     if (weeklyPlanningProposalSource) {
       try {
-        const effectiveRoom = activeRoom
-          || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
-          || RoomCatalog.getRoom('lactantes-c')
-          || {
-            roomId: 'lactantes-c',
-            name: 'Lactantes C',
-            minAgeMonths: 12,
-            maxAgeMonths: 18,
-          };
-
         const req: WeeklyPlanningProposalRequest = {
           planningId: currentPlanId,
           ...(isFirstLight ? { daycareId: FIRST_LIGHT_DAYCARE_ID } : {}),
@@ -1424,6 +1431,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
           onAccept={handleAcceptProposal}
           onDiscard={handleDiscardProposal}
           isAccepting={isAcceptingProposal}
+          isLabMode={isFirstLight}
+          evidenceContext={evidenceContext}
         />
       )}
     </div>
