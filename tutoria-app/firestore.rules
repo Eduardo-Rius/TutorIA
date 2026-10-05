@@ -76,29 +76,136 @@ service cloud.firestore {
       function isPedagogicalUpdateOnly() {
         // Only allow changes to pedagogical content, not ownership or status fields.
         let affected = request.resource.data.diff(resource.data).affectedKeys();
-        return !affected.hasAny(['teacherId', 'daycareId', 'roomId', 'status', 'reviewHistory']);
+        return !affected.hasAny(['teacherId', 'daycareId', 'roomId', 'status', 'reviewHistory', 'closedBy', 'closedAt', 'approvedBy', 'approvedAt']);
       }
 
-      function isReviewUpdateOnly() {
-        // Directors can only change review/status fields
+      function dayHasNoTeacherTampering(newDay, oldDay) {
+        // Teacher cannot set evaluationStatus to APPROVED unless it was already APPROVED
+        let approvedRetainedOrNotSet = (newDay.get('evaluationStatus', '') != 'APPROVED') ||
+          (oldDay != null && oldDay.get('evaluationStatus', '') == 'APPROVED');
+          
+        // Teacher cannot forge or alter evaluationReviewedBy
+        let reviewerUnchanged = (!('evaluationReviewedBy' in newDay)) ||
+          (oldDay != null && 'evaluationReviewedBy' in oldDay && newDay.evaluationReviewedBy == oldDay.evaluationReviewedBy);
+
+        // Teacher cannot forge or alter evaluationReviewedAt
+        let reviewedAtUnchanged = (!('evaluationReviewedAt' in newDay)) ||
+          (oldDay != null && 'evaluationReviewedAt' in oldDay && newDay.evaluationReviewedAt == oldDay.evaluationReviewedAt);
+
+        return approvedRetainedOrNotSet && reviewerUnchanged && reviewedAtUnchanged;
+      }
+
+      function daysHaveNoTeacherTampering() {
+        let newDays = request.resource.data.days;
+        let oldDays = resource.data.days;
+        return !(newDays is list) || (
+          newDays.size() != 5 ? false : (
+            dayHasNoTeacherTampering(newDays[0], (oldDays is list && oldDays.size() == 5) ? oldDays[0] : null) &&
+            dayHasNoTeacherTampering(newDays[1], (oldDays is list && oldDays.size() == 5) ? oldDays[1] : null) &&
+            dayHasNoTeacherTampering(newDays[2], (oldDays is list && oldDays.size() == 5) ? oldDays[2] : null) &&
+            dayHasNoTeacherTampering(newDays[3], (oldDays is list && oldDays.size() == 5) ? oldDays[3] : null) &&
+            dayHasNoTeacherTampering(newDays[4], (oldDays is list && oldDays.size() == 5) ? oldDays[4] : null)
+          )
+        );
+      }
+
+      function isTeacherPedagogicalUpdate() {
+        return (resource.data.status in ['DRAFT', 'REJECTED'])
+          && isPedagogicalUpdateOnly();
+      }
+
+      function isTeacherEvaluationUpdate() {
         let affected = request.resource.data.diff(resource.data).affectedKeys();
-        return affected.hasOnly(['status', 'reviewHistory', 'version', 'identifiedNeeds', 'observations']);
+        return resource.data.status == 'APPROVED'
+          && request.resource.data.status == 'APPROVED'
+          && affected.hasOnly(['days', 'version'])
+          && !affected.hasAny(['teacherId', 'daycareId', 'roomId', 'status', 'reviewHistory', 'closedBy', 'closedAt', 'approvedBy', 'approvedAt'])
+          && daysHaveNoTeacherTampering();
+      }
+
+      function dayHasValidDirectorReview(newDay, oldDay) {
+        // Director cannot alter core activities during evaluation review
+        let activitiesUnchanged = (oldDay == null) || (!('activities' in oldDay)) || (newDay.get('activities', []) == oldDay.activities);
+
+        // Director cannot forge someone else's review identity
+        let validReviewer = (!('evaluationReviewedBy' in newDay)) ||
+          (oldDay != null && 'evaluationReviewedBy' in oldDay && newDay.evaluationReviewedBy == oldDay.evaluationReviewedBy) ||
+          (newDay.evaluationReviewedBy == request.auth.uid);
+
+        return activitiesUnchanged && validReviewer;
+      }
+
+      function daysHaveValidDirectorReview() {
+        let newDays = request.resource.data.days;
+        let oldDays = resource.data.days;
+        return !(newDays is list) || (
+          newDays.size() != 5 ? false : (
+            dayHasValidDirectorReview(newDays[0], (oldDays is list && oldDays.size() == 5) ? oldDays[0] : null) &&
+            dayHasValidDirectorReview(newDays[1], (oldDays is list && oldDays.size() == 5) ? oldDays[1] : null) &&
+            dayHasValidDirectorReview(newDays[2], (oldDays is list && oldDays.size() == 5) ? oldDays[2] : null) &&
+            dayHasValidDirectorReview(newDays[3], (oldDays is list && oldDays.size() == 5) ? oldDays[3] : null) &&
+            dayHasValidDirectorReview(newDays[4], (oldDays is list && oldDays.size() == 5) ? oldDays[4] : null)
+          )
+        );
+      }
+
+      function isDirectorPlanningReview() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'IN_REVIEW'
+          && request.resource.data.status in ['APPROVED', 'REJECTED']
+          && affected.hasOnly(['status', 'reviewHistory', 'version', 'identifiedNeeds', 'observations', 'approvedBy', 'approvedAt', 'granularObservations', 'historicalRounds']);
+      }
+
+      function isDirectorEvaluationReview() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'APPROVED'
+          && request.resource.data.status == 'APPROVED'
+          && affected.hasOnly(['days', 'version'])
+          && daysHaveValidDirectorReview();
+      }
+
+      function isAllDailyEvaluationsApproved(days) {
+        return days is list && days.size() == 5 &&
+          days[0].get('evaluationStatus', '') == 'APPROVED' &&
+          days[1].get('evaluationStatus', '') == 'APPROVED' &&
+          days[2].get('evaluationStatus', '') == 'APPROVED' &&
+          days[3].get('evaluationStatus', '') == 'APPROVED' &&
+          days[4].get('evaluationStatus', '') == 'APPROVED';
+      }
+
+      function isDirectorWeekClosure() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'APPROVED'
+          && request.resource.data.status == 'CLOSED'
+          && affected.hasOnly(['status', 'closedBy', 'closedAt', 'version'])
+          && request.resource.data.closedBy == request.auth.uid
+          && ('closedAt' in request.resource.data)
+          && isAllDailyEvaluationsApproved(resource.data.days);
       }
 
       allow read: if isSignedIn() && (
         (isTeacher() && isPlanOwner() && belongsToDaycare(resource.data.daycareId)) ||
         (isDirector() && belongsToDaycare(resource.data.daycareId)) ||
-        (isSupervisor() && belongsToDaycare(resource.data.daycareId) && resource.data.status == 'APPROVED')
+        (isSupervisor() && belongsToDaycare(resource.data.daycareId) && (resource.data.status in ['APPROVED', 'CLOSED']))
       );
 
       allow create: if isSignedIn() && isTeacher() && isNewPlanOwner() && belongsToDaycare(request.resource.data.daycareId);
 
-      // Note: If safe field-level review transitions cannot yet be expressed completely, 
-      // we fail closed rather than grant broad update access. We permit limited field diffs here.
-      allow update: if isSignedIn() && (
-        (isTeacher() && isPlanOwner() && isPedagogicalUpdateOnly() && resource.data.daycareId == request.resource.data.daycareId) ||
-        (isDirector() && belongsToDaycare(resource.data.daycareId) && isReviewUpdateOnly())
-      );
+      allow update: if isSignedIn() 
+        && resource.data.status != 'CLOSED'
+        && resource.data.daycareId == request.resource.data.daycareId
+        && (
+          (
+            isTeacher() 
+            && isPlanOwner() 
+            && (isTeacherPedagogicalUpdate() || isTeacherEvaluationUpdate())
+          ) ||
+          (
+            isDirector() 
+            && belongsToDaycare(resource.data.daycareId) 
+            && (isDirectorPlanningReview() || isDirectorEvaluationReview() || isDirectorWeekClosure())
+          )
+        );
       
       allow delete: if false;
 
@@ -114,7 +221,7 @@ service cloud.firestore {
         allow read: if isSignedIn() && (
           (isTeacher() && getParentPlan().teacherId == request.auth.uid) ||
           (isDirector() && belongsToDaycare(getParentPlan().daycareId)) ||
-          (isSupervisor() && belongsToDaycare(getParentPlan().daycareId) && getParentPlan().status == 'APPROVED')
+          (isSupervisor() && belongsToDaycare(getParentPlan().daycareId) && (getParentPlan().status in ['APPROVED', 'CLOSED']))
         );
 
         allow create: if isSignedIn() 

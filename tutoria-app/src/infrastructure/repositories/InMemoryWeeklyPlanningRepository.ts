@@ -1,6 +1,7 @@
 import { WeeklyPlanning } from "../../domain/planning/WeeklyPlanning";
+import { WeeklyPlanningRepository } from "../../application/ports/WeeklyPlanningRepository";
 
-export class InMemoryWeeklyPlanningRepository {
+export class InMemoryWeeklyPlanningRepository implements WeeklyPlanningRepository {
   private data: Map<string, WeeklyPlanning> = new Map();
 
   private hydrate(serialized: string): WeeklyPlanning {

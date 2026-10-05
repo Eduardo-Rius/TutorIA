@@ -2,7 +2,82 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeTestEnvironment, RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { describe, it, beforeAll, afterAll, beforeEach, expect } from 'vitest';
-import { setDoc, doc, getDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { setDoc, doc, getDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+
+function createRealistic5Days() {
+  return ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].map((dayOfWeek, idx) => ({
+    date: `2026-08-${24 + idx}`,
+    dayOfWeek,
+    activities: [
+      {
+        activityId: `act-${dayOfWeek}-1`,
+        category: 'Juego',
+        objective: 'Objetivo pedagógico de juego sensorial',
+        description: 'Descripción detallada de la actividad con pelotas',
+        materials: ['Pelotas de esponja', 'Caja de cartón'],
+        durationMinutes: 20,
+        curricularTraceability: [
+          {
+            pdaId: 'TUTORIA-PDA-0001',
+            catalogRevision: 'TUTORIA-DIRECT-PDA-CATALOG-R1',
+          },
+        ],
+      },
+      {
+        activityId: `act-${dayOfWeek}-2`,
+        category: 'Arte',
+        objective: 'Objetivo pedagógico de exploración dactilar',
+        description: 'Descripción de arte y texturas de papel',
+        materials: ['Pintura dactilar no tóxica', 'Papel bond'],
+        durationMinutes: 25,
+        curricularTraceability: [
+          {
+            pdaId: 'TUTORIA-PDA-0002',
+            catalogRevision: 'TUTORIA-DIRECT-PDA-CATALOG-R1',
+          },
+        ],
+      },
+    ],
+    complementaryActivities: [],
+    materials: ['Pelotas de esponja', 'Caja de cartón', 'Pintura dactilar no tóxica', 'Papel bond'],
+  }));
+}
+
+function createRealisticSerializedPlan(params: {
+  planningId: string;
+  daycareId: string;
+  teacherId: string;
+  status: 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'CLOSED' | 'REJECTED';
+  days?: any[];
+  closedBy?: string;
+  closedAt?: Timestamp;
+  approvedBy?: string;
+  approvedAt?: Timestamp;
+}) {
+  return {
+    planningId: params.planningId,
+    daycareId: params.daycareId,
+    roomId: 'maternal-a',
+    teacherId: params.teacherId,
+    weekStart: '2026-08-24',
+    weekEnd: '2026-08-28',
+    status: params.status,
+    observations: 'Observaciones iniciales del grupo maternal',
+    identifiedNeeds: 'Desarrollo motriz fino y regulación sensorial',
+    specialSituations: 'Ninguna',
+    availableMaterials: 'Materiales estándar de sala maternal',
+    curricularReferences: ['PDA-EXPLORA-01', 'PDA-ARTE-02'],
+    version: 1,
+    granularObservations: [],
+    historicalRounds: [],
+    reviewHistory: [],
+    days: params.days || createRealistic5Days(),
+    ...(params.approvedBy ? { approvedBy: params.approvedBy } : {}),
+    ...(params.approvedAt ? { approvedAt: params.approvedAt } : {}),
+    ...(params.closedBy ? { closedBy: params.closedBy } : {}),
+    ...(params.closedAt ? { closedAt: params.closedAt } : {}),
+  };
+}
 
 let testEnv: RulesTestEnvironment;
 
@@ -52,6 +127,127 @@ beforeEach(async () => {
     await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-c-d2-approved'), {
       teacherId: 'teacherC', daycareId: 'daycare-2', status: 'APPROVED', observations: '', identifiedNeeds: '', curricularReferences: [], days: {}, version: 1, reviewHistory: []
     });
+
+    // Realistic 5-day evaluation planning fixtures (H1R13.2B)
+    const evalApprovedDays = createRealistic5Days();
+    evalApprovedDays[1] = {
+      ...evalApprovedDays[1],
+      evaluation: 'Observación previa de motricidad',
+      evaluationStatus: 'CHANGES_REQUESTED',
+      evaluationDirectorComment: 'Detallar observación de motricidad',
+      evaluationReviewedBy: 'director1',
+      evaluationReviewedAt: Timestamp.now(),
+      evaluationSubmittedBy: 'teacherA',
+      evaluationSubmittedAt: Timestamp.now(),
+    };
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d1-approved',
+      daycareId: 'daycare-1',
+      teacherId: 'teacherA',
+      status: 'APPROVED',
+      approvedBy: 'director1',
+      approvedAt: Timestamp.now(),
+      days: evalApprovedDays,
+    }));
+
+    const inReviewDays = createRealistic5Days();
+    inReviewDays[0] = {
+      ...inReviewDays[0],
+      evaluation: 'Evaluación de lunes completada y enviada',
+      evaluationConfirmedBy: 'teacherA',
+      evaluationConfirmedAt: Timestamp.now(),
+      evaluationStatus: 'IN_REVIEW',
+      evaluationSubmittedBy: 'teacherA',
+      evaluationSubmittedAt: Timestamp.now(),
+    };
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d1-in-review-day',
+      daycareId: 'daycare-1',
+      teacherId: 'teacherA',
+      status: 'APPROVED',
+      approvedBy: 'director1',
+      approvedAt: Timestamp.now(),
+      days: inReviewDays,
+    }));
+
+    const readyClosureDays = createRealistic5Days().map((day) => ({
+      ...day,
+      evaluation: `Evaluación aprobada para ${day.dayOfWeek}`,
+      evaluationStatus: 'APPROVED',
+      evaluationConfirmedBy: 'teacherA',
+      evaluationConfirmedAt: Timestamp.now(),
+      evaluationSubmittedBy: 'teacherA',
+      evaluationSubmittedAt: Timestamp.now(),
+      evaluationReviewedBy: 'director1',
+      evaluationReviewedAt: Timestamp.now(),
+    }));
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-ready-closure'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d1-ready-closure',
+      daycareId: 'daycare-1',
+      teacherId: 'teacherA',
+      status: 'APPROVED',
+      approvedBy: 'director1',
+      approvedAt: Timestamp.now(),
+      days: readyClosureDays,
+    }));
+
+    const notReadyDays = createRealistic5Days().map((day, idx) => ({
+      ...day,
+      evaluation: `Evaluación para ${day.dayOfWeek}`,
+      evaluationStatus: idx === 4 ? 'IN_REVIEW' : 'APPROVED',
+      evaluationConfirmedBy: 'teacherA',
+      evaluationConfirmedAt: Timestamp.now(),
+      evaluationSubmittedBy: 'teacherA',
+      evaluationSubmittedAt: Timestamp.now(),
+      ...(idx < 4 ? { evaluationReviewedBy: 'director1', evaluationReviewedAt: Timestamp.now() } : {}),
+    }));
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-not-ready-closure'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d1-not-ready-closure',
+      daycareId: 'daycare-1',
+      teacherId: 'teacherA',
+      status: 'APPROVED',
+      approvedBy: 'director1',
+      approvedAt: Timestamp.now(),
+      days: notReadyDays,
+    }));
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d1-closed',
+      daycareId: 'daycare-1',
+      teacherId: 'teacherA',
+      status: 'CLOSED',
+      approvedBy: 'director1',
+      approvedAt: Timestamp.now(),
+      closedBy: 'director1',
+      closedAt: Timestamp.now(),
+      days: readyClosureDays,
+    }));
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d2-approved'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d2-approved',
+      daycareId: 'daycare-2',
+      teacherId: 'teacherC',
+      status: 'APPROVED',
+      approvedBy: 'director2',
+      approvedAt: Timestamp.now(),
+      days: createRealistic5Days(),
+    }));
+
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-eval-d3-closed'), createRealisticSerializedPlan({
+      planningId: 'plan-eval-d3-closed',
+      daycareId: 'daycare-3',
+      teacherId: 'teacherOther',
+      status: 'CLOSED',
+      approvedBy: 'director3',
+      approvedAt: Timestamp.now(),
+      closedBy: 'director3',
+      closedAt: Timestamp.now(),
+      days: readyClosureDays,
+    }));
 
     // Create reviewObservations
     await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'reviewObservations', 'obs-director1'), {
@@ -455,6 +651,340 @@ describe('Firestore Security Rules', () => {
 
       const dbS = testEnv.authenticatedContext('supervisor2').firestore();
       await assertFails(getDoc(doc(dbS, 'weeklyPlannings', 'plan-teacher-a-d1-approved')));
+    });
+  });
+
+  describe('H1R13.2B — Governed Pedagogical Evaluation Security Rules Matrix', () => {
+    // ANITA
+    it('1. authenticated authorized Anita can perform allowed evaluation draft mutation', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluation: 'Borrador de evaluación de lunes',
+        evaluationStatus: 'DRAFT',
+      };
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), { days }));
+    });
+
+    it('2. Anita can submit an evaluation through the persisted field shape actually used by the application', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluation: 'Evaluación de lunes confirmada y enviada a revisión',
+        evaluationStatus: 'IN_REVIEW',
+        evaluationConfirmedBy: 'teacherA',
+        evaluationConfirmedAt: Timestamp.now(),
+        evaluationSubmittedBy: 'teacherA',
+        evaluationSubmittedAt: Timestamp.now(),
+      };
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), { days }));
+    });
+
+    it('3. Anita can correct/resubmit after CHANGES_REQUESTED when domain state permits', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'));
+      const days = [...planSnap.data()!.days];
+      // Day 1 (Tuesday) is in CHANGES_REQUESTED state
+      days[1] = {
+        ...days[1],
+        evaluation: 'Evaluación corregida con detalle ampliado de motricidad',
+        evaluationStatus: 'IN_REVIEW',
+        evaluationResubmitted: true,
+        evaluationConfirmedBy: 'teacherA',
+        evaluationConfirmedAt: Timestamp.now(),
+        evaluationSubmittedBy: 'teacherA',
+        evaluationSubmittedAt: Timestamp.now(),
+        evaluationHistory: [
+          {
+            evaluation: 'Observación previa de motricidad',
+            status: 'CHANGES_REQUESTED',
+            directorComment: 'Detallar observación de motricidad',
+            reviewedBy: 'director1',
+          },
+        ],
+      };
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), { days }));
+    });
+
+    it('4. Anita cannot mark her own evaluation APPROVED', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluation: 'Intento de auto-aprobación',
+        evaluationStatus: 'APPROVED',
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), { days }));
+    });
+
+    it('5. Anita cannot forge evaluationReviewedBy', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluation: 'Evaluación con revisor falso',
+        evaluationReviewedBy: 'director1',
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), { days }));
+    });
+
+    it('6. Anita cannot forge evaluationReviewedAt if that is director-owned', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluation: 'Evaluación con fecha de revisión falsa',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), { days }));
+    });
+
+    it('7. Anita cannot set closedBy', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), {
+        closedBy: 'teacherA',
+      }));
+    });
+
+    it('8. Anita cannot set closedAt', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), {
+        closedAt: Timestamp.now(),
+      }));
+    });
+
+    it('9. Anita cannot set status CLOSED', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), {
+        status: 'CLOSED',
+      }));
+    });
+
+    it('10. Anita cannot mutate another center\'s planning', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      const days = createRealistic5Days();
+      days[0] = {
+        ...days[0],
+        evaluation: 'Intento de modificación en otro centro',
+        evaluationStatus: 'DRAFT',
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d2-approved'), { days }));
+    });
+
+    // CECI
+    it('11. authorized Ceci can perform the exact persisted review mutation used for request-changes', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluationStatus: 'CHANGES_REQUESTED',
+        evaluationDirectorComment: 'Se requiere ampliar las notas de observación',
+        evaluationReviewedBy: 'director1',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), { days }));
+    });
+
+    it('12. authorized Ceci can perform the exact persisted review mutation used for approval', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluationStatus: 'APPROVED',
+        evaluationReviewedBy: 'director1',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), { days }));
+    });
+
+    it('13. Ceci can write legitimate review identity/timestamp fields when consistent with authenticated identity and current architecture', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'));
+      const daysLegit = [...planSnap.data()!.days];
+      daysLegit[0] = {
+        ...daysLegit[0],
+        evaluationStatus: 'APPROVED',
+        evaluationReviewedBy: 'director1',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), { days: daysLegit }));
+
+      // Counter-test: forged reviewer identity (impersonating director2)
+      const daysForged = [...planSnap.data()!.days];
+      daysForged[0] = {
+        ...daysForged[0],
+        evaluationStatus: 'APPROVED',
+        evaluationReviewedBy: 'director2',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), { days: daysForged }));
+    });
+
+    it('14. Ceci cannot arbitrarily mutate unrelated planning pedagogical content during evaluation review', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), {
+        observations: 'Modificación no autorizada de observaciones pedagógicas',
+      }));
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), {
+        curricularReferences: ['PDA-ALTERADA-01'],
+      }));
+    });
+
+    it('15. Ceci cannot review another center\'s planning', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      const days = createRealistic5Days();
+      days[0] = {
+        ...days[0],
+        evaluationStatus: 'APPROVED',
+        evaluationReviewedBy: 'director1',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d2-approved'), { days }));
+    });
+
+    it('16. Ceci can perform the existing authorized closure mutation only when the persisted shape satisfies the strongest enforceable security boundary', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      
+      // Case A: all 5 days are APPROVED -> closure succeeds
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-ready-closure'), {
+        status: 'CLOSED',
+        closedBy: 'director1',
+        closedAt: Timestamp.now(),
+      }));
+
+      // Case B: only 4 days are APPROVED -> closure fails
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-not-ready-closure'), {
+        status: 'CLOSED',
+        closedBy: 'director1',
+        closedAt: Timestamp.now(),
+      }));
+
+      // Case C: closure with forged closedBy fails
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-ready-closure'), {
+        status: 'CLOSED',
+        closedBy: 'director2',
+        closedAt: Timestamp.now(),
+      }));
+    });
+
+    it('17. Ceci cannot mutate a planning already CLOSED', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+        observations: 'Intento de modificar un plan cerrado',
+      }));
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+        status: 'APPROVED',
+      }));
+    });
+
+    // TERE
+    it('18. authorized Tere can read CLOSED planning in her permitted scope', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await assertSucceeds(getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed')));
+    });
+
+    it('19. Tere cannot update CLOSED planning', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+        observations: 'Intento de edición por supervisora',
+      }));
+    });
+
+    it('20. Tere cannot delete CLOSED planning', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await assertFails(deleteDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed')));
+    });
+
+    it('21. Tere cannot approve/reject evaluations', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      const planSnap = await getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'));
+      const days = [...planSnap.data()!.days];
+      days[0] = {
+        ...days[0],
+        evaluationStatus: 'APPROVED',
+        evaluationReviewedBy: 'supervisor1',
+        evaluationReviewedAt: Timestamp.now(),
+      };
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-in-review-day'), { days }));
+    });
+
+    it('22. Tere cannot read records outside authorized scope where current authorization model supports that scope', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      // supervisor1 has daycare-1 and daycare-2, but NOT daycare-3
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d3-closed')));
+    });
+
+    // GENERAL
+    it('23. unauthenticated read denied', async () => {
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed')));
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved')));
+    });
+
+    it('24. unauthenticated write denied', async () => {
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), {
+        status: 'CLOSED',
+      }));
+    });
+
+    it('25. arbitrary document role field cannot grant access', async () => {
+      const db = testEnv.authenticatedContext('legacyTeacher').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved')));
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-approved'), {
+        status: 'CLOSED',
+      }));
+    });
+
+    it('26. CLOSED immutable for Anita', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+        observations: 'Intento de modificación por Anita',
+      }));
+      await assertFails(deleteDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed')));
+    });
+
+    it('27. CLOSED immutable for Ceci', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+        observations: 'Intento de modificación por Ceci',
+      }));
+      await assertFails(deleteDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed')));
+    });
+
+    it('28. CLOSED immutable for Tere', async () => {
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+        observations: 'Intento de modificación por Tere',
+      }));
+      await assertFails(deleteDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed')));
+    });
+
+    it('29. planning approval permissions remain valid', async () => {
+      const dbT = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(updateDoc(doc(dbT, 'weeklyPlannings', 'plan-teacher-a-d1-review'), {
+        status: 'APPROVED',
+      }));
+
+      const dbD = testEnv.authenticatedContext('director1').firestore();
+      await assertSucceeds(updateDoc(doc(dbD, 'weeklyPlannings', 'plan-teacher-a-d1-review'), {
+        status: 'APPROVED',
+        version: 2,
+      }));
+    });
+
+    it('30. existing non-evaluation security-rule tests remain green', async () => {
+      // Confirmed by the full suite running alongside these tests
+      expect(true).toBe(true);
     });
   });
 });

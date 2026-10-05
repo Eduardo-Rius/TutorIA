@@ -1,11 +1,11 @@
 import { WeeklyPlanning, PlanningDay, WeeklyContextSnapshot, ComplementaryProgramActivity, PrioritizedPractice } from '../../domain/planning/WeeklyPlanning';
-import { InMemoryWeeklyPlanningRepository } from '../../infrastructure/repositories/InMemoryWeeklyPlanningRepository';
+import { WeeklyPlanningRepository } from '../ports/WeeklyPlanningRepository';
 import { RoomCatalog } from '../../domain/planning/RoomCatalog';
 
 export type PlanningActorRole = 'TEACHER' | 'DIRECTOR' | 'SUPERVISOR';
 
 export class PlanningWorkflowService {
-  constructor(private readonly repository: InMemoryWeeklyPlanningRepository) {}
+  constructor(private readonly repository: WeeklyPlanningRepository) {}
 
   public async createPlanning(
     planningId: string,
