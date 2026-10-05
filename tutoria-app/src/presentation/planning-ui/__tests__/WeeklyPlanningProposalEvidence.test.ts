@@ -33,6 +33,7 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
         date: '2026-08-24',
         activities: [
           {
+            experienceId: 'EXP-D1-A1',
             category: 'EXPERIENCIAS ARTÍSTICAS',
             objective: 'Estimular el rastreo visual y fijación de la mirada.',
             description: 'Movimiento guiado de móvil de contraste suave frente al infante.',
@@ -40,6 +41,7 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
             materials: ['Móvil de contraste visual', 'Colchoneta limpia'],
           },
           {
+            experienceId: 'EXP-D1-A2',
             category: 'ACTIVACIÓN FÍSICA',
             objective: 'Favorecer el tono muscular en cuello mediante tiempo boca abajo guiado.',
             description: 'Postura guiada sobre cuña suave con apoyo visual al frente.',
@@ -53,6 +55,7 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
         date: '2026-08-25',
         activities: [
           {
+            experienceId: 'EXP-D2-A1',
             category: 'LENGUAJE Y COMUNICACIÓN',
             objective: 'Promover la vocalización responsiva y el contacto visual.',
             description: 'Diálogo cara a cara con entonación melódica y pausas para respuesta.',
@@ -66,6 +69,7 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
         date: '2026-08-26',
         activities: [
           {
+            experienceId: 'EXP-D3-A1',
             category: 'AMBIENTES DE APRENDIZAJE',
             objective: 'Estimular la exploración sensorial táctil.',
             description: 'Contacto guiado con retazos de algodón y terciopelo.',
@@ -79,6 +83,7 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
         date: '2026-08-27',
         activities: [
           {
+            experienceId: 'EXP-D4-A1',
             category: 'LECTURA EN VOZ ALTA',
             objective: 'Acercar a la cadencia de la palabra cantada y leída.',
             description: 'Lectura rítmica con libro de tela y figuras grandes.',
@@ -92,6 +97,7 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
         date: '2026-08-28',
         activities: [
           {
+            experienceId: 'EXP-D5-A1',
             category: 'PENSAMIENTO MATEMÁTICO',
             objective: 'Desarrollar la noción de permanencia del objeto.',
             description: 'Juego de ocultar sonaja bajo manta ligera y descubrirla.',
@@ -101,6 +107,42 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
         ],
       },
     ],
+    progression: {
+      weeklyFocus: 'Estimulación sensorial temprana y comunicación afectiva',
+      experiences: [
+        {
+          experienceId: 'EXP-D1-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Estimular el rastreo visual y fijación de la mirada',
+        },
+        {
+          experienceId: 'EXP-D1-A2',
+          role: 'EXPLORE',
+          observationTarget: 'Favorecer el tono muscular en cuello mediante tiempo boca abajo guiado',
+        },
+        {
+          experienceId: 'EXP-D2-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Promover la vocalización responsiva y el contacto visual',
+        },
+        {
+          experienceId: 'EXP-D3-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Estimular la exploración sensorial táctil',
+        },
+        {
+          experienceId: 'EXP-D4-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Acercar a la cadencia de la palabra cantada y leída',
+        },
+        {
+          experienceId: 'EXP-D5-A1',
+          role: 'OBSERVE_OR_CONSOLIDATE',
+          revisitsExperienceId: 'EXP-D1-A1',
+          observationTarget: 'Desarrollar la noción de permanencia del objeto',
+        },
+      ],
+    },
   });
 
   // Requirement 3: evidence JSON contains canonical room context
@@ -250,14 +292,16 @@ describe('H1R12.1 — WeeklyPlanningProposalEvidence Deterministic Serializer', 
   });
 
   it('guarantees deterministic weekday sorting even if proposal days are out of order', () => {
+    const sample = createSampleProposal();
     const unorderedProposal: WeeklyPlanningProposalResponse = {
       days: [
-        createSampleProposal().days[4], // Friday
-        createSampleProposal().days[0], // Monday
-        createSampleProposal().days[2], // Wednesday
-        createSampleProposal().days[1], // Tuesday
-        createSampleProposal().days[3], // Thursday
+        sample.days[4], // Friday
+        sample.days[0], // Monday
+        sample.days[2], // Wednesday
+        sample.days[1], // Tuesday
+        sample.days[3], // Thursday
       ],
+      progression: sample.progression,
     };
 
     const evidence = buildWeeklyPlanningProposalEvidence(unorderedProposal, canonicalContext);

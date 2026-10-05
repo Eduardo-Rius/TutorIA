@@ -31,6 +31,7 @@ describe('H1R12.1 — WeeklyPlanningProposalHumanGate LAB Evidence Capture', () 
         date: '2026-08-24',
         activities: [
           {
+            experienceId: 'EXP-D1-A1',
             category: 'EXPERIENCIAS ARTÍSTICAS',
             objective: 'Estimular el rastreo visual.',
             description: 'Móvil de contraste visual suave.',
@@ -44,6 +45,7 @@ describe('H1R12.1 — WeeklyPlanningProposalHumanGate LAB Evidence Capture', () 
         date: '2026-08-25',
         activities: [
           {
+            experienceId: 'EXP-D2-A1',
             category: 'ACTIVACIÓN FÍSICA',
             objective: 'Favorecer tono muscular en cuello.',
             description: 'Tiempo boca abajo asistido.',
@@ -57,6 +59,7 @@ describe('H1R12.1 — WeeklyPlanningProposalHumanGate LAB Evidence Capture', () 
         date: '2026-08-26',
         activities: [
           {
+            experienceId: 'EXP-D3-A1',
             category: 'LENGUAJE Y COMUNICACIÓN',
             objective: 'Vocalización responsiva.',
             description: 'Diálogo cercano con entonación cantada.',
@@ -70,6 +73,7 @@ describe('H1R12.1 — WeeklyPlanningProposalHumanGate LAB Evidence Capture', () 
         date: '2026-08-27',
         activities: [
           {
+            experienceId: 'EXP-D4-A1',
             category: 'LECTURA EN VOZ ALTA',
             objective: 'Contacto visual con imágenes.',
             description: 'Lectura de cuento con figuras grandes.',
@@ -83,6 +87,7 @@ describe('H1R12.1 — WeeklyPlanningProposalHumanGate LAB Evidence Capture', () 
         date: '2026-08-28',
         activities: [
           {
+            experienceId: 'EXP-D5-A1',
             category: 'PENSAMIENTO MATEMÁTICO',
             objective: 'Permanencia del objeto.',
             description: 'Ocultar y descubrir sonaja con manta suave.',
@@ -92,6 +97,37 @@ describe('H1R12.1 — WeeklyPlanningProposalHumanGate LAB Evidence Capture', () 
         ],
       },
     ],
+    progression: {
+      weeklyFocus: 'Exploración sensorial y afectiva',
+      experiences: [
+        {
+          experienceId: 'EXP-D1-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Estimular el rastreo visual',
+        },
+        {
+          experienceId: 'EXP-D2-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Favorecer tono muscular en cuello',
+        },
+        {
+          experienceId: 'EXP-D3-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Vocalización responsiva',
+        },
+        {
+          experienceId: 'EXP-D4-A1',
+          role: 'EXPLORE',
+          observationTarget: 'Contacto visual con imágenes',
+        },
+        {
+          experienceId: 'EXP-D5-A1',
+          role: 'OBSERVE_OR_CONSOLIDATE',
+          revisitsExperienceId: 'EXP-D1-A1',
+          observationTarget: 'Permanencia del objeto',
+        },
+      ],
+    },
   });
 
   let originalClipboard: Clipboard;

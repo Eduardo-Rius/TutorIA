@@ -109,8 +109,8 @@ export interface PedagogicalMaterialPolicy {
 export interface WeeklyPlanningDensityPolicy {
   /** The official IMSS format does NOT mandate an exact numeric activity count */
   readonly isNormative: false;
-  /** TutorIA product default target to structure the daily pedagogical categories */
-  readonly targetActivitiesPerDay: number;
+  /** Optional legacy target; undefined in V1 flexible composition */
+  readonly targetActivitiesPerDay?: number;
   /** Technical lower bound to prevent empty days (default: 1) */
   readonly minActivitiesPerDay?: number;
   /** Technical upper bound to prevent runaway payload (default: 10) */
@@ -289,11 +289,10 @@ export const LACTANTES_A_MATERIAL_POLICY: PedagogicalMaterialPolicy = Object.fre
 
 export const LACTANTES_A_DENSITY_POLICY: WeeklyPlanningDensityPolicy = Object.freeze({
   isNormative: false,
-  targetActivitiesPerDay: 5,
   minActivitiesPerDay: 1,
   maxActivitiesPerDay: 10,
   guidance:
-    'TutorIA establece como meta de producto (no normativa) 5 actividades por jornada para estructurar los momentos pedagógicos cotidianos de la guardería (experiencias artísticas, ambientes de aprendizaje, activación física, lectura en voz alta y pensamiento matemático). Los formatos oficiales IMSS no prescriben un número fijo obligatorio.',
+    'TutorIA V1 adopta una composición pedagógica semanal flexible basada en observaciones, sin una cuota fija obligatoria de actividades por jornada. Se establecen límites técnicos de seguridad (mínimo 1, máximo 10 actividades por día hábil). Los formatos oficiales IMSS no prescriben un número fijo obligatorio.',
   provenance: 'CANONICAL_PRODUCT_RULE'
 });
 
@@ -467,8 +466,20 @@ export class PedagogicalSafetyValidator {
           offendingValue: actCount,
           riskRationale: 'Un día sin actividades deja desestructurada la jornada educativa.'
         });
-      } else if (actCount < policy.densityPolicy.targetActivitiesPerDay) {
-        // Product target guidance: Warning when below target (e.g. 1 activity/day instead of 5)
+      } else if (policy.densityPolicy.maxActivitiesPerDay && actCount > policy.densityPolicy.maxActivitiesPerDay) {
+        // Technical boundary: Day cannot exceed maximum payload bound
+        violations.push({
+          ruleId: 'density-exceeds-technical-bound',
+          severity: 'BLOCKING_SAFETY',
+          message: `El día ${day.dayOfWeek} contiene ${actCount} actividades, excediendo el límite técnico de ${policy.densityPolicy.maxActivitiesPerDay} actividades por jornada.`,
+          provenance: 'CANONICAL_PRODUCT_RULE',
+          dayOfWeek: day.dayOfWeek,
+          contextField: 'density',
+          offendingValue: actCount,
+          riskRationale: 'Exceder el límite técnico representa una carga anómala.'
+        });
+      } else if (policy.densityPolicy.targetActivitiesPerDay !== undefined && actCount < policy.densityPolicy.targetActivitiesPerDay) {
+        // Optional legacy product target guidance: Warning when below explicitly configured target
         violations.push({
           ruleId: 'density-below-product-target',
           severity: 'WARNING',

@@ -233,6 +233,7 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
 
       const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
       const rawProposal = {
+        weeklyFocus: 'Exploración sensorial con pelotas suaves',
         days: days.map((dayOfWeek) => ({
           dayOfWeek,
           activities: [
@@ -242,6 +243,13 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
               proceduralAction: 'Mover suavemente {material} en el campo visual',
               materialRefs: ['MAT-01'],
               durationMinutes: 10,
+              progression: {
+                role: 'EXPLORE',
+                revisitsSlot: null,
+                repetitionPurpose: null,
+                variationDimensions: null,
+                observationTarget: 'Observar fijación visual',
+              },
             },
           ],
         })),
@@ -443,17 +451,46 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
   describe('15 — Governance Regression (Zero Side Effects & Human Gate Preservation)', () => {
     const buildFullFiveDayCandidate = (materialRefs: string[] = ['MAT-01']) => {
       const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
-      return {
-        days: days.map((dayOfWeek) => ({
-          dayOfWeek,
-          activities: Array.from({ length: 5 }, (_, i) => ({
+      const generatedDays = days.map((dayOfWeek) => {
+        const activities = [
+          ...Array.from({ length: 4 }, (_, i) => ({
             category: 'EXPERIENCIAS ARTÍSTICAS',
             objective: `Objetivo pedagógico del momento ${i + 1}`,
             proceduralAction: `Interacción pedagógica ${i + 1} con {material}`,
             materialRefs,
             durationMinutes: 10,
+            progression: {
+              role: 'EXPLORE',
+              revisitsSlot: null,
+              repetitionPurpose: null,
+              variationDimensions: null,
+              observationTarget: 'Observar respuesta y confort',
+            },
           })),
-        })),
+          {
+            category: 'LECTURA EN VOZ ALTA',
+            objective: 'Lectura diaria interactiva y cariñosa',
+            proceduralAction: 'Compartir lectura en voz alta con entonación afectuosa',
+            materialRefs: [],
+            durationMinutes: 15,
+            progression: {
+              role: 'EXPLORE',
+              revisitsSlot: null,
+              repetitionPurpose: null,
+              variationDimensions: null,
+              observationTarget: 'Observar atención auditiva a la lectura',
+            },
+          },
+        ];
+        return {
+          dayOfWeek,
+          activities,
+        };
+      });
+
+      return {
+        weeklyFocus: 'Exploración artística y lectura interactiva para lactantes',
+        days: generatedDays,
       };
     };
 
@@ -843,6 +880,105 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
       expect(canonical.description).toBe(
         'Desplazar suavemente sonajas suaves en el campo visual del lactante'
       );
+    });
+  });
+
+  // ============================================================
+  // 17 — H1R12.5-D.3.5: STRUCTURED MATERIAL SEMANTICS HARDENING
+  // ============================================================
+
+  describe('17 — H1R12.5-D.3.5: Structured Material Semantics Hardening', () => {
+    const sampleTable = createRequestScopedMaterialTable([
+      'telas de diferentes texturas',
+      'música infantil',
+    ]);
+
+    it('TEST 1: permits zero-material action with generic transitive verb ("usar la voz") and keeps canonical materials empty', () => {
+      // Must not throw in validation
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Usar modulaciones de voz suaves para interactuar con el bebé.',
+          [],
+          sampleTable,
+          0,
+          0
+        );
+      }).not.toThrow();
+
+      // In canonical projection, materials remains strictly empty
+      const canonical = projectInternalActivityToCanonical(
+        {
+          category: 'EXPERIENCIAS ARTÍSTICAS',
+          objective: 'Estimular la respuesta vocal temprana',
+          proceduralAction: 'Usar la voz con tonos suaves para acompañar el balbuceo del lactante',
+          materialRefs: [],
+          durationMinutes: 10,
+        },
+        sampleTable,
+        0,
+        0
+      );
+      expect(canonical.materials).toEqual([]);
+      expect(canonical.description).toBe(
+        'Usar la voz con tonos suaves para acompañar el balbuceo del lactante'
+      );
+    });
+
+    it('TEST 2: permits zero-material action with different generic transitive verbs ("emplear", "utilizar")', () => {
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Emplear gestos faciales y contacto visual para responder a la mirada del bebé.',
+          [],
+          sampleTable,
+          0,
+          0
+        );
+      }).not.toThrow();
+
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Utilizar canciones de cuna y susurros afectuosos.',
+          [],
+          sampleTable,
+          0,
+          0
+        );
+      }).not.toThrow();
+    });
+
+    it('TEST 8: fails closed when zero-material action mentions a known request-scoped material without declaring its ref', () => {
+      // Full or head noun stem of "telas de diferentes texturas"
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Usar telas de diferentes texturas para acariciar suavemente los brazos del bebé.',
+          [],
+          sampleTable,
+          0,
+          0
+        );
+      }).toThrow(/proceduralAction mentions material 'telas de diferentes texturas' without declaring its ref in materialRefs/);
+
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Deslizar telas de diferentes texturas sobre las manos del lactante.',
+          [],
+          sampleTable,
+          0,
+          0
+        );
+      }).toThrow(/proceduralAction mentions material 'telas de diferentes texturas' without declaring its ref in materialRefs/);
+    });
+
+    it('fails closed when zero-material action contains {material} placeholder', () => {
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Acariciar suavemente los brazos del bebé con {material}.',
+          [],
+          sampleTable,
+          0,
+          0
+        );
+      }).toThrow(/with empty materialRefs cannot reference \{material\}/);
     });
   });
 });

@@ -100,14 +100,16 @@ describe('H1R11.10A — Master ARB Policy Correction & Evidence Reconciliation',
       ]);
     });
 
-    it('strictly records that targetActivitiesPerDay = 5 is a product default, NOT an IMSS regulation', () => {
+    it('strictly records that V1 density policy establishes technical bounds without an obligatory numeric quota', () => {
       expect(LACTANTES_A_AGE_POLICY.densityPolicy.isNormative).toBe(false);
       expect(LACTANTES_A_AGE_POLICY.densityPolicy.provenance).toBe('CANONICAL_PRODUCT_RULE');
-      expect(LACTANTES_A_AGE_POLICY.densityPolicy.targetActivitiesPerDay).toBe(5);
+      expect(LACTANTES_A_AGE_POLICY.densityPolicy.minActivitiesPerDay).toBe(1);
+      expect(LACTANTES_A_AGE_POLICY.densityPolicy.maxActivitiesPerDay).toBe(10);
+      expect(LACTANTES_A_AGE_POLICY.densityPolicy.targetActivitiesPerDay).toBeUndefined();
       expect(LACTANTES_A_AGE_POLICY.densityPolicy.guidance).toContain('Los formatos oficiales IMSS no prescriben un número fijo obligatorio');
     });
 
-    it('emits a WARNING when day activity density is below product target (5/day)', () => {
+    it('emits a WARNING when day activity density is below configured product target when targetActivitiesPerDay is set', () => {
       const thinPlan: PedagogicalWeeklyPlanCandidate = {
         days: [
           {
@@ -124,9 +126,17 @@ describe('H1R11.10A — Master ARB Policy Correction & Evidence Reconciliation',
         ],
       };
 
+      const customPolicy: PedagogicalAgePolicy = {
+        ...LACTANTES_A_AGE_POLICY,
+        densityPolicy: {
+          ...LACTANTES_A_AGE_POLICY.densityPolicy,
+          targetActivitiesPerDay: 5,
+        },
+      };
+
       const result = PedagogicalSafetyValidator.evaluatePlan(
         thinPlan,
-        LACTANTES_A_AGE_POLICY,
+        customPolicy,
         sampleAvailableMaterials
       );
       const densityWarning = result.warnings.find((w) => w.contextField === 'density');
@@ -134,6 +144,66 @@ describe('H1R11.10A — Master ARB Policy Correction & Evidence Reconciliation',
       expect(densityWarning).toBeDefined();
       expect(densityWarning?.severity).toBe('WARNING');
       expect(densityWarning?.message).toContain('por debajo de la meta de producto de TutorIA');
+    });
+
+    it('permits flexible daily density (e.g. 2 activities) under default V1 policy without density warnings', () => {
+      const flexiblePlan: PedagogicalWeeklyPlanCandidate = {
+        days: [
+          {
+            dayOfWeek: 'MONDAY',
+            activities: [
+              {
+                objective: 'Estimulación auditiva suave',
+                description: 'Cantar nanas mirando al lactante.',
+                durationMinutes: 15,
+                materials: ['Pelotas suaves'],
+              },
+              {
+                objective: 'Seguimiento visual',
+                description: 'Desplazar tela suave lentamente.',
+                durationMinutes: 10,
+                materials: ['Pelotas suaves'],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = PedagogicalSafetyValidator.evaluatePlan(
+        flexiblePlan,
+        LACTANTES_A_AGE_POLICY,
+        sampleAvailableMaterials
+      );
+      const densityWarning = result.warnings.find((w) => w.contextField === 'density');
+      expect(densityWarning).toBeUndefined();
+    });
+
+    it('emits BLOCKING_SAFETY if a day exceeds technical upper bound of 10 activities', () => {
+      const excessActivities = Array.from({ length: 11 }, (_, i) => ({
+        objective: `Actividad ${i + 1}`,
+        description: `Descripción ${i + 1}`,
+        durationMinutes: 10,
+        materials: ['Pelotas suaves'],
+      }));
+
+      const excessPlan: PedagogicalWeeklyPlanCandidate = {
+        days: [
+          {
+            dayOfWeek: 'MONDAY',
+            activities: excessActivities,
+          },
+        ],
+      };
+
+      const result = PedagogicalSafetyValidator.evaluatePlan(
+        excessPlan,
+        LACTANTES_A_AGE_POLICY,
+        sampleAvailableMaterials
+      );
+      const excessViolation = result.blockingViolations.find((v) => v.ruleId === 'density-exceeds-technical-bound');
+      expect(excessViolation).toBeDefined();
+      expect(excessViolation?.severity).toBe('BLOCKING_SAFETY');
+      expect(excessViolation?.offendingValue).toBe(11);
     });
 
     it('emits BLOCKING_SAFETY if a day contains zero activities', () => {

@@ -18,6 +18,7 @@ import {
   PedagogicalPolicyViolationError,
   BlockingMaterialPolicyViolationError,
   WeeklyPlanningDensityViolationError,
+  type CanonicalProgressionDiagnosticSubtype,
 } from '../../src/application/planning/WeeklyPlanningProposalSource';
 import { AIWeeklyPlanningProposalSource } from '../../src/application/planning/AIWeeklyPlanningProposalSource';
 import {
@@ -401,6 +402,62 @@ export function validateProposeWeeklyPlanningGatewayPayload(
 }
 
 /**
+ * Closed enumeration of bounded processing stages for safe operational diagnostics.
+ */
+export type WeeklyPlanningProcessingStage =
+  | 'REQUEST_VALIDATION'
+  | 'AUTHORIZATION'
+  | 'POLICY_RESOLUTION'
+  | 'AI_DISPATCH'
+  | 'PROVIDER_RESPONSE'
+  | 'PROVIDER_PARSE'
+  | 'INTERNAL_PROJECTION'
+  | 'CANONICAL_VALIDATION'
+  | 'TECHNICAL_BOUNDS'
+  | 'DAILY_READING'
+  | 'MATERIAL_ENCLOSURE'
+  | 'AGE_SAFETY'
+  | 'RESPONSE_ASSEMBLY'
+  | 'UNEXPECTED_INTERNAL';
+
+/**
+ * Closed enumeration of deterministic failure codes for safe operational diagnostics.
+ */
+export type WeeklyPlanningFailureCode =
+  | 'INVALID_PROVIDER_RESPONSE'
+  | 'INVALID_PROVIDER_JSON'
+  | 'INVALID_CANONICAL_PROPOSAL'
+  | 'TECHNICAL_BOUNDS_VIOLATION'
+  | 'MISSING_DAILY_READING'
+  | 'MULTIPLE_DAILY_READING'
+  | 'INVALID_READING_DURATION'
+  | 'OBJECTIVE_MATERIAL_LEAK'
+  | 'INVALID_MATERIAL_REF'
+  | 'UNDECLARED_MATERIAL'
+  | 'PROCEDURAL_MATERIAL_LEAK'
+  | 'PROCEDURAL_REF_SYNTAX_LEAK'
+  | 'UNAUTHORIZED_MATERIAL_LEAK'
+  | 'ZERO_MATERIAL_PLACEHOLDER_LEAK'
+  | 'ZERO_MATERIAL_ACTION_VERB_LEAK'
+  | 'BLOCKING_MATERIAL_POLICY'
+  | 'BLOCKING_AGE_POLICY'
+  | 'UNSUPPORTED_POLICY'
+  | 'UNAUTHORIZED'
+  | 'INVALID_REQUEST'
+  | 'UNEXPECTED_INTERNAL';
+
+/**
+ * Safe, bounded diagnostic subtypes for refined operational telemetry.
+ *
+ * CRITICAL PRIVACY & GOVERNANCE BOUNDARY:
+ * Fixed enum only. Never contains free text, matched tokens, phrases, or PII.
+ */
+export type WeeklyPlanningDiagnosticSubtype =
+  | 'ZERO_MATERIAL_ACTION_VERB_GENERIC_ONLY'
+  | 'ZERO_MATERIAL_ACTION_VERB_WITH_KNOWN_MATERIAL_TERM'
+  | CanonicalProgressionDiagnosticSubtype;
+
+/**
  * Structured log event for safe server-side Weekly Planning observability.
  */
 export interface WeeklyPlanningGatewayLogEntry {
@@ -416,6 +473,9 @@ export interface WeeklyPlanningGatewayLogEntry {
   readonly completionTokens?: number | null;
   readonly totalTokens?: number | null;
   readonly safeErrorCategory?: string;
+  readonly processingStage?: WeeklyPlanningProcessingStage;
+  readonly failureCode?: WeeklyPlanningFailureCode;
+  readonly diagnosticSubtype?: WeeklyPlanningDiagnosticSubtype;
   readonly upstreamStatus?: number;
 }
 
@@ -622,6 +682,281 @@ export function mapToSafeWeeklyPlanningError(err: unknown): HttpsError {
 }
 
 /**
+ * Safe classification result for server-side Weekly Planning failures.
+ */
+export interface WeeklyPlanningFailureClassification {
+  readonly safeError: HttpsError;
+  readonly processingStage: WeeklyPlanningProcessingStage;
+  readonly failureCode: WeeklyPlanningFailureCode;
+  readonly diagnosticSubtype?: WeeklyPlanningDiagnosticSubtype;
+}
+
+/**
+ * Deterministically classifies runtime errors into bounded, privacy-safe failure telemetry.
+ *
+ * CRITICAL PRIVACY & SECURITY BOUNDARY:
+ * Extracts ONLY closed stage and typed failure codes.
+ * Prompts, pedagogical free text, user observations, PII, API keys, and raw exception messages
+ * are NEVER included in the classification or telemetry.
+ */
+export function classifyWeeklyPlanningFailure(
+  err: unknown,
+  stageContext: WeeklyPlanningProcessingStage = 'UNEXPECTED_INTERNAL'
+): WeeklyPlanningFailureClassification {
+  const safeError = mapToSafeWeeklyPlanningError(err);
+
+  // If already an HttpsError thrown at gateway boundaries
+  if (err instanceof HttpsError) {
+    if (err.code === 'unauthenticated') {
+      return {
+        safeError,
+        processingStage: 'AUTHORIZATION',
+        failureCode: 'UNAUTHORIZED',
+      };
+    }
+    if (err.code === 'permission-denied') {
+      return {
+        safeError,
+        processingStage: 'AUTHORIZATION',
+        failureCode: 'UNAUTHORIZED',
+      };
+    }
+    if (err.code === 'invalid-argument') {
+      return {
+        safeError,
+        processingStage: 'REQUEST_VALIDATION',
+        failureCode: 'INVALID_REQUEST',
+      };
+    }
+  }
+
+  // Extract root cause if wrapped in an Error with cause
+  const target =
+    err && typeof err === 'object' && 'cause' in err && (err as any).cause
+      ? (err as any).cause
+      : err;
+
+  // Domain & Policy Typed Errors
+  if (target instanceof UnsupportedPedagogicalPolicyError) {
+    return {
+      safeError,
+      processingStage: 'POLICY_RESOLUTION',
+      failureCode: 'UNSUPPORTED_POLICY',
+    };
+  }
+
+  if (target instanceof BlockingMaterialPolicyViolationError) {
+    return {
+      safeError,
+      processingStage: 'MATERIAL_ENCLOSURE',
+      failureCode: 'BLOCKING_MATERIAL_POLICY',
+    };
+  }
+
+  if (target instanceof PedagogicalPolicyViolationError) {
+    return {
+      safeError,
+      processingStage: 'AGE_SAFETY',
+      failureCode: 'BLOCKING_AGE_POLICY',
+    };
+  }
+
+  if (target instanceof WeeklyPlanningDensityViolationError) {
+    return {
+      safeError,
+      processingStage: 'TECHNICAL_BOUNDS',
+      failureCode: 'TECHNICAL_BOUNDS_VIOLATION',
+    };
+  }
+
+  // Executor Typed Errors
+  if (target instanceof WeeklyPlanningAIExecutorConfigurationError) {
+    return {
+      safeError,
+      processingStage: 'AI_DISPATCH',
+      failureCode: 'UNEXPECTED_INTERNAL',
+    };
+  }
+
+  if (target instanceof WeeklyPlanningAIExecutorTransportError) {
+    return {
+      safeError,
+      processingStage: 'AI_DISPATCH',
+      failureCode: 'INVALID_PROVIDER_RESPONSE',
+    };
+  }
+
+  if (target instanceof WeeklyPlanningAIExecutorHttpError) {
+    return {
+      safeError,
+      processingStage: 'PROVIDER_RESPONSE',
+      failureCode: 'INVALID_PROVIDER_RESPONSE',
+    };
+  }
+
+  if (target instanceof WeeklyPlanningAIExecutorInvalidResponseError) {
+    const isJson = target.message.includes('not valid JSON');
+    return {
+      safeError,
+      processingStage: 'PROVIDER_PARSE',
+      failureCode: isJson ? 'INVALID_PROVIDER_JSON' : 'INVALID_PROVIDER_RESPONSE',
+    };
+  }
+
+  // Proposal Validation Typed Errors
+  if (target instanceof InvalidWeeklyPlanningProposalError) {
+    const msg = target.message;
+
+    // Technical bounds violations
+    if (
+      msg.startsWith('Proposed plan fails technical activity bounds') ||
+      (msg.startsWith('Proposed non-reading activity') && msg.includes('has invalid duration'))
+    ) {
+      return {
+        safeError,
+        processingStage: 'TECHNICAL_BOUNDS',
+        failureCode: 'TECHNICAL_BOUNDS_VIOLATION',
+      };
+    }
+
+    // Daily reading invariant violations
+    if (msg.startsWith('Proposed plan fails daily reading invariant')) {
+      let code: WeeklyPlanningFailureCode = 'INVALID_CANONICAL_PROPOSAL';
+      if (msg.includes('missing the required daily reading activity')) {
+        code = 'MISSING_DAILY_READING';
+      } else if (msg.includes('reading activity duration is')) {
+        code = 'INVALID_READING_DURATION';
+      } else if (msg.includes('contains') && msg.includes('reading activities')) {
+        code = 'MULTIPLE_DAILY_READING';
+      }
+      return {
+        safeError,
+        processingStage: 'DAILY_READING',
+        failureCode: code,
+      };
+    }
+
+    // Objective material leak
+    if (msg.includes('Activity objective must be material-agnostic')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'OBJECTIVE_MATERIAL_LEAK',
+      };
+    }
+
+    // Material refs violations
+    if (msg.includes('Unknown material ref')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'INVALID_MATERIAL_REF',
+      };
+    }
+
+    // Undeclared material mention
+    if (msg.includes('mentions material') && msg.includes('without declaring its ref in materialRefs')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'UNDECLARED_MATERIAL',
+      };
+    }
+
+    // Procedural material leaks: distinguish 4 deterministic subconditions
+    if (msg.includes('proceduralAction contains unprojected material ref syntax')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'PROCEDURAL_REF_SYNTAX_LEAK',
+      };
+    }
+
+    if (msg.includes('proceduralAction introduces unauthorized material')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'UNAUTHORIZED_MATERIAL_LEAK',
+      };
+    }
+
+    if (msg.includes('cannot reference {material}')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'ZERO_MATERIAL_PLACEHOLDER_LEAK',
+      };
+    }
+
+    if (msg.includes('cannot use object-introducing action verb')) {
+      const diagnosticSubtype: WeeklyPlanningDiagnosticSubtype = msg.includes('KNOWN_MATERIAL_TERM')
+        ? 'ZERO_MATERIAL_ACTION_VERB_WITH_KNOWN_MATERIAL_TERM'
+        : 'ZERO_MATERIAL_ACTION_VERB_GENERIC_ONLY';
+
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'ZERO_MATERIAL_ACTION_VERB_LEAK',
+        diagnosticSubtype,
+      };
+    }
+
+    if (msg.includes('proceduralAction')) {
+      return {
+        safeError,
+        processingStage: 'MATERIAL_ENCLOSURE',
+        failureCode: 'PROCEDURAL_MATERIAL_LEAK',
+      };
+    }
+
+    // Provider JSON parse failure at proposal parsing stage
+    if (msg.startsWith('Failed to parse AI output as JSON')) {
+      return {
+        safeError,
+        processingStage: 'PROVIDER_PARSE',
+        failureCode: 'INVALID_PROVIDER_JSON',
+      };
+    }
+
+    // Default canonical validation failure
+    const diagnosticSubtype: WeeklyPlanningDiagnosticSubtype =
+      (target as any)?.diagnosticSubtype ??
+      (err as any)?.diagnosticSubtype ??
+      'OTHER_CANONICAL_VALIDATION';
+
+    return {
+      safeError,
+      processingStage: 'CANONICAL_VALIDATION',
+      failureCode: 'INVALID_CANONICAL_PROPOSAL',
+      diagnosticSubtype,
+    };
+  }
+
+  // Fallback if known gateway stage was active
+  if (stageContext === 'REQUEST_VALIDATION') {
+    return {
+      safeError,
+      processingStage: 'REQUEST_VALIDATION',
+      failureCode: 'INVALID_REQUEST',
+    };
+  }
+
+  if (stageContext === 'AUTHORIZATION') {
+    return {
+      safeError,
+      processingStage: 'AUTHORIZATION',
+      failureCode: 'UNAUTHORIZED',
+    };
+  }
+
+  return {
+    safeError,
+    processingStage: 'UNEXPECTED_INTERNAL',
+    failureCode: 'UNEXPECTED_INTERNAL',
+  };
+}
+
+/**
  * Options for configuring handleProposeWeeklyPlanning.
  */
 export interface ProposeWeeklyPlanningHandlerOptions {
@@ -648,86 +983,11 @@ export async function handleProposeWeeklyPlanning(
     ? options.correlationIdProvider()
     : randomUUID();
 
-  // 1. Authenticate caller: Reject unauthenticated callers
-  if (!request.auth || !request.auth.uid || !request.auth.uid.trim()) {
-    throw new HttpsError(
-      'unauthenticated',
-      'User must be authenticated to request weekly planning proposals.'
-    );
-  }
-
-  const authenticatedUid = request.auth.uid.trim();
-  const tokenClaims = request.auth.token as Record<string, unknown> | undefined;
-
-  // 2. Validate request schema & bounds (Fails closed on malformed or forbidden fields)
-  const validatedPayload = validateProposeWeeklyPlanningGatewayPayload(request.data);
-
-  // 3. Authorize caller via explicit authorization seam
-  const authDecision = await authorizer({
-    uid: authenticatedUid,
-    tokenClaims,
-    daycareId: validatedPayload.daycareId,
-    roomId: validatedPayload.room.roomId,
-    planningId: validatedPayload.planningId,
-  });
-
-  if (!authDecision.authorized) {
-    throw new HttpsError(
-      'permission-denied',
-      authDecision.reason || 'User is not authorized to request weekly planning proposals.'
-    );
-  }
-
-  // 4. Map to application recommendation request
-  // CRITICAL PRIVACY BOUNDARY:
-  // planningId and daycareId are strictly operational and NEVER placed in appRequest
-  const appRequest: WeeklyPlanningProposalRequest = {
-    weekStart: validatedPayload.weekStart,
-    weekEnd: validatedPayload.weekEnd,
-    modality: validatedPayload.modality,
-    room: {
-      roomId: validatedPayload.room.roomId,
-      name: validatedPayload.room.name,
-      minAgeMonths: validatedPayload.room.minAgeMonths,
-      maxAgeMonths: validatedPayload.room.maxAgeMonths,
-    },
-    currentContext: {
-      observations: validatedPayload.currentContext.observations || '',
-      identifiedNeeds: validatedPayload.currentContext.identifiedNeeds || '',
-      specialSituations: validatedPayload.currentContext.specialSituations || '',
-      availableMaterials: validatedPayload.currentContext.availableMaterials || '',
-    },
-    ...(validatedPayload.constraints ? { constraints: validatedPayload.constraints } : {}),
-  };
-
-  // 5. Setup request-scoped telemetry state
-  let promptTokens: number | null = null;
-  let completionTokens: number | null = null;
-  let totalTokens: number | null = null;
+  const startMs = performance.now();
+  let currentStage: WeeklyPlanningProcessingStage = 'AUTHORIZATION';
   let upstreamStatus: number | undefined;
 
-  const onTelemetry: WeeklyPlanningAITelemetryObserver = (event) => {
-    if (event.event === 'weekly_planning_ai.completed') {
-      if (event.usage) {
-        promptTokens = event.usage.promptTokens;
-        completionTokens = event.usage.completionTokens;
-        totalTokens = event.usage.totalTokens;
-      }
-    } else if (event.event === 'weekly_planning_ai.failed') {
-      if (event.upstreamStatus !== undefined) {
-        upstreamStatus = event.upstreamStatus;
-      }
-    }
-  };
-
-  const executor =
-    options.executor ??
-    (options.createExecutor ??
-      ((opts) => createWeeklyPlanningProposalExecutor({ onTelemetry: opts.onTelemetry })))({
-      onTelemetry,
-    });
-
-  // 6. Emit gateway started event
+  // Emit gateway started event
   logger.write({
     severity: 'INFO',
     correlationId,
@@ -735,14 +995,116 @@ export async function handleProposeWeeklyPlanning(
     model: 'gpt-4o-mini',
   });
 
-  const startMs = performance.now();
-  let proposal: WeeklyPlanningProposalResponse;
-
   try {
-    proposal = await executor(appRequest);
+    // 1. Authenticate caller: Reject unauthenticated callers
+    if (!request.auth || !request.auth.uid || !request.auth.uid.trim()) {
+      throw new HttpsError(
+        'unauthenticated',
+        'User must be authenticated to request weekly planning proposals.'
+      );
+    }
+
+    const authenticatedUid = request.auth.uid.trim();
+    const tokenClaims = request.auth.token as Record<string, unknown> | undefined;
+
+    // 2. Validate request schema & bounds (Fails closed on malformed or forbidden fields)
+    currentStage = 'REQUEST_VALIDATION';
+    const validatedPayload = validateProposeWeeklyPlanningGatewayPayload(request.data);
+
+    // 3. Authorize caller via explicit authorization seam
+    currentStage = 'AUTHORIZATION';
+    const authDecision = await authorizer({
+      uid: authenticatedUid,
+      tokenClaims,
+      daycareId: validatedPayload.daycareId,
+      roomId: validatedPayload.room.roomId,
+      planningId: validatedPayload.planningId,
+    });
+
+    if (!authDecision.authorized) {
+      throw new HttpsError(
+        'permission-denied',
+        authDecision.reason || 'User is not authorized to request weekly planning proposals.'
+      );
+    }
+
+    // 4. Map to application recommendation request
+    // CRITICAL PRIVACY BOUNDARY:
+    // planningId and daycareId are strictly operational and NEVER placed in appRequest
+    currentStage = 'AI_DISPATCH';
+    const appRequest: WeeklyPlanningProposalRequest = {
+      weekStart: validatedPayload.weekStart,
+      weekEnd: validatedPayload.weekEnd,
+      modality: validatedPayload.modality,
+      room: {
+        roomId: validatedPayload.room.roomId,
+        name: validatedPayload.room.name,
+        minAgeMonths: validatedPayload.room.minAgeMonths,
+        maxAgeMonths: validatedPayload.room.maxAgeMonths,
+      },
+      currentContext: {
+        observations: validatedPayload.currentContext.observations || '',
+        identifiedNeeds: validatedPayload.currentContext.identifiedNeeds || '',
+        specialSituations: validatedPayload.currentContext.specialSituations || '',
+        availableMaterials: validatedPayload.currentContext.availableMaterials || '',
+      },
+      ...(validatedPayload.constraints ? { constraints: validatedPayload.constraints } : {}),
+    };
+
+    // 5. Setup request-scoped telemetry state
+    let promptTokens: number | null = null;
+    let completionTokens: number | null = null;
+    let totalTokens: number | null = null;
+
+    const onTelemetry: WeeklyPlanningAITelemetryObserver = (event) => {
+      if (event.event === 'weekly_planning_ai.completed') {
+        if (event.usage) {
+          promptTokens = event.usage.promptTokens;
+          completionTokens = event.usage.completionTokens;
+          totalTokens = event.usage.totalTokens;
+        }
+      } else if (event.event === 'weekly_planning_ai.failed') {
+        if (event.upstreamStatus !== undefined) {
+          upstreamStatus = event.upstreamStatus;
+        }
+      }
+    };
+
+    const executor =
+      options.executor ??
+      (options.createExecutor ??
+        ((opts) => createWeeklyPlanningProposalExecutor({ onTelemetry: opts.onTelemetry })))({
+        onTelemetry,
+      });
+
+    const proposal = await executor(appRequest);
+
+    const latencyMs = Math.max(0, Math.round(performance.now() - startMs));
+    logger.write({
+      severity: 'INFO',
+      correlationId,
+      event: 'weekly_planning_gateway.completed',
+      model: 'gpt-4o-mini',
+      latencyMs,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+    });
+
+    // 7. Return minimal safe transient proposal (strictly WeeklyPlanningProposalResponse)
+    return proposal;
   } catch (rawErr: unknown) {
     const latencyMs = Math.max(0, Math.round(performance.now() - startMs));
-    const safeError = mapToSafeWeeklyPlanningError(rawErr);
+    const target =
+      rawErr && typeof rawErr === 'object' && 'cause' in rawErr && (rawErr as any).cause
+        ? (rawErr as any).cause
+        : rawErr;
+
+    if (upstreamStatus === undefined && target instanceof WeeklyPlanningAIExecutorHttpError) {
+      upstreamStatus = target.upstreamStatus;
+    }
+
+    const classification = classifyWeeklyPlanningFailure(rawErr, currentStage);
 
     logger.write({
       severity: 'ERROR',
@@ -750,27 +1112,15 @@ export async function handleProposeWeeklyPlanning(
       event: 'weekly_planning_gateway.failed',
       model: 'gpt-4o-mini',
       latencyMs,
-      safeErrorCategory: safeError.code,
+      safeErrorCategory: classification.safeError.code,
+      processingStage: classification.processingStage,
+      failureCode: classification.failureCode,
+      ...(classification.diagnosticSubtype ? { diagnosticSubtype: classification.diagnosticSubtype } : {}),
       ...(upstreamStatus !== undefined ? { upstreamStatus } : {}),
     });
 
-    throw safeError;
+    throw classification.safeError;
   }
-
-  const latencyMs = Math.max(0, Math.round(performance.now() - startMs));
-  logger.write({
-    severity: 'INFO',
-    correlationId,
-    event: 'weekly_planning_gateway.completed',
-    model: 'gpt-4o-mini',
-    latencyMs,
-    promptTokens,
-    completionTokens,
-    totalTokens,
-  });
-
-  // 7. Return minimal safe transient proposal (strictly WeeklyPlanningProposalResponse)
-  return proposal;
 }
 
 /**
