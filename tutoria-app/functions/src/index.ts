@@ -77,3 +77,27 @@ export type {
   FirestoreCurricularAIAuthorizerOptions,
 } from './FirestoreCurricularAIAuthorizer';
 
+export {
+  assistDailyEvaluation,
+  handleAssistDailyEvaluation,
+  mapGatewayErrorToHttpsError,
+  defaultFunctionsLogger,
+} from './assistDailyEvaluation';
+
+export type {
+  AssistDailyEvaluationHandlerOptions,
+  AssistDailyEvaluationLogger,
+  AssistDailyEvaluationLogEntry,
+} from './assistDailyEvaluation';
+
+export {
+  FirestoreWeeklyPlanningAdminRepository,
+  toDateOrUndefined,
+  toRequiredDate,
+} from './FirestoreWeeklyPlanningAdminRepository';
+
+export type {
+  WeeklyPlanningDocReader,
+  FirestoreWeeklyPlanningAdminRepositoryOptions,
+} from './FirestoreWeeklyPlanningAdminRepository';
+
