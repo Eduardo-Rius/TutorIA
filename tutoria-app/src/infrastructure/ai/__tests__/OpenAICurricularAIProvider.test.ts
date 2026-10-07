@@ -8,6 +8,8 @@ import {
   CurricularAIProviderMalformedResponseError,
   deriveCanonicalCatalogContext,
   buildPromptMessages,
+  buildCanonicalPDAResponseFormat,
+  buildCanonicalPDAResponseSchema,
   DEFAULT_MAX_COMPLETION_TOKENS,
   parseSafeTokenCount,
   CurricularAIProviderTelemetry,
@@ -15,6 +17,7 @@ import {
 } from '../OpenAICurricularAIProvider';
 import {
   CurricularAIProviderBoundary,
+  validateUntrustedAIResponse,
 } from '../../../application/planning/CurricularAIProviderBoundary';
 import {
   CurricularRecommendationRequest,
@@ -99,7 +102,7 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
 
     const body = JSON.parse(callOptions.body);
     expect(body.model).toBe('gpt-4o-mini');
-    expect(body.response_format).toEqual({ type: 'json_object' });
+    expect(body.response_format).toEqual(buildCanonicalPDAResponseFormat());
 
     const messages = body.messages;
     expect(messages).toHaveLength(2);
@@ -126,7 +129,8 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
     expect(derived.length).toBe(40);
 
     for (let i = 0; i < DIRECT_PDA_CATALOG.length; i++) {
-      expect(derived[i].id).toBe(DIRECT_PDA_CATALOG[i].id);
+      expect(derived[i].pdaId).toBe(DIRECT_PDA_CATALOG[i].id);
+      expect('id' in derived[i]).toBe(false);
       expect(derived[i].campoFormativo).toBe(DIRECT_PDA_CATALOG[i].campoFormativo);
       expect(derived[i].contenido).toBe(DIRECT_PDA_CATALOG[i].contenido.trim());
       expect(derived[i].pda).toBe(DIRECT_PDA_CATALOG[i].pda.trim());
@@ -846,7 +850,7 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
       expect(body.temperature).toBe(0.2);
     });
 
-    it('16.6 response_format remains json_object', async () => {
+    it('16.6 response_format enforces strict json_schema with canonical PDA enum', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         mockOpenAIResponse({ recommendations: [] })
       );
@@ -861,7 +865,7 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
       const callOptions = mockFetch.mock.calls[0][1];
       const body = JSON.parse(callOptions.body);
 
-      expect(body.response_format).toEqual({ type: 'json_object' });
+      expect(body.response_format).toEqual(buildCanonicalPDAResponseFormat());
     });
 
     it('16.7 Timeout remains 30000ms', () => {
@@ -1281,8 +1285,8 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
       // 10. temperature 0.2
       expect(capturedBody.temperature).toBe(0.2);
 
-      // 11. response_format json_object
-      expect(capturedBody.response_format).toEqual({ type: "json_object" });
+      // 11. response_format strict json_schema
+      expect(capturedBody.response_format).toEqual(buildCanonicalPDAResponseFormat());
 
       // 14. API key server-side only (in headers, not in body)
       expect(capturedHeaders["Authorization"]).toBe("Bearer test-server-api-key");
@@ -1632,7 +1636,7 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
       expect(calledUrl).toBe('https://api.openai.com/v1/chat/completions');
 
       const body = JSON.parse(callOptions.body);
-      expect(body.response_format).toEqual({ type: 'json_object' });
+      expect(body.response_format).toEqual(buildCanonicalPDAResponseFormat());
       expect(body.max_completion_tokens).toBe(800);
       expect(body.temperature).toBe(0.2);
       expect(body.model).toBe('gpt-4o-mini');
@@ -1694,6 +1698,307 @@ describe('H1R9-F.8.3.2 — Real Curricular AI Provider Adapter', () => {
       const repo = new InMemoryWeeklyPlanningRepository();
       const plans = await repo.listByTeacher('teacher-01');
       expect(plans).toHaveLength(0); // Repository remains untouched
+    });
+  });
+
+  // ============================================================
+  // Cable 2 — Contract Alignment (H1R13.3H.9)
+  // CASE 6 — Catálogo enviado al prompt usa pdaId y NO id
+  // ============================================================
+  describe('Cable 2 — Prompt Contract Alignment (H1R13.3H.9)', () => {
+    it('CASE 6 — Contextual catalog presented to the model strictly uses pdaId and NOT id', () => {
+      const derived = deriveCanonicalCatalogContext();
+
+      expect(derived.length).toBe(40);
+      for (const entry of derived) {
+        expect(entry.pdaId).toMatch(/^TUTORIA-PDA-\d{4}$/);
+        expect((entry as any).id).toBeUndefined();
+        expect(Object.prototype.hasOwnProperty.call(entry, 'id')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(entry, 'pdaId')).toBe(true);
+      }
+
+      const messages = buildPromptMessages(
+        sampleRequest,
+        derived,
+        TUTORIA_DIRECT_PDA_CATALOG_REVISION
+      );
+
+      const userMessage = messages.find((m) => m.role === 'user');
+      expect(userMessage).toBeDefined();
+      const content = userMessage!.content;
+
+      // Demonstrates catalog serialized in prompt uses "pdaId"
+      expect(content).toContain('"pdaId": "TUTORIA-PDA-0001"');
+      // Demonstrates catalog serialized in prompt does NOT use "id": "TUTORIA-PDA-0001"
+      expect(content).not.toContain('"id": "TUTORIA-PDA-0001"');
+    });
+  });
+
+  // ============================================================
+  // Cable 4 — Canonical PDA Structured Output (H1R13.3H.9)
+  // Strict Structured Outputs with programmatically derived enum
+  // ============================================================
+  describe('Cable 4 — Canonical PDA Structured Output (H1R13.3H.9)', () => {
+    it('A. Provider request uses strict structured-output schema (json_schema, strict: true)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        mockOpenAIResponse({ recommendations: [] })
+      );
+
+      const provider = new OpenAICurricularAIProvider({
+        apiKey: 'mock-key-cable-4',
+        fetchFn: mockFetch,
+      });
+
+      await provider.generateRawRecommendations(sampleRequest);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const callOptions = mockFetch.mock.calls[0][1];
+      const body = JSON.parse(callOptions.body);
+
+      expect(body.response_format).toBeDefined();
+      expect(body.response_format.type).toBe('json_schema');
+      expect(body.response_format.json_schema).toBeDefined();
+      expect(body.response_format.json_schema.name).toBe('curricular_pda_recommendations');
+      expect(body.response_format.json_schema.strict).toBe(true);
+      expect(body.response_format.json_schema.schema).toBeDefined();
+    });
+
+    it('B. pdaId.enum is programmatically derived from the canonical catalog', () => {
+      const responseFormat = buildCanonicalPDAResponseFormat();
+      const schema = responseFormat.json_schema.schema;
+      const enumIds = schema.properties.recommendations.items.properties.pdaId.enum;
+      const canonicalIds = DIRECT_PDA_CATALOG.map((entry) => entry.id);
+
+      expect(enumIds).toEqual(canonicalIds);
+      expect(schema).toEqual(buildCanonicalPDAResponseSchema());
+    });
+
+    it('C. Enum contains every canonical DIRECT PDA ID (all 40)', () => {
+      const schema = buildCanonicalPDAResponseSchema();
+      const enumIds = schema.properties.recommendations.items.properties.pdaId.enum;
+
+      expect(enumIds).toHaveLength(40);
+      expect(enumIds).toHaveLength(DIRECT_PDA_CATALOG.length);
+
+      for (const entry of DIRECT_PDA_CATALOG) {
+        expect(enumIds).toContain(entry.id);
+      }
+      expect(enumIds[0]).toBe('TUTORIA-PDA-0001');
+      expect(enumIds[39]).toBe('TUTORIA-PDA-0040');
+    });
+
+    it('D. Enum contains no noncanonical, out-of-range, or hallucinated IDs', () => {
+      const schema = buildCanonicalPDAResponseSchema();
+      const enumIds = schema.properties.recommendations.items.properties.pdaId.enum;
+
+      const noncanonicalCandidates = [
+        'TUTORIA-PDA-0000',
+        'TUTORIA-PDA-0041',
+        'TUTORIA-PDA-9999',
+        'pda-01',
+        'Lenguajes-01',
+        '',
+        'INVALID-PDA',
+      ];
+
+      for (const invalidId of noncanonicalCandidates) {
+        expect(enumIds).not.toContain(invalidId);
+      }
+
+      for (const id of enumIds) {
+        expect(DIRECT_PDA_CATALOG.some((entry) => entry.id === id)).toBe(true);
+      }
+    });
+
+    it('E. No manually duplicated 40-ID shadow catalog was introduced in the provider source', () => {
+      const providerSourcePath = path.resolve(
+        __dirname,
+        '../OpenAICurricularAIProvider.ts'
+      );
+      const sourceContent = fs.readFileSync(providerSourcePath, 'utf-8');
+
+      expect(sourceContent).not.toContain("'TUTORIA-PDA-0005'");
+      expect(sourceContent).not.toContain('"TUTORIA-PDA-0005"');
+      expect(sourceContent).not.toContain("'TUTORIA-PDA-0020'");
+      expect(sourceContent).not.toContain('"TUTORIA-PDA-0020"');
+      expect(sourceContent).not.toContain("'TUTORIA-PDA-0040'");
+      expect(sourceContent).not.toContain('"TUTORIA-PDA-0040"');
+
+      expect(sourceContent).toContain('DIRECT_PDA_CATALOG.map((entry) => entry.id)');
+    });
+
+    it('F. Schema requires recommendations, pdaId, and rationale', () => {
+      const schema = buildCanonicalPDAResponseSchema();
+      expect(schema.required).toEqual(['recommendations']);
+
+      const itemSchema = schema.properties.recommendations.items;
+      expect(itemSchema.required).toEqual(['pdaId', 'rationale']);
+    });
+
+    it('G. Candidate and root schemas reject additional properties (additionalProperties: false)', () => {
+      const schema = buildCanonicalPDAResponseSchema();
+      expect(schema.additionalProperties).toBe(false);
+
+      const itemSchema = schema.properties.recommendations.items;
+      expect(itemSchema.additionalProperties).toBe(false);
+    });
+
+    it('H. Existing provider parsing remains compatible with a valid canonical response', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(
+        mockOpenAIResponse({
+          recommendations: [
+            {
+              pdaId: 'TUTORIA-PDA-0003',
+              rationale: 'Fortalece la expresión y vínculo en actividades de lenguaje.',
+            },
+          ],
+        })
+      );
+
+      const provider = new OpenAICurricularAIProvider({
+        apiKey: 'mock-key',
+        fetchFn: mockFetch,
+      });
+
+      const raw = await provider.generateRawRecommendations(sampleRequest);
+      expect(raw).toEqual({
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-0003',
+            rationale: 'Fortalece la expresión y vínculo en actividades de lenguaje.',
+          },
+        ],
+      });
+
+      const boundary = new CurricularAIProviderBoundary(provider);
+      const validated = await boundary.recommend(sampleRequest);
+      expect(validated).toHaveLength(1);
+      expect(validated[0].reference.pdaId).toBe('TUTORIA-PDA-0003');
+      expect(validated[0].rationale).toBe('Fortalece la expresión y vínculo en actividades de lenguaje.');
+    });
+
+    it('I. Canonical boundary still rejects a noncanonical PDA ID independently of structured output (defense-in-depth)', () => {
+      const untrustedOutput = {
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-9999',
+            rationale: 'Rationale for hallucinated PDA.',
+          },
+        ],
+      };
+
+      expect(() => {
+        validateUntrustedAIResponse(untrustedOutput);
+      }).toThrow(InvalidCurricularRecommendationError);
+
+      try {
+        validateUntrustedAIResponse(untrustedOutput);
+      } catch (err: any) {
+        expect(err.diagnosticCode).toBe('noncanonical_pda_id');
+        expect(err.safeStructuralMetadata).toMatchObject({
+          rootType: 'object',
+          identifierFieldPresent: 'pdaId',
+          canonicalIdMatch: false,
+        });
+      }
+    });
+
+    it('J. Cable 2 legacy defensive normalization (candidate.pdaId || candidate.id) remains unchanged', () => {
+      const legacyOutput = {
+        recommendations: [
+          {
+            id: 'TUTORIA-PDA-0001',
+            rationale: 'Legacy ID format test.',
+          },
+        ],
+      };
+
+      const validated = validateUntrustedAIResponse(legacyOutput);
+      expect(validated).toHaveLength(1);
+      expect(validated[0].reference.pdaId).toBe('TUTORIA-PDA-0001');
+      expect(validated[0].rationale).toBe('Legacy ID format test.');
+    });
+
+    it('K. Cable 3 diagnostic behavior remains unchanged when canonical validation fails', () => {
+      const noncanonicalOutput = {
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-8888',
+            rationale: 'Diagnóstico seguro.',
+          },
+        ],
+      };
+
+      try {
+        validateUntrustedAIResponse(noncanonicalOutput);
+        expect.unreachable('Should have thrown InvalidCurricularRecommendationError');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('noncanonical_pda_id');
+        expect(err.safeStructuralMetadata.canonicalIdMatch).toBe(false);
+        expect(err.safeStructuralMetadata.identifierFieldPresent).toBe('pdaId');
+        expect(err.safeStructuralMetadata.recommendationCount).toBe(1);
+      }
+    });
+
+    it('L. No prompt or pedagogical narrative data is added to telemetry', async () => {
+      const capturedTelemetry: CurricularAIProviderTelemetry[] = [];
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: async () => ({
+          id: 'chatcmpl-test-telemetry',
+          model: 'gpt-4o-mini',
+          usage: {
+            prompt_tokens: 120,
+            completion_tokens: 45,
+            total_tokens: 165,
+          },
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: JSON.stringify({
+                  recommendations: [
+                    {
+                      pdaId: 'TUTORIA-PDA-0001',
+                      rationale: 'Pedagogical text that must not leak into telemetry.',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        text: async () => '',
+      });
+
+      const provider = new OpenAICurricularAIProvider({
+        apiKey: 'test-telemetry-key',
+        fetchFn: mockFetch,
+        onTelemetry: (t) => capturedTelemetry.push(t),
+      });
+
+      await provider.generateRawRecommendations(sampleRequest);
+
+      expect(capturedTelemetry).toHaveLength(1);
+      const t = capturedTelemetry[0];
+
+      expect(t.model).toBe('gpt-4o-mini');
+      expect(t.responseId).toBe('chatcmpl-test-telemetry');
+      expect(t.usage).toEqual({
+        promptTokens: 120,
+        completionTokens: 45,
+        totalTokens: 165,
+      });
+
+      const serialized = JSON.stringify(t);
+      expect(serialized).not.toContain('Exploración de Texturas');
+      expect(serialized).not.toContain('Pedagogical text that must not leak');
+      expect(serialized).not.toContain('Lactantes');
+      expect(serialized).not.toContain('Anita');
+      expect(serialized).not.toContain('prompt_tokens');
     });
   });
 

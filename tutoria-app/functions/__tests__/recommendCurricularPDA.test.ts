@@ -1480,5 +1480,68 @@ describe('H1R9-F.8.3.4 — Firebase Callable AI Gateway Skeleton', () => {
       expect(failedTransport!.upstreamStatus).toBeUndefined();
       expect(JSON.stringify(failedTransport)).not.toContain('ENOTFOUND');
     });
+
+    it('X.15 Cable 3: canonical validation failure records safe diagnostic code and safe structural metadata without sensitive leaks', async () => {
+      const entries: CurricularAILogEntry[] = [];
+      const logger: CurricularAILogger = {
+        write: (e) => entries.push(e),
+      };
+
+      const sensitivePedagogy = 'SENSITIVE_PEDAGOGICAL_SECRET_EVALUATION';
+      const mockFetchCanonicalFail = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'chatcmpl-test-canonical-fail',
+          model: 'gpt-4o-mini-2024-07-18',
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: JSON.stringify({
+                  recommendations: [
+                    {
+                      pdaId: 'TUTORIA-PDA-9999',
+                      rationale: sensitivePedagogy,
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      });
+
+      const req = createCallableRequest(validPayload, { uid: 'teacher-uid-test' });
+
+      await expect(
+        handleRecommendCurricularPDA(req, {
+          authorizer: stubAuthorizedAuthorizer,
+          createExecutor: (opts) =>
+            createOpenAICurricularRecommendationExecutor({
+              providerConfig: { apiKey: 'key-test', fetchFn: mockFetchCanonicalFail, onTelemetry: opts.onTelemetry },
+            }),
+          logger,
+        })
+      ).rejects.toMatchObject({
+        code: 'internal',
+        message: 'Curricular AI recommendation failed canonical boundary validation.',
+      });
+
+      const failedEntry = entries.find((e) => e.event === 'curricular_ai.failed');
+      expect(failedEntry).toBeDefined();
+      expect(failedEntry!.safeErrorCategory).toBe('canonical_validation');
+      expect(failedEntry!.canonicalDiagnosticCode).toBe('noncanonical_pda_id');
+      expect(failedEntry!.safeStructuralMetadata).toBeDefined();
+      expect(failedEntry!.safeStructuralMetadata?.canonicalIdMatch).toBe(false);
+      expect(failedEntry!.safeStructuralMetadata?.identifierFieldPresent).toBe('pdaId');
+      expect(failedEntry!.safeStructuralMetadata?.recommendationCount).toBe(1);
+
+      // Verify zero sensitive data is in telemetry
+      const serialized = JSON.stringify(failedEntry);
+      expect(serialized).not.toContain(sensitivePedagogy);
+      expect(serialized).not.toContain('TUTORIA-PDA-9999');
+      expect(serialized).not.toContain('teacher-uid-test');
+    });
   });
 });

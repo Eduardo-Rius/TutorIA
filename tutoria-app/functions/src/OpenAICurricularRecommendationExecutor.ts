@@ -77,10 +77,21 @@ export class OpenAICurricularRecommendationExecutor {
         );
       }
       if (err instanceof InvalidCurricularRecommendationError) {
-        throw new HttpsError(
+        const httpsError = new HttpsError(
           'internal',
           'Curricular AI recommendation failed canonical boundary validation.'
         );
+        Object.defineProperty(httpsError, 'canonicalDiagnosticCode', {
+          value: err.diagnosticCode,
+          enumerable: false,
+          writable: true,
+        });
+        Object.defineProperty(httpsError, 'safeStructuralMetadata', {
+          value: err.safeStructuralMetadata,
+          enumerable: false,
+          writable: true,
+        });
+        throw httpsError;
       }
       throw new HttpsError(
         'internal',

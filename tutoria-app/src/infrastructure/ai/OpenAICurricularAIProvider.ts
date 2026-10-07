@@ -143,7 +143,7 @@ export interface OpenAICurricularAIProviderConfig {
  * Strictly derived from DIRECT_PDA_CATALOG; never duplicated or hardcoded independently.
  */
 export interface SimplifiedPDACatalogEntry {
-  readonly id: string;
+  readonly pdaId: string;
   readonly campoFormativo: string;
   readonly contenido: string;
   readonly pda: string;
@@ -155,11 +155,61 @@ export interface SimplifiedPDACatalogEntry {
  */
 export function deriveCanonicalCatalogContext(): readonly SimplifiedPDACatalogEntry[] {
   return DIRECT_PDA_CATALOG.map((entry) => ({
-    id: entry.id,
+    pdaId: entry.id,
     campoFormativo: entry.campoFormativo,
     contenido: entry.contenido.trim(),
     pda: entry.pda.trim(),
   }));
+}
+
+/**
+ * Programmatically builds the canonical strict structured-output response_format for OpenAI.
+ * Constrains the model so that pdaId can ONLY be chosen from the canonical DIRECT 40-PDA catalog.
+ * Derives allowed PDA identifiers strictly from the sovereign DIRECT_PDA_CATALOG; never introduces
+ * a second manually maintained list of IDs.
+ */
+export function buildCanonicalPDAResponseFormat() {
+  const canonicalIds = DIRECT_PDA_CATALOG.map((entry) => entry.id);
+
+  return {
+    type: 'json_schema' as const,
+    json_schema: {
+      name: 'curricular_pda_recommendations',
+      strict: true,
+      schema: {
+        type: 'object',
+        properties: {
+          recommendations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                pdaId: {
+                  type: 'string',
+                  enum: canonicalIds,
+                },
+                rationale: {
+                  type: 'string',
+                },
+              },
+              required: ['pdaId', 'rationale'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['recommendations'],
+        additionalProperties: false,
+      },
+    },
+  };
+}
+
+/**
+ * Programmatically builds the canonical strict JSON Schema for curricular PDA recommendations.
+ * Derives allowed PDA identifiers strictly from the sovereign DIRECT_PDA_CATALOG.
+ */
+export function buildCanonicalPDAResponseSchema() {
+  return buildCanonicalPDAResponseFormat().json_schema.schema;
 }
 
 /**
@@ -307,7 +357,7 @@ export class OpenAICurricularAIProvider implements CurricularAIProvider {
           model: this.model,
           messages,
           temperature: 0.2,
-          response_format: { type: 'json_object' },
+          response_format: buildCanonicalPDAResponseFormat(),
           max_completion_tokens: this.maxCompletionTokens,
         }),
         signal: controller.signal,

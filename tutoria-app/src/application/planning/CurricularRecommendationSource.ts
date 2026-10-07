@@ -11,9 +11,20 @@ import type { WeeklyContextSnapshot } from '../../domain/planning/WeeklyPlanning
  * canonical contract invariants.
  */
 export class InvalidCurricularRecommendationError extends Error {
-  constructor(message: string) {
+  readonly diagnosticCode?: string;
+  readonly safeStructuralMetadata?: Record<string, unknown>;
+
+  constructor(
+    message: string,
+    options?: {
+      diagnosticCode?: string;
+      safeStructuralMetadata?: Record<string, unknown>;
+    }
+  ) {
     super(message);
     this.name = 'InvalidCurricularRecommendationError';
+    this.diagnosticCode = options?.diagnosticCode;
+    this.safeStructuralMetadata = options?.safeStructuralMetadata;
   }
 }
 

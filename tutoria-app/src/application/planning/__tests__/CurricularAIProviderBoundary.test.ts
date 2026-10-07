@@ -449,4 +449,309 @@ describe('H1R9-F.8.3.1 — Real Curricular AI Provider Boundary Contract', () =>
       /Duplicate recommendation for PDA 'TUTORIA-PDA-0001'/
     );
   });
+
+  // ============================================================
+  // Cable 2 — Contract Alignment & Defensive Normalization (H1R13.3H.9)
+  // Mandatory Test Cases: CASE 1, 2, 3, 4, 5, 7
+  // ============================================================
+  describe('Cable 2 — Contract Alignment & Defensive Normalization (H1R13.3H.9)', () => {
+    it('CASE 1 — Contrato canónico: { pdaId, rationale } -> PASS con salida canónica pdaId', () => {
+      const raw = {
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-0001',
+            rationale: 'Fortalece la expresión y los vínculos afectivos.',
+          },
+        ],
+      };
+
+      const result = validateUntrustedAIResponse(raw);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].reference.pdaId).toBe('TUTORIA-PDA-0001');
+      expect(result[0].reference.catalogRevision).toBe(TUTORIA_DIRECT_PDA_CATALOG_REVISION);
+      expect(result[0].rationale).toBe('Fortalece la expresión y los vínculos afectivos.');
+      expect('id' in (result[0].reference as any)).toBe(false);
+      expect('id' in (result[0] as any)).toBe(false);
+    });
+
+    it('CASE 2 — Compatibilidad defensiva: { id, rationale } -> PASS con salida canónica pdaId (nunca id)', () => {
+      const raw = {
+        recommendations: [
+          {
+            id: 'TUTORIA-PDA-0001',
+            rationale: 'Fortalece la expresión y los vínculos afectivos.',
+          },
+        ],
+      };
+
+      const result = validateUntrustedAIResponse(raw);
+
+      expect(result).toHaveLength(1);
+      // Salida canónica usa pdaId
+      expect(result[0].reference.pdaId).toBe('TUTORIA-PDA-0001');
+      expect(result[0].reference.catalogRevision).toBe(TUTORIA_DIRECT_PDA_CATALOG_REVISION);
+      expect(result[0].rationale).toBe('Fortalece la expresión y los vínculos afectivos.');
+      // Nunca propaga id como contrato de dominio
+      expect('id' in (result[0].reference as any)).toBe(false);
+      expect('id' in (result[0] as any)).toBe(false);
+    });
+
+    it('CASE 3 — ID inventado vía pdaId: { pdaId: "TUTORIA-PDA-9999" } -> FAIL CLOSED', () => {
+      const raw = {
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-9999',
+            rationale: 'Justificación para un ID inexistente.',
+          },
+        ],
+      };
+
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        InvalidCurricularRecommendationError
+      );
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        /Untrusted AI provider proposed noncanonical PDA identifier 'TUTORIA-PDA-9999'/
+      );
+    });
+
+    it('CASE 4 — ID inventado vía id: { id: "TUTORIA-PDA-9999" } -> FAIL CLOSED', () => {
+      const raw = {
+        recommendations: [
+          {
+            id: 'TUTORIA-PDA-9999',
+            rationale: 'Justificación para un ID inventado usando alias defensivo.',
+          },
+        ],
+      };
+
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        InvalidCurricularRecommendationError
+      );
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        /Untrusted AI provider proposed noncanonical PDA identifier 'TUTORIA-PDA-9999'/
+      );
+    });
+
+    it('CASE 5 — Sin pdaId ni id: { rationale: "..." } -> FAIL CLOSED', () => {
+      const raw = {
+        recommendations: [
+          {
+            rationale: 'Recomendación sin identificador alguno.',
+          },
+        ],
+      };
+
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        InvalidCurricularRecommendationError
+      );
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        /must contain a non-empty string pdaId/
+      );
+    });
+
+    it('CASE 7 — Precedencia: pdaId inválido + id válido -> FAIL CLOSED (no bypass silencioso)', () => {
+      const raw = {
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-9999',
+            id: 'TUTORIA-PDA-0001',
+            rationale: 'Intento de sustitución silenciosa de pdaId por id.',
+          },
+        ],
+      };
+
+      // Debe fallar porque pdaId tiene precedencia y es inválido
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        InvalidCurricularRecommendationError
+      );
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        /Untrusted AI provider proposed noncanonical PDA identifier 'TUTORIA-PDA-9999'/
+      );
+    });
+
+    it('CASE 7b — Precedencia: pdaId vacío + id válido -> FAIL CLOSED (no bypass por string vacío)', () => {
+      const raw = {
+        recommendations: [
+          {
+            pdaId: '',
+            id: 'TUTORIA-PDA-0001',
+            rationale: 'Intento de fallback desde pdaId vacío.',
+          },
+        ],
+      };
+
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        InvalidCurricularRecommendationError
+      );
+      expect(() => validateUntrustedAIResponse(raw)).toThrow(
+        /must contain a non-empty string pdaId/
+      );
+    });
+
+    it('CASE 7c — Precedencia: cuando ambos son válidos, pdaId prevalece sobre id', () => {
+      const raw = {
+        recommendations: [
+          {
+            pdaId: 'TUTORIA-PDA-0001',
+            id: 'TUTORIA-PDA-0002',
+            rationale: 'Ambos provistos; pdaId canónico debe prevalecer.',
+          },
+        ],
+      };
+
+      const result = validateUntrustedAIResponse(raw);
+      expect(result).toHaveLength(1);
+      expect(result[0].reference.pdaId).toBe('TUTORIA-PDA-0001');
+    });
+  });
+
+  describe('Cable 3 — Safe Canonical-Validation Observability', () => {
+    it('Branch 1: unexpected_root_type when response is null or undefined or primitive', () => {
+      try {
+        validateUntrustedAIResponse(null);
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('unexpected_root_type');
+        expect(err.safeStructuralMetadata?.rootType).toBe('null');
+      }
+
+      try {
+        validateUntrustedAIResponse('not an object');
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('unexpected_root_type');
+        expect(err.safeStructuralMetadata?.rootType).toBe('string');
+      }
+    });
+
+    it('Branch 2: missing_recommendations_array when root is object without recommendations array', () => {
+      try {
+        validateUntrustedAIResponse({ invalidKey: 123 });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('missing_recommendations_array');
+        expect(err.safeStructuralMetadata?.rootType).toBe('object');
+        expect(err.safeStructuralMetadata?.topLevelKeys).toEqual(['invalidKey']);
+      }
+
+      try {
+        validateUntrustedAIResponse({ recommendations: 'not-an-array' });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('missing_recommendations_array');
+        expect(err.safeStructuralMetadata?.topLevelKeys).toEqual(['recommendations']);
+      }
+    });
+
+    it('Branch 3: invalid_recommendation_object when candidate item is not an object', () => {
+      try {
+        validateUntrustedAIResponse({ recommendations: [null] });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('invalid_recommendation_object');
+        expect(err.safeStructuralMetadata?.recommendationCount).toBe(1);
+      }
+    });
+
+    it('Branch 4: forbidden_confidence when candidate item specifies confidence scores', () => {
+      try {
+        validateUntrustedAIResponse({
+          recommendations: [
+            {
+              pdaId: 'TUTORIA-PDA-0001',
+              rationale: 'Válida pedagógicamente.',
+              confidence: 0.95,
+            },
+          ],
+        });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('forbidden_confidence');
+        expect(err.safeStructuralMetadata?.candidateKeys).toContain('confidence');
+      }
+    });
+
+    it('Branch 5: missing_pda_id when candidate lacks both pdaId and id or they are blank', () => {
+      try {
+        validateUntrustedAIResponse({
+          recommendations: [{ rationale: 'Sin ID' }],
+        });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('missing_pda_id');
+        expect(err.safeStructuralMetadata?.identifierFieldPresent).toBe('neither');
+      }
+
+      try {
+        validateUntrustedAIResponse({
+          recommendations: [{ pdaId: '   ', rationale: 'ID en blanco' }],
+        });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('missing_pda_id');
+        expect(err.safeStructuralMetadata?.identifierFieldPresent).toBe('pdaId');
+      }
+    });
+
+    it('Branch 6: noncanonical_pda_id when candidate proposes an unknown PDA identifier', () => {
+      const sensitiveText = 'SENSITIVE_PEDAGOGICAL_SECRET_TEXT';
+      try {
+        validateUntrustedAIResponse({
+          recommendations: [
+            {
+              pdaId: 'TUTORIA-PDA-9999',
+              rationale: sensitiveText,
+            },
+          ],
+        });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('noncanonical_pda_id');
+        expect(err.safeStructuralMetadata?.canonicalIdMatch).toBe(false);
+        expect(err.safeStructuralMetadata?.identifierFieldPresent).toBe('pdaId');
+        // Ensure sensitive narrative is NOT in safeStructuralMetadata
+        expect(JSON.stringify(err.safeStructuralMetadata)).not.toContain(sensitiveText);
+      }
+    });
+
+    it('Branch 7: missing_rationale when candidate lacks non-empty string rationale', () => {
+      try {
+        validateUntrustedAIResponse({
+          recommendations: [{ pdaId: 'TUTORIA-PDA-0001', rationale: '   ' }],
+        });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('missing_rationale');
+        expect(err.safeStructuralMetadata?.canonicalIdMatch).toBe(true);
+        expect(err.safeStructuralMetadata?.rationalePresent).toBe(false);
+      }
+    });
+
+    it('Branch 8: duplicate_pda when multiple candidates reference the same PDA', () => {
+      try {
+        validateUntrustedAIResponse({
+          recommendations: [
+            { pdaId: 'TUTORIA-PDA-0001', rationale: 'Primera justificación' },
+            { pdaId: 'TUTORIA-PDA-0001', rationale: 'Segunda justificación' },
+          ],
+        });
+        expect.unreachable();
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(InvalidCurricularRecommendationError);
+        expect(err.diagnosticCode).toBe('duplicate_pda');
+        expect(err.safeStructuralMetadata?.recommendationCount).toBe(2);
+      }
+    });
+  });
 });

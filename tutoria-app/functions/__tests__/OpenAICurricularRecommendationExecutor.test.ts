@@ -887,4 +887,47 @@ describe('H1R10.3 — OpenAICurricularRecommendationExecutor Server Integration'
       expect(JSON.stringify(err)).not.toContain(sensitiveUid);
     }
   });
+
+  it('22. Cable 3: Executor preserves canonical diagnostic code and safe metadata on HttpsError without exposing sensitive data', async () => {
+    const fakeFetch: typeof fetch = async () => {
+      return new Response(
+        JSON.stringify(
+          createOpenAIResponseBody({
+            recommendations: [
+              {
+                pdaId: 'TUTORIA-PDA-9999',
+                rationale: 'Valid rationale',
+              },
+            ],
+          })
+        ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+
+    const executor = createOpenAICurricularRecommendationExecutor({
+      providerConfig: {
+        apiKey: TEST_API_KEY,
+        fetchFn: fakeFetch,
+      },
+    });
+
+    try {
+      await (executor as any)({
+        activityId: 'act-1',
+        activityTitle: 'Act Title',
+        modality: 'DIRECT',
+      });
+      expect.unreachable('Should have thrown HttpsError');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(HttpsError);
+      expect(err.canonicalDiagnosticCode).toBe('noncanonical_pda_id');
+      expect(err.safeStructuralMetadata).toBeDefined();
+      expect(err.safeStructuralMetadata.canonicalIdMatch).toBe(false);
+      expect(err.safeStructuralMetadata.identifierFieldPresent).toBe('pdaId');
+      // Verify non-enumerable: not present in Object.keys
+      expect(Object.keys(err)).not.toContain('canonicalDiagnosticCode');
+      expect(Object.keys(err)).not.toContain('safeStructuralMetadata');
+    }
+  });
 });

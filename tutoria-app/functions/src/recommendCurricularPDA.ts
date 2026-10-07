@@ -18,6 +18,10 @@ import {
   CurricularAIProviderMalformedResponseError,
   CurricularAIProviderFailureKind,
 } from '../../src/infrastructure/ai/OpenAICurricularAIProvider';
+import {
+  CanonicalValidationDiagnosticCode,
+  SafeStructuralMetadata,
+} from '../../src/application/planning/CurricularAIProviderBoundary';
 
 /**
  * Maximum allowed payload size in bytes (10 KB).
@@ -204,6 +208,8 @@ export interface CurricularAILogEntry {
   readonly safeErrorCategory?: SafeCurricularAIErrorCategory;
   readonly failureKind?: CurricularAIProviderFailureKind;
   readonly upstreamStatus?: number;
+  readonly canonicalDiagnosticCode?: CanonicalValidationDiagnosticCode;
+  readonly safeStructuralMetadata?: SafeStructuralMetadata;
 }
 
 /**
@@ -501,6 +507,17 @@ export async function handleRecommendCurricularPDA(
       upstreamStatus = err.upstreamStatus;
     }
 
+    let canonicalDiagnosticCode: CanonicalValidationDiagnosticCode | undefined;
+    let safeStructuralMetadata: SafeStructuralMetadata | undefined;
+
+    if (err instanceof InvalidCurricularRecommendationError) {
+      canonicalDiagnosticCode = err.diagnosticCode as CanonicalValidationDiagnosticCode | undefined;
+      safeStructuralMetadata = err.safeStructuralMetadata as SafeStructuralMetadata | undefined;
+    } else if (err && typeof err === 'object' && 'canonicalDiagnosticCode' in err) {
+      canonicalDiagnosticCode = (err as any).canonicalDiagnosticCode;
+      safeStructuralMetadata = (err as any).safeStructuralMetadata;
+    }
+
     logger.write({
       severity: 'ERROR',
       correlationId,
@@ -508,6 +525,8 @@ export async function handleRecommendCurricularPDA(
       model: executionContext.model,
       latencyMs,
       safeErrorCategory,
+      ...(canonicalDiagnosticCode ? { canonicalDiagnosticCode } : {}),
+      ...(safeStructuralMetadata ? { safeStructuralMetadata } : {}),
       ...(failureKind ? { failureKind } : {}),
       ...(upstreamStatus !== undefined ? { upstreamStatus } : {}),
     });
