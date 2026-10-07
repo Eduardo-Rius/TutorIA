@@ -85,7 +85,7 @@ describe("H1R9-D.2: Daily Evaluation Correction Return Visibility", () => {
     expect(screen.getByText(/Favor de detallar la interacción con materiales rugosos./i)).toBeDefined();
 
     // C. Anita modifies Wednesday evaluation
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     const correctedText = "Los lactantes manipularon texturas rugosas con notable curiosidad y atención sostenida.";
     await act(async () => {
       fireEvent.change(textarea, { target: { value: correctedText } });
@@ -97,11 +97,17 @@ describe("H1R9-D.2: Daily Evaluation Correction Return Visibility", () => {
 
     // D. Anita resubmits Wednesday
     await act(async () => {
+      fireEvent.click(screen.getByRole("tab", { name: /Miércoles 26/i }));
+    });
+    await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Reenviar evaluación a Ceci/i }));
     });
 
     // Anita view post-submit freeze (Section 6)
-    expect(screen.queryByPlaceholderText(/El grupo respondió favorablemente a la actividad/i)).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("tab", { name: /Miércoles 26/i }));
+    });
+    expect(screen.queryByPlaceholderText(/Describe de manera objetiva/i)).toBeNull();
     // Wednesday is BLUE in Anita view
     expect(screen.getByRole("tab", { name: /Miércoles 26/i }).className).toContain("blue");
 

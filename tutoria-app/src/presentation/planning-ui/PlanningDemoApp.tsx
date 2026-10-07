@@ -33,6 +33,8 @@ import type {
   WeeklyPlanningProposalResponse,
 } from '../../application/planning/WeeklyPlanningProposalSource';
 import { WeeklyPlanningProposalHumanGate } from './WeeklyPlanningProposalHumanGate';
+import { DailyEvaluationHumanGate } from './DailyEvaluationHumanGate';
+import type { EvaluationRecommendationSource } from '../../infrastructure/ai/FirebaseEvaluationRecommendationSource';
 
 const MOCK_START = '2026-08-10';
 const MOCK_END = '2026-08-14';
@@ -85,6 +87,7 @@ export interface PlanningDemoAppProps {
   source: PedagogicalRecommendationSource;
   curricularRecommendationSource?: CurricularRecommendationSource | undefined;
   weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined;
+  evaluationRecommendationSource?: EvaluationRecommendationSource | undefined;
   currentDate?: string | undefined;
   firstLightEnv?: Record<string, any> | undefined;
   firstLightAuth?: AuthenticationProvider | undefined;
@@ -94,7 +97,7 @@ export interface PlanningDemoAppProps {
   initialAction?: 'new' | 'continue' | string | undefined;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride, initialAction }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, evaluationRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride, initialAction }) => {
   const [role, setRole] = useState<PlanningActorRole>('TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
@@ -538,6 +541,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 source={source}
                 curricularRecommendationSource={effectiveCurricularSource}
                 weeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
+                evaluationRecommendationSource={evaluationRecommendationSource}
                 isFirstLight={firstLightGuard.isEligible}
                 activeRoom={activeRoom}
                 planId={selectedPlanId}
@@ -857,7 +861,7 @@ const createDefaultWeekDays = (): PlanningDay[] =>
     materials: [],
   }));
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string }) => {
   const effectiveTeacher = teacherId || (isFirstLight ? FIRST_LIGHT_TEACHER_ID : 't1');
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
@@ -894,6 +898,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
     }
   }
   const currentPlanId = planId || stableIdRef.current;
+  const evaluationTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const effectiveRoom = activeRoom
     || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
@@ -1705,7 +1710,26 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                 <p className="text-sm text-orange-900 font-semibold mb-3">
                                   ✏️ Edición habilitada por solicitud de Ceci. Corrige tu evaluación y reenvíala a Dirección:
                                 </p>
+                                <DailyEvaluationHumanGate
+                                  planningId={currentPlanId}
+                                  dayOfWeek={d.dayOfWeek}
+                                  isEligible={
+                                    role === 'TEACHER' &&
+                                    (status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION') &&
+                                    Boolean(isEligible)
+                                  }
+                                  {...(evaluationRecommendationSource ? { source: evaluationRecommendationSource } : {})}
+                                  textareaRef={evaluationTextareaRef}
+                                  onAccept={(suggestedText) => {
+                                    setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: suggestedText }));
+                                  }}
+                                  onEdit={(suggestedText) => {
+                                    setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: suggestedText }));
+                                    setTimeout(() => evaluationTextareaRef.current?.focus(), 0);
+                                  }}
+                                />
                                 <textarea
+                                  ref={evaluationTextareaRef}
                                   value={dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
                                   onChange={(e) => {
                                     const val = e.target.value;
@@ -1785,7 +1809,27 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                 <p className="text-sm text-text-muted mb-3 font-medium">
                                   Registra cómo se desarrollaron las actividades y observaciones pedagógicas clave de este día:
                                 </p>
+                                <DailyEvaluationHumanGate
+                                  planningId={currentPlanId}
+                                  dayOfWeek={d.dayOfWeek}
+                                  isEligible={
+                                    role === 'TEACHER' &&
+                                    (status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION') &&
+                                    (d.evaluationStatus === undefined || d.evaluationStatus === 'DRAFT') &&
+                                    Boolean(isEligible)
+                                  }
+                                  {...(evaluationRecommendationSource ? { source: evaluationRecommendationSource } : {})}
+                                  textareaRef={evaluationTextareaRef}
+                                  onAccept={(suggestedText) => {
+                                    setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: suggestedText }));
+                                  }}
+                                  onEdit={(suggestedText) => {
+                                    setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: suggestedText }));
+                                    setTimeout(() => evaluationTextareaRef.current?.focus(), 0);
+                                  }}
+                                />
                                 <textarea
+                                  ref={evaluationTextareaRef}
                                   value={dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
                                   onChange={(e) => {
                                     const val = e.target.value;

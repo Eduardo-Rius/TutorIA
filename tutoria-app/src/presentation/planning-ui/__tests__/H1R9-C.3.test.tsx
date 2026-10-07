@@ -48,7 +48,7 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
 
     expect(screen.getByText(/Disponible para evaluar/i)).toBeDefined();
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     expect(textarea).toBeDefined();
 
     const submitBtn = screen.getByRole("button", { name: /Enviar evaluación a Ceci/i }) as HTMLButtonElement;
@@ -71,7 +71,7 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
 
     // Save initial draft
     await act(async () => {
@@ -86,8 +86,9 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
     expect(plan!.days[0]!.evaluationStatus).toBe("DRAFT");
 
     // Edit and save updated draft
+    const liveTextarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     await act(async () => {
-      fireEvent.change(textarea, { target: { value: "Borrador segundo lunes con más detalle" } });
+      fireEvent.change(liveTextarea, { target: { value: "Borrador segundo lunes con más detalle" } });
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Guardar borrador/i }));
@@ -142,7 +143,7 @@ describe("H1R9-C.3: Daily Evaluation Submit & Freeze", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
 
     await act(async () => {
       fireEvent.change(textarea, { target: { value: "Evaluación definitiva del lunes para Ceci" } });

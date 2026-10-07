@@ -293,7 +293,7 @@ describe("H1R9-C.2: Strict Chronological Daily Evaluation Gate", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    const input = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const input = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     await act(async () => {
       fireEvent.change(input, { target: { value: "Evaluación del lunes guardada" } });
     });

@@ -62,7 +62,7 @@ describe("H1R9-C.5: Daily Evaluation Correction & Resubmission", () => {
 
     // Open Monday (APPROVED) -> non-editable (05)
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    expect(screen.queryByPlaceholderText(/El grupo respondió favorablemente a la actividad/i)).toBeNull();
+    expect(screen.queryByPlaceholderText(/Describe de manera objetiva/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /Reenviar evaluación a Ceci/i })).toBeNull();
 
     // Open Tuesday (CHANGES_REQUESTED) -> editable (01, 02, 03)
@@ -70,7 +70,7 @@ describe("H1R9-C.5: Daily Evaluation Correction & Resubmission", () => {
     expect(screen.getByText(/Favor de especificar cómo respondió el grupo durante la actividad./i)).toBeDefined();
     expect(screen.getByText(/Edición habilitada por solicitud de Ceci/i)).toBeDefined();
 
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     expect(textarea).toBeDefined();
     expect((textarea as HTMLTextAreaElement).value).toBe("Martes texto inicial con falta de detalle");
 
@@ -90,7 +90,7 @@ describe("H1R9-C.5: Daily Evaluation Correction & Resubmission", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Martes 25/i })); });
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
 
     // Edit to draft correction (06, 07)
     await act(async () => {
@@ -106,7 +106,11 @@ describe("H1R9-C.5: Daily Evaluation Correction & Resubmission", () => {
 
     // Clear textarea -> resubmit button disabled (08)
     await act(async () => {
-      fireEvent.change(textarea, { target: { value: "   " } });
+      fireEvent.click(screen.getByRole("tab", { name: /Martes 25/i }));
+    });
+    const liveTextarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
+    await act(async () => {
+      fireEvent.change(liveTextarea, { target: { value: "   " } });
     });
     const resubmitBtn = screen.getByRole("button", { name: /Reenviar evaluación a Ceci/i });
     expect(resubmitBtn.hasAttribute("disabled")).toBe(true);
@@ -123,7 +127,7 @@ describe("H1R9-C.5: Daily Evaluation Correction & Resubmission", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Martes 25/i })); });
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
 
     const correctedText = "El grupo respondió con gran atención a los estímulos táctiles, logrando la interacción deseada.";
     await act(async () => {
@@ -152,7 +156,8 @@ describe("H1R9-C.5: Daily Evaluation Correction & Resubmission", () => {
     expect(screen.getByRole("tab", { name: /Martes 25/i }).className).toContain("blue");
 
     // 04. Now non-editable for Anita
-    expect(screen.queryByPlaceholderText(/El grupo respondió favorablemente a la actividad/i)).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Martes 25/i })); });
+    expect(screen.queryByPlaceholderText(/Describe de manera objetiva/i)).toBeNull();
     expect(screen.getAllByText(/En revisión por Ceci/i).length).toBeGreaterThan(0);
 
     // Switch to Ceci (14, 15, 16, 17)

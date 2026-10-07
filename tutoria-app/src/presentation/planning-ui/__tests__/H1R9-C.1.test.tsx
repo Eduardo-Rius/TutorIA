@@ -234,7 +234,7 @@ describe("H1R9-C.1: Daily Evaluation Temporal Unlock", () => {
 
     // 09. Fill Monday evaluation and save
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    const evalInput = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const evalInput = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     await act(async () => {
       fireEvent.change(evalInput, {
         target: { value: "El grupo respondió favorablemente a la actividad de sonidos con sonajas." }

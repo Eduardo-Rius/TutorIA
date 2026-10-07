@@ -68,7 +68,7 @@ describe("H1R9-C.3.1: Remove Redundant Guardar Evaluación Action", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
 
     await act(async () => {
       fireEvent.change(textarea, { target: { value: "Borrador de lunes en progreso" } });
@@ -104,7 +104,7 @@ describe("H1R9-C.3.1: Remove Redundant Guardar Evaluación Action", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
 
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
 
     await act(async () => {
       fireEvent.change(textarea, { target: { value: "Evaluación definitiva de lunes enviada a Ceci" } });

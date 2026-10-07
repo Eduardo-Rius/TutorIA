@@ -56,7 +56,7 @@ describe("H1R9-G.3.2: Simplified Human Governance for Daily Evaluation", () => {
     expect(submitBtn.disabled).toBe(true);
 
     // 8. Typing evaluation does not submit automatically
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     await act(async () => {
       fireEvent.change(textarea, { target: { value: "   " } });
     });
@@ -98,7 +98,7 @@ describe("H1R9-G.3.2: Simplified Human Governance for Daily Evaluation", () => {
     await act(async () => { fireEvent.click(screen.getByText(/Propuesta lista para usarse/i)); });
     await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /Lunes 24/i })); });
 
-    const textarea = screen.getByPlaceholderText(/El grupo respondió favorablemente a la actividad/i);
+    const textarea = screen.getByPlaceholderText(/Describe de manera objetiva/i);
     await act(async () => {
       fireEvent.change(textarea, { target: { value: "Los lactantes respondieron activamente a los sonidos." } });
     });
@@ -257,7 +257,7 @@ describe("H1R9-G.3.2: Simplified Human Governance for Daily Evaluation", () => {
 
     // 19. APPROVED evaluation remains read-only
     expect(screen.getAllByText(/Aprobada por Ceci/i).length).toBeGreaterThan(0);
-    expect(screen.queryByPlaceholderText(/El grupo respondió favorablemente a la actividad/i)).toBeNull();
+    expect(screen.queryByPlaceholderText(/Describe de manera objetiva/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /Guardar borrador/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Enviar evaluación a Ceci/i })).toBeNull();
 
