@@ -7,6 +7,7 @@ import {
   FIRST_LIGHT_LAB_FLAG,
   FIRST_LIGHT_LAB_PROJECT_ID,
   FIRST_LIGHT_ANITA_EMAIL,
+  FIRST_LIGHT_PLANNING_ID,
 } from "../firstLightLabHarness";
 import { PlanningDemoApp } from "../PlanningDemoApp";
 import { PlanningWorkflowService } from "../../../application/planning/PlanningWorkflowService";
@@ -163,6 +164,10 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
     it("10. No OPENAI_API_KEY exists in client env/config", () => {
       expect((import.meta as any).env?.OPENAI_API_KEY).toBeUndefined();
       expect(process.env.OPENAI_API_KEY).toBeUndefined();
+    });
+
+    it("11. Canonical persisted fixture ID is defined and immutable", () => {
+      expect(FIRST_LIGHT_PLANNING_ID).toBe("f1000000-0000-4000-8000-000000000001");
     });
   });
 
@@ -376,6 +381,44 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
       await waitFor(() => {
         expect(screen.getByTestId("first-light-auth-status")).toBeTruthy();
         expect(screen.getByText(/anita@lab\.tutoria\.invalid/)).toBeTruthy();
+      });
+    });
+
+    it("8. Controlled Ceci LAB identity can be selected and passed to auth seam on login", async () => {
+      const mockLogin = vi.fn().mockResolvedValue(undefined);
+      const mockAuth: AuthenticationProvider = {
+        login: mockLogin,
+        logout: vi.fn(),
+        restoreSession: vi.fn().mockResolvedValue(null),
+        getCurrentUser: vi.fn().mockReturnValue(null),
+      };
+
+      const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
+      const source = new DeterministicPedagogicalRecommendationSource();
+
+      render(
+        <PlanningDemoApp
+          service={service}
+          source={source}
+          firstLightEnv={{
+            [FIRST_LIGHT_LAB_FLAG]: "true",
+            VITE_FIREBASE_PROJECT_ID: FIRST_LIGHT_LAB_PROJECT_ID,
+          }}
+          firstLightAuth={mockAuth}
+        />
+      );
+
+      const select = screen.getByTestId("first-light-identity-select");
+      fireEvent.change(select, { target: { value: "DIRECTOR" } });
+
+      const input = screen.getByTestId("first-light-password-input");
+      const button = screen.getByTestId("first-light-login-btn");
+
+      fireEvent.change(input, { target: { value: "synthetic-ceci-pass-456" } });
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledWith("ceci@lab.tutoria.invalid", "synthetic-ceci-pass-456");
       });
     });
   });

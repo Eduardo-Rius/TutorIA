@@ -11,8 +11,12 @@ import {
   evaluateFirstLightLabGuard,
   FirstLightLabBanner,
   FIRST_LIGHT_ANITA_EMAIL,
+  FIRST_LIGHT_TEACHER_ID,
+  FIRST_LIGHT_CECI_EMAIL,
+  FIRST_LIGHT_DIRECTOR_ID,
   FIRST_LIGHT_DAYCARE_ID,
   FIRST_LIGHT_ROOM_ID,
+  FIRST_LIGHT_PLANNING_ID,
 } from './firstLightLabHarness';
 import { AuthenticationProvider } from '../../application/ports/AuthenticationProvider';
 import { FirebaseAuthenticationProvider } from '../../infrastructure/authentication/FirebaseAuthenticationProvider';
@@ -55,6 +59,27 @@ const VISUAL_STEPS = [
   'Compartirla'
 ];
 
+export type FirstLightBootstrapStatus =
+  | 'AUTH_PENDING'
+  | 'PLANNING_PENDING'
+  | 'EXISTING_PLANNING_FOUND'
+  | 'NO_PLANNING_FOUND'
+  | 'BOOTSTRAP_ERROR';
+
+/**
+ * Browser- and test-safe sovereign generator for unique planning identifiers.
+ * Uses crypto.randomUUID() when available, with a resilient fallback for test runtimes.
+ */
+export function generateUniquePlanningId(prefix?: string): string {
+  if (prefix) {
+    return `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `p-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export interface PlanningDemoAppProps {
   service: PlanningWorkflowService;
   source: PedagogicalRecommendationSource;
@@ -66,9 +91,10 @@ export interface PlanningDemoAppProps {
   firstLightSource?: CurricularRecommendationSource | undefined;
   firstLightWeeklyPlanningSource?: WeeklyPlanningProposalSource | undefined;
   roomOverride?: Room | undefined;
+  initialAction?: 'new' | 'continue' | string | undefined;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride, initialAction }) => {
   const [role, setRole] = useState<PlanningActorRole>('TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
@@ -79,6 +105,20 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [modality, setModality] = useState<'DIRECT' | 'INDIRECT'>('DIRECT');
+
+  // Detect explicit NEW intent from prop or browser URL search params
+  const isNewIntent = React.useMemo(() => {
+    if (initialAction === 'new') return true;
+    if (typeof window !== 'undefined' && window.location?.search) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('action') === 'new';
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }, [initialAction]);
 
   // FIRST LIGHT LAB HARNESS
   const firstLightGuard = React.useMemo(() => evaluateFirstLightLabGuard(firstLightEnv), [firstLightEnv]);
@@ -110,19 +150,20 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     return firstLightAuth || new FirebaseAuthenticationProvider();
   });
   const [firstLightUser, setFirstLightUser] = useState<string | null>(null);
+  const [authenticatedTeacherId, setAuthenticatedTeacherId] = useState<string | null>(() => {
+    if (firstLightGuard.isEligible) {
+      return null;
+    }
+    return 't1';
+  });
   const [firstLightLoginError, setFirstLightLoginError] = useState<string | null>(null);
   const [isFirstLightLoggingIn, setIsFirstLightLoggingIn] = useState(false);
-
-  useEffect(() => {
-    if (!firstLightGuard.isEligible) return;
-    let isMounted = true;
-    firstLightAuthInstance.restoreSession().then((uid) => {
-      if (isMounted && uid) {
-        setFirstLightUser(FIRST_LIGHT_ANITA_EMAIL);
-      }
-    }).catch(() => {});
-    return () => { isMounted = false; };
-  }, [firstLightGuard.isEligible, firstLightAuthInstance]);
+  const [bootstrapStatus, setBootstrapStatus] = useState<FirstLightBootstrapStatus>(() => {
+    return firstLightGuard.isEligible ? 'AUTH_PENDING' : 'NO_PLANNING_FOUND';
+  });
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [bootstrapRetryCount, setBootstrapRetryCount] = useState(0);
+  const [canonicalPlanningAggregate, setCanonicalPlanningAggregate] = useState<WeeklyPlanning | null>(null);
 
   const effectiveCurricularSource = React.useMemo(() => {
     if (!firstLightGuard.isEligible) {
@@ -156,12 +197,15 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     activeRoom.roomId,
   ]);
 
-  const handleFirstLightLogin = async (password: string) => {
+  const handleFirstLightLogin = async (password: string, email: string = FIRST_LIGHT_ANITA_EMAIL) => {
     setIsFirstLightLoggingIn(true);
     setFirstLightLoginError(null);
     try {
-      await firstLightAuthInstance.login(FIRST_LIGHT_ANITA_EMAIL, password);
-      setFirstLightUser(FIRST_LIGHT_ANITA_EMAIL);
+      await firstLightAuthInstance.login(email, password);
+      const uid = firstLightAuthInstance.getCurrentUser() || (email === FIRST_LIGHT_CECI_EMAIL ? FIRST_LIGHT_DIRECTOR_ID : FIRST_LIGHT_TEACHER_ID);
+      setFirstLightUser(email);
+      setAuthenticatedTeacherId(uid);
+      setBootstrapRetryCount(c => c + 1);
     } catch (err: unknown) {
       setFirstLightLoginError(err instanceof Error ? err.message : 'Error al autenticar en LAB');
     } finally {
@@ -173,10 +217,118 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     try {
       await firstLightAuthInstance.logout();
       setFirstLightUser(null);
+      setAuthenticatedTeacherId(null);
+      setSelectedPlanId(null);
+      setView('LIST');
+      setCanonicalPlanningAggregate(null);
+      setBootstrapStatus('AUTH_PENDING');
     } catch {
       // ignore
     }
   };
+
+  const effectiveTeacherId = firstLightGuard.isEligible
+    ? authenticatedTeacherId
+    : 't1';
+
+  useEffect(() => {
+    if (!firstLightGuard.isEligible) return;
+
+    let isMounted = true;
+
+    const runBootstrap = async () => {
+      setBootstrapStatus('AUTH_PENDING');
+      setBootstrapError(null);
+
+      // STEP 1: RESOLVE FIREBASE AUTH
+      let resolvedUid: string | null = null;
+      try {
+        resolvedUid = await firstLightAuthInstance.restoreSession();
+      } catch (authErr) {
+        if (!isMounted) return;
+        setBootstrapStatus('BOOTSTRAP_ERROR');
+        setBootstrapError('Error al restaurar sesión en First Light LAB.');
+        return;
+      }
+
+      if (!isMounted) return;
+
+      // Invariant: expected authenticated identity is Anita or Ceci
+      if (!resolvedUid) {
+        setFirstLightUser(null);
+        setAuthenticatedTeacherId(null);
+        setBootstrapStatus('BOOTSTRAP_ERROR');
+        setBootstrapError('Sesión no autenticada en First Light LAB.');
+        return;
+      }
+
+      if (resolvedUid !== FIRST_LIGHT_TEACHER_ID && resolvedUid !== FIRST_LIGHT_DIRECTOR_ID) {
+        setFirstLightUser(null);
+        setAuthenticatedTeacherId(resolvedUid);
+        setBootstrapStatus('BOOTSTRAP_ERROR');
+        setBootstrapError('La identidad autenticada no corresponde a un usuario autorizado en First Light LAB.');
+        return;
+      }
+
+      const isDirector = resolvedUid === FIRST_LIGHT_DIRECTOR_ID;
+      const effectiveEmail = isDirector ? FIRST_LIGHT_CECI_EMAIL : FIRST_LIGHT_ANITA_EMAIL;
+
+      // Successful auth for Anita or Ceci
+      setFirstLightUser(effectiveEmail);
+      setAuthenticatedTeacherId(resolvedUid);
+      setRole(isDirector ? 'DIRECTOR' : 'TEACHER');
+
+      // STEP 2: DIRECT CANONICAL LAB RESOLUTION
+      setBootstrapStatus('PLANNING_PENDING');
+
+      try {
+        const canonicalPlan = await service.getPlanning(FIRST_LIGHT_PLANNING_ID);
+        if (!isMounted) return;
+
+        if (canonicalPlan) {
+          // STEP 3: AUTHORIZATION DEFENSE
+          if (canonicalPlan.daycareId !== FIRST_LIGHT_DAYCARE_ID) {
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError('La planeación canónica no pertenece a la estancia autorizada.');
+            return;
+          }
+
+          if (!isDirector && canonicalPlan.teacherId !== resolvedUid) {
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError('La planeación canónica no pertenece a la docente autenticada.');
+            return;
+          }
+
+          setCanonicalPlanningAggregate(canonicalPlan);
+          if (isNewIntent && !isDirector) {
+            setSelectedPlanId(null);
+            setView('CREATE');
+          } else {
+            setSelectedPlanId(canonicalPlan.planningId);
+            setView(isDirector ? 'REVIEW' : 'CREATE');
+          }
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+        } else {
+          // STEP 4: AUTHORITATIVE NO PLANNING FOUND
+          setCanonicalPlanningAggregate(null);
+          setSelectedPlanId(null);
+          setView(isNewIntent ? 'CREATE' : 'LIST');
+          setBootstrapStatus('NO_PLANNING_FOUND');
+        }
+      } catch (lookupErr) {
+        if (!isMounted) return;
+        // STEP 5: LOOKUP ERROR (Fail closed)
+        setBootstrapStatus('BOOTSTRAP_ERROR');
+        setBootstrapError('No pudimos recuperar tu planeación. Intenta nuevamente.');
+      }
+    };
+
+    runBootstrap();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [firstLightGuard.isEligible, firstLightAuthInstance, service, bootstrapRetryCount]);
 
   const triggerRefresh = () => setRefreshKey(k => k + 1);
 
@@ -187,6 +339,42 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       </div>
     );
   }
+
+  const handleNew = () => {
+    if (typeof window !== 'undefined' && window.history) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('action', 'new');
+        window.history.pushState({}, '', url.toString());
+      } catch {}
+    }
+    setSelectedPlanId(null);
+    setView('CREATE');
+    setRefreshKey(k => k + 1);
+  };
+
+  const handleBackToList = () => {
+    if (typeof window !== 'undefined' && window.history) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        window.history.pushState({}, '', url.toString());
+      } catch {}
+    }
+    setView('LIST');
+  };
+
+  const handleSelectPlan = (id: string) => {
+    if (typeof window !== 'undefined' && window.history) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        window.history.pushState({}, '', url.toString());
+      } catch {}
+    }
+    setSelectedPlanId(id);
+    setView('CREATE');
+  };
 
   return (
     <div className="font-poppins text-text-primary min-h-screen bg-surface-soft pb-20 print:hidden">
@@ -216,15 +404,57 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           <button onClick={() => setSimulatedDate('2026-08-27')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-27' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>27 (J)</button>
           <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>28 (V)</button>
         </div>
-        <button onClick={() => { setRole('TEACHER'); setView('LIST'); setRefreshKey(k => k + 1); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'TEACHER' ? 'bg-role-teacher text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
+        <button
+          onClick={() => {
+            if (!firstLightGuard.isEligible) {
+              setRole('TEACHER');
+              setView('LIST');
+              setRefreshKey(k => k + 1);
+            }
+          }}
+          disabled={firstLightGuard.isEligible && role !== 'TEACHER'}
+          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
+            role === 'TEACHER'
+              ? 'bg-role-teacher text-white shadow-sm'
+              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+          } ${firstLightGuard.isEligible && role !== 'TEACHER' ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
           <img src={personas.anita} alt="Anita" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Anita (Pedagoga)
         </button>
-        <button onClick={() => { setRole('DIRECTOR'); setView('LIST'); setRefreshKey(k => k + 1); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'DIRECTOR' ? 'bg-role-director text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
+        <button
+          onClick={() => {
+            if (!firstLightGuard.isEligible) {
+              setRole('DIRECTOR');
+              setView('LIST');
+              setRefreshKey(k => k + 1);
+            }
+          }}
+          disabled={firstLightGuard.isEligible && role !== 'DIRECTOR'}
+          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
+            role === 'DIRECTOR'
+              ? 'bg-role-director text-white shadow-sm'
+              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+          } ${firstLightGuard.isEligible && role !== 'DIRECTOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
           <img src={personas.ceci} alt="Ceci" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Ceci (Directora)
         </button>
-        <button onClick={() => { setRole('SUPERVISOR'); setView('LIST'); setRefreshKey(k => k + 1); }} className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${role === 'SUPERVISOR' ? 'bg-role-supervisor text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'}`}>
+        <button
+          onClick={() => {
+            if (!firstLightGuard.isEligible) {
+              setRole('SUPERVISOR');
+              setView('LIST');
+              setRefreshKey(k => k + 1);
+            }
+          }}
+          disabled={firstLightGuard.isEligible}
+          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
+            role === 'SUPERVISOR'
+              ? 'bg-role-supervisor text-white shadow-sm'
+              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+          } ${firstLightGuard.isEligible ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
           <img src={personas.tere} alt="Tere" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Tere (Supervisora)
         </button>
@@ -254,26 +484,92 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       </div>
 
       <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
-        {role === 'TEACHER' && view === 'LIST' && <TeacherList service={service} roomName={activeRoom.name} onNew={() => setView('CREATE')} onSelect={(id) => { setSelectedPlanId(id); setView('CREATE'); }} refreshKey={refreshKey} modality={modality} />}
-        {role === 'TEACHER' && view === 'CREATE' && (
-          <TeacherWizard
-            role={role}
-            service={service}
-            source={source}
-            curricularRecommendationSource={effectiveCurricularSource}
-            weeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
-            isFirstLight={firstLightGuard.isEligible}
-            activeRoom={activeRoom}
-            planId={selectedPlanId}
-            modality={modality}
-            currentDate={simulatedDate}
-            onBack={() => setView('LIST')}
-            onSaved={triggerRefresh}
-            onViewOfficial={() => setView('PRINT')}
-          />
+        {firstLightGuard.isEligible && (bootstrapStatus === 'AUTH_PENDING' || bootstrapStatus === 'PLANNING_PENDING') && (
+          <div data-testid="lab-bootstrap-loading" className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
+            <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin mb-6"></div>
+            <h2 className="text-2xl font-bold text-brand-dark mb-2">Cargando tu planeación pedagógica...</h2>
+            <p className="text-text-muted text-sm max-w-md">
+              Verificando las actividades y avances pedagógicos para {activeRoom.name}.
+            </p>
+          </div>
         )}
-        {role === 'DIRECTOR' && view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
-        {role === 'DIRECTOR' && view === 'REVIEW' && <DirectorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} onBack={() => setView('LIST')} onSaved={triggerRefresh} onViewOfficial={() => setView('PRINT')} />}
+
+        {firstLightGuard.isEligible && bootstrapStatus === 'BOOTSTRAP_ERROR' && (
+          <div data-testid="lab-bootstrap-error" className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
+            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-2xl font-bold mb-4 border border-red-200">
+              ⚠️
+            </div>
+            <h2 className="text-xl font-bold text-brand-dark mb-2">No pudimos recuperar tu planeación. Intenta nuevamente.</h2>
+            {bootstrapError && bootstrapError !== 'No pudimos recuperar tu planeación. Intenta nuevamente.' && (
+              <p className="text-text-muted text-xs mb-6 max-w-md">{bootstrapError}</p>
+            )}
+            <button
+              type="button"
+              data-testid="lab-bootstrap-retry-btn"
+              onClick={() => setBootstrapRetryCount(c => c + 1)}
+              className="bg-brand-primary hover:bg-brand-dark text-white font-semibold px-6 py-2.5 rounded-xl shadow-sm transition text-sm flex items-center gap-2 cursor-pointer"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {role === 'TEACHER' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING' && bootstrapStatus !== 'BOOTSTRAP_ERROR')) && (
+          <>
+            {view === 'LIST' && (
+              <TeacherList
+                service={service}
+                roomName={activeRoom.name}
+                teacherId={firstLightGuard.isEligible ? (effectiveTeacherId || FIRST_LIGHT_TEACHER_ID) : (effectiveTeacherId || 't1')}
+                onNew={handleNew}
+                onSelect={handleSelectPlan}
+                refreshKey={refreshKey}
+                modality={modality}
+                isFirstLight={firstLightGuard.isEligible}
+                canonicalPlan={canonicalPlanningAggregate}
+              />
+            )}
+            {view === 'CREATE' && (
+              <TeacherWizard
+                key={`${selectedPlanId || 'new'}-${refreshKey}`}
+                role={role}
+                teacherId={firstLightGuard.isEligible ? (effectiveTeacherId || FIRST_LIGHT_TEACHER_ID) : (effectiveTeacherId || 't1')}
+                service={service}
+                source={source}
+                curricularRecommendationSource={effectiveCurricularSource}
+                weeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
+                isFirstLight={firstLightGuard.isEligible}
+                activeRoom={activeRoom}
+                planId={selectedPlanId}
+                canonicalPlan={canonicalPlanningAggregate}
+                isNewIntent={isNewIntent}
+                modality={modality}
+                currentDate={simulatedDate}
+                onBack={handleBackToList}
+                onNew={handleNew}
+                onSaved={triggerRefresh}
+                onViewOfficial={() => setView('PRINT')}
+              />
+            )}
+          </>
+        )}
+        {role === 'DIRECTOR' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING' && bootstrapStatus !== 'BOOTSTRAP_ERROR')) && (
+          <>
+            {view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
+            {view === 'REVIEW' && (
+              <DirectorReview
+                service={service}
+                activeRoom={activeRoom}
+                planId={selectedPlanId!}
+                authenticatedDirectorId={firstLightGuard.isEligible ? authenticatedTeacherId : undefined}
+                isFirstLight={firstLightGuard.isEligible}
+                onBack={() => setView('LIST')}
+                onSaved={triggerRefresh}
+                onViewOfficial={() => setView('PRINT')}
+              />
+            )}
+          </>
+        )}
         {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
         {role === 'SUPERVISOR' && view === 'REVIEW' && <SupervisorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} modality={modality} onBack={() => setView('LIST')} onViewOfficial={() => setView('PRINT')} />}
 
@@ -282,9 +578,56 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   );
 };
 
-const TeacherList = ({ service, onNew, onSelect, refreshKey, modality, roomName }: { service: PlanningWorkflowService, onNew: () => void, onSelect: (id: string) => void, refreshKey: number, modality: string, roomName?: string }) => {
-  const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
-  useEffect(() => { service.listTeacherPlanning('t1').then(setPlans); }, [refreshKey, service]);
+const TeacherList = ({
+  service,
+  onNew,
+  onSelect,
+  refreshKey,
+  modality,
+  roomName,
+  teacherId = 't1',
+  isFirstLight = false,
+  canonicalPlan = null,
+}: {
+  service: PlanningWorkflowService;
+  onNew: () => void;
+  onSelect: (id: string) => void;
+  refreshKey: number;
+  modality: string;
+  roomName?: string;
+  teacherId?: string;
+  isFirstLight?: boolean;
+  canonicalPlan?: WeeklyPlanning | null;
+}) => {
+  const [plans, setPlans] = useState<WeeklyPlanning[]>(() => {
+    if (canonicalPlan) return [canonicalPlan];
+    return [];
+  });
+  useEffect(() => {
+    let isMounted = true;
+    service.listTeacherPlanning(teacherId)
+      .then((fetchedPlans) => {
+        if (!isMounted) return;
+        if (fetchedPlans && fetchedPlans.length > 0) {
+          if (canonicalPlan && !fetchedPlans.some(p => p.planningId === canonicalPlan.planningId)) {
+            setPlans([canonicalPlan, ...fetchedPlans]);
+          } else {
+            setPlans(fetchedPlans);
+          }
+        } else if (canonicalPlan) {
+          setPlans([canonicalPlan]);
+        } else {
+          setPlans([]);
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setPlans(canonicalPlan ? [canonicalPlan] : []);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshKey, service, teacherId, canonicalPlan]);
 
   const effectiveRoomLabel = roomName || 'Lactantes C';
 
@@ -301,8 +644,17 @@ const TeacherList = ({ service, onNew, onSelect, refreshKey, modality, roomName 
       </p>
 
       <div className="grid gap-4 w-full max-w-md">
-        <button onClick={onNew} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold px-8 py-5 rounded-xl shadow-sm transition text-lg flex items-center justify-center gap-3 w-full">
-          ✨ Comenzar nuestra semana
+        <button
+          onClick={onNew}
+          data-testid="list-new-planning-btn"
+          className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold px-8 py-5 rounded-xl shadow-sm transition text-lg flex flex-col items-center justify-center gap-1 w-full"
+        >
+          <span className="flex items-center gap-2 text-xl font-bold">
+            + Nueva planeación
+          </span>
+          <span className="text-xs text-white/80 font-normal">
+            ✨ Comenzar nuestra semana
+          </span>
         </button>
 
         {plans.map(p => (
@@ -495,14 +847,30 @@ export const formatDayDateMessage = (dateStr: string): string => {
   return `${dayNames[dateObj.getUTCDay()]} ${d} de ${monthNames[dateObj.getUTCMonth()]}`;
 };
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, isFirstLight, activeRoom, planId, modality, onBack, onSaved, role, onViewOfficial, currentDate }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string }) => {
+const createDefaultWeekDays = (): PlanningDay[] =>
+  ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].map(d => ({
+    date: '',
+    dayOfWeek: d as PlanningDay['dayOfWeek'],
+    activities: [],
+    complementaryActivities: [],
+    prioritizedPractices: [],
+    materials: [],
+  }));
+
+const TeacherWizard = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string }) => {
+  const effectiveTeacher = teacherId || (isFirstLight ? FIRST_LIGHT_TEACHER_ID : 't1');
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
   const [specialSituations, setSpecialSituations] = useState('');
   const [availableMaterials, setAvailableMaterials] = useState('');
   const [originalContext, setOriginalContext] = useState<any>(null);
 
-  const [days, setDays] = useState<PlanningDay[]>([]);
+  const [days, setDays] = useState<PlanningDay[]>(() => {
+    if (!planId) {
+      return createDefaultWeekDays();
+    }
+    return [];
+  });
   const [status, setStatus] = useState<string>('DRAFT');
   const [planningObj, setPlanningObj] = useState<any>(null);
   const [weekStart, setWeekStart] = useState<string>(MOCK_START);
@@ -511,7 +879,20 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
 
-  const stableIdRef = useRef(`p-demo-${Date.now()}`);
+  const stableIdRef = useRef<string | null>(null);
+  if (!stableIdRef.current) {
+    if (planId) {
+      stableIdRef.current = planId;
+    } else if (isFirstLight) {
+      if (!canonicalPlan && !isNewIntent) {
+        stableIdRef.current = FIRST_LIGHT_PLANNING_ID;
+      } else {
+        stableIdRef.current = generateUniquePlanningId();
+      }
+    } else {
+      stableIdRef.current = generateUniquePlanningId('p-demo-');
+    }
+  }
   const currentPlanId = planId || stableIdRef.current;
 
   const effectiveRoom = activeRoom
@@ -542,6 +923,28 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
   const [toastMessage, setToastMessage] = useState('');
   const [dailyEvaluations, setDailyEvaluations] = useState<Record<string, string>>({});
 
+  const ensurePlanningAggregateCreated = async () => {
+    if (planningObj) return planningObj;
+    try {
+      const existing = await service.getPlanning(currentPlanId);
+      if (existing) {
+        setPlanningObj(existing);
+        return existing;
+      }
+    } catch {}
+    const initialRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
+    const initialDaycareId = isFirstLight ? FIRST_LIGHT_DAYCARE_ID : 'd1';
+    try {
+      await service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, effectiveTeacher, MOCK_START, MOCK_END, 'TEACHER');
+      const created = await service.getPlanning(currentPlanId);
+      if (created) {
+        setPlanningObj(created);
+        return created;
+      }
+    } catch {}
+    return null;
+  };
+
   useEffect(() => {
     if (planId) {
       service.getPlanning(planId).then((p: any) => {
@@ -564,9 +967,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
           }
 
           if (p.days.length === 0) {
-            setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
-              date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], prioritizedPractices: [], materials: []
-            })));
+            setDays(createDefaultWeekDays());
           } else {
             setDays(p.days);
             if (p.days.some((d: any) => d.activities && d.activities.length > 0)) {
@@ -583,23 +984,55 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
             setDailyEvaluations(evals);
           }
         }
-      });
+      }).catch(() => {});
     } else {
       if (role === 'TEACHER') {
         const initialRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
         const initialDaycareId = isFirstLight ? FIRST_LIGHT_DAYCARE_ID : 'd1';
-        service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, 't1', MOCK_START, MOCK_END, 'TEACHER').then(async () => {
-          const created = await service.getPlanning(currentPlanId);
-          if (created) {
-            setPlanningObj(created);
+
+        const initFreshSession = async () => {
+          try {
+            let existing = null;
+            try {
+              existing = await service.getPlanning(currentPlanId);
+            } catch {
+              // Non-existent document lookup safely handled
+            }
+
+            if (existing) {
+              setPlanningObj(existing);
+              setObs(existing.observations || '');
+              setNeeds(existing.identifiedNeeds || '');
+              setSpecialSituations(existing.specialSituations || '');
+              setAvailableMaterials(existing.availableMaterials || '');
+              setGranularObservations(existing.granularObservations || []);
+              if (existing.days && existing.days.length > 0) {
+                setDays(existing.days);
+              }
+              setStatus(existing.status);
+            } else {
+              try {
+                await service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, effectiveTeacher, MOCK_START, MOCK_END, 'TEACHER');
+                const created = await service.getPlanning(currentPlanId);
+                if (created) {
+                  setPlanningObj(created);
+                }
+              } catch {
+                // Offline / local draft safe fallback
+              }
+              setDays(prev => prev.length === 5 ? prev : createDefaultWeekDays());
+              setStatus('DRAFT');
+            }
+          } catch {
+            setDays(prev => prev.length === 5 ? prev : createDefaultWeekDays());
+            setStatus('DRAFT');
           }
-          setDays(['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].map(d => ({
-            date: '', dayOfWeek: d as PlanningDay['dayOfWeek'], activities: [], complementaryActivities: [], prioritizedPractices: [], materials: []
-          })));
-        });
+        };
+
+        initFreshSession();
       }
     }
-  }, [planId, currentPlanId, service, role, isFirstLight, activeRoom]);
+  }, [planId, currentPlanId, service, role, isFirstLight, activeRoom, effectiveTeacher]);
 
   const handleGenerateWeek = async () => {
     if (isGeneratingRef.current || isGenerating) return;
@@ -720,6 +1153,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
 
     // Call service.saveDraft EXACTLY ONCE upon human acceptance
     try {
+      await ensurePlanningAggregateCreated();
       await service.saveDraft(
         currentPlanId,
         obs,
@@ -757,6 +1191,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
     }
     try {
       if (days.length === 5 && days.some(d => d.activities && d.activities.length > 0)) {
+        await ensurePlanningAggregateCreated();
         await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
       }
     } catch (err) {}
@@ -766,6 +1201,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
 
   const handleSaveDraft = async () => {
     if (days.length === 5) {
+      await ensurePlanningAggregateCreated();
       await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
 
       // Auto-update local status for UX so color changes to yellow
@@ -781,7 +1217,10 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
     if (status === 'REJECTED') {
       await service.resubmit(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
     } else {
-      if (days.length === 5) await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
+      if (days.length === 5) {
+        await ensurePlanningAggregateCreated();
+        await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER', originalContext || undefined);
+      }
       await service.submit(currentPlanId, 'TEACHER');
     }
     setStatus('IN_REVIEW');
@@ -819,7 +1258,18 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
       )}
 
       <div className="flex items-center justify-between mb-10">
-        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
+          {role === 'TEACHER' && onNew && (
+            <button
+              onClick={onNew}
+              data-testid="wizard-new-planning-btn"
+              className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-5 py-2 rounded-full shadow-sm transition text-sm flex items-center gap-2 cursor-pointer"
+            >
+              + Nueva planeación
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-sm font-bold text-teal-700 bg-teal-50 px-4 py-2 rounded-full border border-teal-200">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
           {status === 'CLOSED' ? (
@@ -1125,7 +1575,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                           ) : (
                             <button
                               onClick={async () => {
-                                await service.markTeacherDayReviewed(currentPlanId, d.dayOfWeek, 'TEACHER', 't1', undefined, days);
+                                await service.markTeacherDayReviewed(currentPlanId, d.dayOfWeek, 'TEACHER', effectiveTeacher, undefined, days);
                                 const updatedPlan = await service.getPlanning(currentPlanId);
                                 if (updatedPlan) {
                                   setPlanningObj(updatedPlan);
@@ -1203,7 +1653,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                   {dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
                                 </div>
                                 <p className="text-xs text-green-800 mt-3 font-semibold flex items-center gap-1.5">
-                                  <span>✓</span> Aprobada por {d.evaluationReviewedBy || 'Ceci'}.
+                                  <span>✓</span> Aprobada por {d.evaluationReviewedBy === FIRST_LIGHT_DIRECTOR_ID || d.evaluationReviewedBy === 'Ceci' ? 'Ceci' : (d.evaluationReviewedBy || 'Ceci')}.
                                 </p>
                               </div>
                             ) : !isEligible ? (
@@ -1261,7 +1711,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                     const val = e.target.value;
                                     setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: val }));
                                   }}
-                                  placeholder="El grupo respondió favorablemente a la actividad..."
+                                  placeholder="Describe de manera objetiva el desarrollo de las actividades, la respuesta de las niñas y niños, y cualquier observación relevante del día..."
                                   className="w-full text-base p-4 bg-white border border-orange-300 focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
                                 />
 
@@ -1270,7 +1720,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                     onClick={async () => {
                                       const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
                                       if (!currentDate) return;
-                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, "t1");
+                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, effectiveTeacher);
                                       const updatedPlan = await service.getPlanning(currentPlanId);
                                       if (updatedPlan) {
                                         setPlanningObj(updatedPlan);
@@ -1290,7 +1740,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                     onClick={async () => {
                                       const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
                                       if (!currentDate || !evalText) return;
-                                      await service.confirmAndResubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
+                                      await service.confirmAndResubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, effectiveTeacher);
                                       const updatedPlan = await service.getPlanning(currentPlanId);
                                       if (updatedPlan) {
                                         setPlanningObj(updatedPlan);
@@ -1325,7 +1775,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                   </p>
                                   {d.evaluationSubmittedBy && (
                                     <span className="text-teal-700 font-medium bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-                                      ✓ Enviada por {d.evaluationSubmittedBy === 't1' ? 'Anita' : d.evaluationSubmittedBy}
+                                      ✓ Enviada por {d.evaluationSubmittedBy === 't1' || d.evaluationSubmittedBy === FIRST_LIGHT_TEACHER_ID ? 'Anita' : d.evaluationSubmittedBy}
                                     </span>
                                   )}
                                 </div>
@@ -1341,7 +1791,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                     const val = e.target.value;
                                     setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: val }));
                                   }}
-                                  placeholder="El grupo respondió favorablemente a la actividad..."
+                                  placeholder="Describe de manera objetiva el desarrollo de las actividades, la respuesta de las niñas y niños, y cualquier observación relevante del día..."
                                   className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
                                 />
 
@@ -1350,7 +1800,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                     onClick={async () => {
                                       const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
                                       if (!currentDate) return;
-                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, "t1");
+                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, effectiveTeacher);
                                       const updatedPlan = await service.getPlanning(currentPlanId);
                                       if (updatedPlan) {
                                         setPlanningObj(updatedPlan);
@@ -1370,7 +1820,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                     onClick={async () => {
                                       const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
                                       if (!currentDate || !evalText) return;
-                                      await service.confirmAndSubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, "t1");
+                                      await service.confirmAndSubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, effectiveTeacher);
                                       const updatedPlan = await service.getPlanning(currentPlanId);
                                       if (updatedPlan) {
                                         setPlanningObj(updatedPlan);
@@ -1475,7 +1925,25 @@ const DirectorList = ({ service, onSelect, refreshKey, activeRoom }: { service: 
 
 
 
-const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, activeRoom }: { service: PlanningWorkflowService, planId: string, onBack: () => void, onSaved: () => void, onViewOfficial: () => void, activeRoom?: Room | undefined }) => {
+const DirectorReview = ({
+  service,
+  planId,
+  onBack,
+  onSaved,
+  onViewOfficial,
+  activeRoom,
+  authenticatedDirectorId,
+  isFirstLight = false,
+}: {
+  service: PlanningWorkflowService;
+  planId: string;
+  onBack: () => void;
+  onSaved: () => void;
+  onViewOfficial: () => void;
+  activeRoom?: Room | undefined;
+  authenticatedDirectorId?: string | null | undefined;
+  isFirstLight?: boolean | undefined;
+}) => {
   const [plan, setPlan] = useState<any>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
@@ -1489,6 +1957,30 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
   const [toastMessage, setToastMessage] = useState('');
   const [evalDirectorComments, setEvalDirectorComments] = useState<Record<string, string>>({});
   const [requestingChangeForDay, setRequestingChangeForDay] = useState<string | null>(null);
+  const [evalActionError, setEvalActionError] = useState<string | null>(null);
+  const [isEvalActionPending, setIsEvalActionPending] = useState(false);
+
+  const getEffectiveDirectorId = (): string => {
+    if (authenticatedDirectorId && authenticatedDirectorId.trim()) {
+      if (isFirstLight && authenticatedDirectorId.trim() !== FIRST_LIGHT_DIRECTOR_ID) {
+        throw new Error('Identidad de Dirección no autorizada en First Light LAB.');
+      }
+      return authenticatedDirectorId.trim();
+    }
+    if (isFirstLight) {
+      throw new Error('No hay una identidad de Dirección autenticada en First Light LAB.');
+    }
+    return 'Ceci';
+  };
+
+  if (isFirstLight && authenticatedDirectorId !== FIRST_LIGHT_DIRECTOR_ID) {
+    return (
+      <div data-testid="director-auth-error" className="p-8 text-center text-red-600 bg-red-50 border border-red-200 rounded-xl my-8">
+        <h3 className="text-lg font-bold mb-2">Acceso No Autorizado</h3>
+        <p className="text-sm">La sesión actual no corresponde a la Dirección autorizada en First Light LAB.</p>
+      </div>
+    );
+  }
 
   const requiredCorrectionDays = React.useMemo(() => {
     const req = new Set<string>();
@@ -1802,7 +2294,8 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
                     </span>
                     <button
                       onClick={async () => {
-                        await service.closeWeek(planId, "DIRECTOR", "Ceci");
+                        const directorActorId = getEffectiveDirectorId();
+                        await service.closeWeek(planId, "DIRECTOR", directorActorId);
                         const updated = await service.getPlanning(planId);
                         if (updated) setPlan(updated);
                         setToastMessage("✓ Semana cerrada exitosamente");
@@ -1827,7 +2320,7 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
             </div>
           );
         })()}
-        <WeekDayTabs days={plan.days} activeIndex={activeDayIndex} onSelect={setActiveDayIndex} reviewedDays={directorReviewedDays} requiredCorrectionDays={requiredCorrectionDays} isCorrectionRound={false} isApprovedPlanning={plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED'} role="DIRECTOR" />
+        <WeekDayTabs days={plan.days} activeIndex={activeDayIndex} onSelect={(idx) => { setActiveDayIndex(idx); setEvalActionError(null); }} reviewedDays={directorReviewedDays} requiredCorrectionDays={requiredCorrectionDays} isCorrectionRound={false} isApprovedPlanning={plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED'} role="DIRECTOR" />
 
         {(() => {
           const d = plan.days[activeDayIndex];
@@ -2121,7 +2614,7 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
                           </span>
                           {d.evaluationSubmittedBy && (
                             <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-                              ✓ Enviada por {d.evaluationSubmittedBy === 't1' ? 'Anita' : d.evaluationSubmittedBy}
+                              ✓ Enviada por {d.evaluationSubmittedBy === 't1' || d.evaluationSubmittedBy === FIRST_LIGHT_TEACHER_ID ? 'Anita' : d.evaluationSubmittedBy}
                             </span>
                           )}
                         </div>
@@ -2143,25 +2636,39 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
                           />
                           <div className="flex justify-end gap-3">
                             <button
-                              onClick={() => setRequestingChangeForDay(null)}
-                              className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-800"
+                              disabled={isEvalActionPending}
+                              onClick={() => {
+                                setRequestingChangeForDay(null);
+                                setEvalActionError(null);
+                              }}
+                              className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-800 disabled:opacity-50"
                             >
                               Cancelar
                             </button>
                             <button
-                              disabled={!((evalDirectorComments[d.dayOfWeek] || '').trim())}
+                              disabled={isEvalActionPending || !((evalDirectorComments[d.dayOfWeek] || '').trim())}
                               onClick={async () => {
+                                if (isEvalActionPending) return;
                                 const comment = (evalDirectorComments[d.dayOfWeek] || '').trim();
                                 if (!comment) return;
-                                await service.requestDailyEvaluationChange(planId, d.dayOfWeek, comment, "DIRECTOR", "Ceci");
-                                const updated = await service.getPlanning(planId);
-                                if (updated) setPlan(updated);
-                                setRequestingChangeForDay(null);
-                                setToastMessage("✓ Solicitud de cambio enviada.");
-                                setTimeout(() => setToastMessage(""), 2000);
-                                onSaved();
+                                setIsEvalActionPending(true);
+                                setEvalActionError(null);
+                                try {
+                                  const directorActorId = getEffectiveDirectorId();
+                                  await service.requestDailyEvaluationChange(planId, d.dayOfWeek, comment, "DIRECTOR", directorActorId);
+                                  const updated = await service.getPlanning(planId);
+                                  if (updated) setPlan(updated);
+                                  setRequestingChangeForDay(null);
+                                  setToastMessage("✓ Solicitud de cambio enviada.");
+                                  setTimeout(() => setToastMessage(""), 2000);
+                                  onSaved();
+                                } catch {
+                                  setEvalActionError("No fue posible solicitar el cambio. Intenta nuevamente.");
+                                } finally {
+                                  setIsEvalActionPending(false);
+                                }
                               }}
-                              className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2.5 rounded-full text-sm transition shadow-sm disabled:opacity-50"
+                              className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2.5 rounded-full text-sm transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Enviar solicitud de cambio
                             </button>
@@ -2170,24 +2677,49 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
                       ) : (
                         <div className="flex justify-end gap-3 mt-4">
                           <button
-                            onClick={() => setRequestingChangeForDay(d.dayOfWeek)}
-                            className="bg-surface-ivory hover:bg-orange-50 border border-orange-300 text-orange-800 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm"
+                            disabled={isEvalActionPending}
+                            onClick={() => {
+                              setRequestingChangeForDay(d.dayOfWeek);
+                              setEvalActionError(null);
+                            }}
+                            className="bg-surface-ivory hover:bg-orange-50 border border-orange-300 text-orange-800 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Solicitar cambio
                           </button>
                           <button
+                            disabled={isEvalActionPending}
                             onClick={async () => {
-                              await service.approveDailyEvaluation(planId, d.dayOfWeek, "DIRECTOR", "Ceci");
-                              const updated = await service.getPlanning(planId);
-                              if (updated) setPlan(updated);
-                              setToastMessage("✓ Evaluación aprobada");
-                              setTimeout(() => setToastMessage(""), 2000);
-                              onSaved();
+                              if (isEvalActionPending) return;
+                              setIsEvalActionPending(true);
+                              setEvalActionError(null);
+                              try {
+                                const directorActorId = getEffectiveDirectorId();
+                                await service.approveDailyEvaluation(planId, d.dayOfWeek, "DIRECTOR", directorActorId);
+                                const updated = await service.getPlanning(planId);
+                                if (updated) setPlan(updated);
+                                setToastMessage("✓ Evaluación aprobada");
+                                setTimeout(() => setToastMessage(""), 2000);
+                                onSaved();
+                              } catch {
+                                setEvalActionError("No fue posible aprobar la evaluación. Intenta nuevamente.");
+                              } finally {
+                                setIsEvalActionPending(false);
+                              }
                             }}
-                            className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm"
+                            className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             ✓ Aprobar evaluación
                           </button>
+                        </div>
+                      )}
+
+                      {evalActionError && (
+                        <div
+                          role="alert"
+                          className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-medium flex items-center justify-center gap-2 animate-fade-in"
+                        >
+                          <span>⚠️</span>
+                          <span>{evalActionError}</span>
                         </div>
                       )}
                     </div>
@@ -2213,7 +2745,7 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
                      </p>
                    </div>
                    <p className="text-xs text-green-800 mt-3 font-semibold flex items-center gap-1.5">
-                     <span>✓</span> Aprobada por {d.evaluationReviewedBy || 'Ceci'}.
+                     <span>✓</span> Aprobada por {d.evaluationReviewedBy === FIRST_LIGHT_DIRECTOR_ID || d.evaluationReviewedBy === 'Ceci' ? 'Ceci' : (d.evaluationReviewedBy || 'Ceci')}.
                    </p>
                  </div>
                )}
@@ -2244,6 +2776,17 @@ const DirectorReview = ({ service, planId, onBack, onSaved, onViewOfficial, acti
                )}
 
                {(() => {
+                 const isPostPlanningReview =
+                   plan.status === 'APPROVED' ||
+                   plan.status === 'APPROVED_FOR_EXECUTION' ||
+                   (plan.status as string) === 'READY_FOR_CLOSURE' ||
+                   plan.status === 'CLOSED' ||
+                   Boolean(plan.isReadyForClosure);
+
+                 if (isPostPlanningReview) {
+                   return null;
+                 }
+
                  const isOrange = requiredCorrectionDays.includes(d.dayOfWeek);
                  const isReviewed = isDayReviewedByDirector(d.dayOfWeek);
 
@@ -2532,7 +3075,7 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
                       {d.evaluation || 'Sin evaluación registrada'}
                     </div>
                     <p className="text-xs text-green-800 mt-2.5 font-semibold flex items-center gap-1.5">
-                      <span>✓</span> Aprobada por {d.evaluationReviewedBy || 'Ceci'}.
+                      <span>✓</span> Aprobada por {d.evaluationReviewedBy === FIRST_LIGHT_DIRECTOR_ID || d.evaluationReviewedBy === 'Ceci' ? 'Ceci' : (d.evaluationReviewedBy || 'Ceci')}.
                     </p>
                   </div>
                 </div>

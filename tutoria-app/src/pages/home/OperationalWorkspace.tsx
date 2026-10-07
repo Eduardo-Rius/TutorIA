@@ -28,7 +28,7 @@ export const OperationalWorkspace: React.FC = () => {
       color: 'text-[#3e524b]',
       bgColor: 'bg-[#eaf0ed] border border-[#c7d8ce] group-hover:bg-[#dbe7df] group-hover:border-[#b4c9bf]',
       iconBgColor: 'bg-[#c7d8ce]',
-      action: () => navigate('/workspace/planning')
+      action: () => navigate('/workspace/planning?action=new')
     },
     {
       title: 'Registrar experiencia',
