@@ -114,6 +114,13 @@ service cloud.firestore {
           && isPedagogicalUpdateOnly();
       }
 
+      function isTeacherPlanningSubmit() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return (resource.data.status in ['DRAFT', 'REJECTED'])
+          && request.resource.data.status == 'IN_REVIEW'
+          && affected.hasOnly(['status', 'version']);
+      }
+
       function isTeacherEvaluationUpdate() {
         let affected = request.resource.data.diff(resource.data).affectedKeys();
         return resource.data.status == 'APPROVED'
@@ -149,11 +156,96 @@ service cloud.firestore {
         );
       }
 
-      function isDirectorPlanningReview() {
+      function areAllFiveDaysDirectorReviewed(days) {
+        return (days is list) && days.size() == 5
+          && days[0].get('directorReviewed', false) == true
+          && days[1].get('directorReviewed', false) == true
+          && days[2].get('directorReviewed', false) == true
+          && days[3].get('directorReviewed', false) == true
+          && days[4].get('directorReviewed', false) == true;
+      }
+
+      function isDirectorPlanningApproval() {
         let affected = request.resource.data.diff(resource.data).affectedKeys();
         return resource.data.status == 'IN_REVIEW'
-          && request.resource.data.status in ['APPROVED', 'REJECTED']
+          && request.resource.data.status == 'APPROVED'
+          && affected.hasOnly(['status', 'reviewHistory', 'version', 'identifiedNeeds', 'observations', 'approvedBy', 'approvedAt', 'granularObservations', 'historicalRounds'])
+          && areAllFiveDaysDirectorReviewed(resource.data.days);
+      }
+
+      function isDirectorPlanningRejection() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'IN_REVIEW'
+          && request.resource.data.status == 'REJECTED'
           && affected.hasOnly(['status', 'reviewHistory', 'version', 'identifiedNeeds', 'observations', 'approvedBy', 'approvedAt', 'granularObservations', 'historicalRounds']);
+      }
+
+      function isValidObsItem(newItem, oldItem) {
+        return newItem.targetId == oldItem.targetId
+          && newItem.observation == oldItem.observation
+          && newItem.originalContent == oldItem.originalContent
+          && newItem.currentContent == oldItem.currentContent
+          && newItem.reviewer == oldItem.reviewer
+          && (
+            newItem.status == oldItem.status ||
+            (oldItem.status == 'CHANGED_BY_EDUCATOR' && newItem.status == 'RESOLVED')
+          );
+      }
+
+      function allObsValid(newList, oldList) {
+        let s = newList.size();
+        return s == 0 ? true :
+          s == 1 ? isValidObsItem(newList[0], oldList[0]) :
+          s == 2 ? (isValidObsItem(newList[0], oldList[0]) && isValidObsItem(newList[1], oldList[1])) :
+          s == 3 ? (isValidObsItem(newList[0], oldList[0]) && isValidObsItem(newList[1], oldList[1]) && isValidObsItem(newList[2], oldList[2])) :
+          s == 4 ? (isValidObsItem(newList[0], oldList[0]) && isValidObsItem(newList[1], oldList[1]) && isValidObsItem(newList[2], oldList[2]) && isValidObsItem(newList[3], oldList[3])) :
+          s == 5 ? (isValidObsItem(newList[0], oldList[0]) && isValidObsItem(newList[1], oldList[1]) && isValidObsItem(newList[2], oldList[2]) && isValidObsItem(newList[3], oldList[3]) && isValidObsItem(newList[4], oldList[4])) :
+          false;
+      }
+
+      function isDirectorObservationResolution() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'IN_REVIEW'
+          && request.resource.data.status == 'IN_REVIEW'
+          && affected.hasOnly(['granularObservations', 'version'])
+          && request.resource.data.granularObservations is list
+          && resource.data.granularObservations is list
+          && request.resource.data.granularObservations.size() == resource.data.granularObservations.size()
+          && allObsValid(request.resource.data.granularObservations, resource.data.granularObservations);
+      }
+
+      function isDayValidDirectorReviewTransition(newDay, oldDay) {
+        let reviewTransitionValid = newDay.get('directorReviewed', false) == true
+          && oldDay.get('directorReviewed', false) == false;
+
+        let affectedDayKeys = newDay.diff(oldDay).affectedKeys();
+        let onlyDirectorReviewedChanged = affectedDayKeys.hasOnly(['directorReviewed']);
+
+        return reviewTransitionValid && onlyDirectorReviewedChanged;
+      }
+
+      function dayDirectorReviewScore(newDay, oldDay) {
+        return newDay == oldDay ? 0 : (isDayValidDirectorReviewTransition(newDay, oldDay) ? 1 : -99);
+      }
+
+      function daysHaveOnlySingleDayDirectorReview() {
+        let newDays = request.resource.data.days;
+        let oldDays = resource.data.days;
+        return (newDays is list) && (oldDays is list) && newDays.size() == 5 && oldDays.size() == 5 && (
+          (dayDirectorReviewScore(newDays[0], oldDays[0]) +
+           dayDirectorReviewScore(newDays[1], oldDays[1]) +
+           dayDirectorReviewScore(newDays[2], oldDays[2]) +
+           dayDirectorReviewScore(newDays[3], oldDays[3]) +
+           dayDirectorReviewScore(newDays[4], oldDays[4])) == 1
+        );
+      }
+
+      function isDirectorDayReviewInPlanning() {
+        let affected = request.resource.data.diff(resource.data).affectedKeys();
+        return resource.data.status == 'IN_REVIEW'
+          && request.resource.data.status == 'IN_REVIEW'
+          && affected.hasOnly(['days', 'version'])
+          && daysHaveOnlySingleDayDirectorReview();
       }
 
       function isDirectorEvaluationReview() {
@@ -198,12 +290,13 @@ service cloud.firestore {
           (
             isTeacher() 
             && isPlanOwner() 
-            && (isTeacherPedagogicalUpdate() || isTeacherEvaluationUpdate())
+            && belongsToDaycare(resource.data.daycareId)
+            && (isTeacherPedagogicalUpdate() || isTeacherPlanningSubmit() || isTeacherEvaluationUpdate())
           ) ||
           (
             isDirector() 
             && belongsToDaycare(resource.data.daycareId) 
-            && (isDirectorPlanningReview() || isDirectorEvaluationReview() || isDirectorWeekClosure())
+            && (isDirectorPlanningApproval() || isDirectorPlanningRejection() || isDirectorObservationResolution() || isDirectorDayReviewInPlanning() || isDirectorEvaluationReview() || isDirectorWeekClosure())
           )
         );
       

@@ -43,6 +43,14 @@ function createRealistic5Days() {
   }));
 }
 
+function createRealisticReviewed5Days() {
+  return createRealistic5Days().map((day) => ({
+    ...day,
+    directorReviewed: true,
+  }));
+}
+
+
 function createRealisticSerializedPlan(params: {
   planningId: string;
   daycareId: string;
@@ -119,7 +127,28 @@ beforeEach(async () => {
       teacherId: 'teacherA', daycareId: 'daycare-1', status: 'DRAFT', observations: '', identifiedNeeds: '', curricularReferences: [], days: {}, version: 1, reviewHistory: []
     });
     await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review'), {
-      teacherId: 'teacherA', daycareId: 'daycare-1', status: 'IN_REVIEW', observations: '', identifiedNeeds: '', curricularReferences: [], days: {}, version: 1, reviewHistory: []
+      teacherId: 'teacherA', daycareId: 'daycare-1', status: 'IN_REVIEW', observations: '', identifiedNeeds: '', curricularReferences: [], days: createRealisticReviewed5Days(), version: 1, reviewHistory: []
+    });
+    await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+      teacherId: 'teacherA',
+      daycareId: 'daycare-1',
+      status: 'IN_REVIEW',
+      observations: '',
+      identifiedNeeds: '',
+      curricularReferences: [],
+      days: createRealistic5Days(),
+      version: 1,
+      reviewHistory: [],
+      granularObservations: [
+        {
+          targetId: 'act-MONDAY-1',
+          observation: 'Ajustar materiales',
+          originalContent: 'Original',
+          currentContent: 'Corregido',
+          status: 'CHANGED_BY_EDUCATOR',
+          reviewer: 'director1',
+        }
+      ]
     });
     await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-approved'), {
       teacherId: 'teacherA', daycareId: 'daycare-1', status: 'APPROVED', observations: '', identifiedNeeds: '', curricularReferences: [], days: {}, version: 1, reviewHistory: []
@@ -360,6 +389,91 @@ describe('Firestore Security Rules', () => {
       }));
     });
 
+    describe('Teacher Submission Governance (DRAFT -> IN_REVIEW)', () => {
+      it('A. owning TEACHER: DRAFT -> IN_REVIEW = ALLOW', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW'
+        }));
+      });
+
+      it('B. non-owning TEACHER: DRAFT -> IN_REVIEW = DENY', async () => {
+        const db = testEnv.authenticatedContext('teacherB').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW'
+        }));
+      });
+
+      it('C. wrong center/daycare: DRAFT -> IN_REVIEW = DENY', async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await setDoc(doc(context.firestore(), 'weeklyPlannings', 'plan-teacher-c-d1-draft'), {
+            teacherId: 'teacherC', daycareId: 'daycare-1', status: 'DRAFT', version: 1
+          });
+        });
+        const db = testEnv.authenticatedContext('teacherC').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-c-d1-draft'), {
+          status: 'IN_REVIEW'
+        }));
+      });
+
+      it('D. TEACHER: DRAFT -> APPROVED_FOR_EXECUTION = DENY', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'APPROVED_FOR_EXECUTION'
+        }));
+      });
+
+      it('E. TEACHER: DRAFT -> CLOSED = DENY', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'CLOSED'
+        }));
+      });
+
+      it('F. TEACHER: IN_REVIEW -> APPROVED_FOR_EXECUTION = DENY', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review'), {
+          status: 'APPROVED_FOR_EXECUTION'
+        }));
+      });
+
+      it('G. CLOSED mutation = DENY', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-eval-d1-closed'), {
+          status: 'IN_REVIEW'
+        }));
+      });
+
+      it('H. submit no permite mutar campos protegidos no autorizados', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        // Escalation attempt 1: change teacherId during submit
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW',
+          teacherId: 'teacherB'
+        }));
+        // Escalation attempt 2: change daycareId during submit
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW',
+          daycareId: 'daycare-2'
+        }));
+        // Escalation attempt 3: set approvedBy during submit
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW',
+          approvedBy: 'teacherA'
+        }));
+        // Escalation attempt 4: set closedBy during submit
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW',
+          closedBy: 'teacherA'
+        }));
+        // Escalation attempt 5: modify reviewHistory during submit
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft'), {
+          status: 'IN_REVIEW',
+          reviewHistory: [{ comment: 'injected' }]
+        }));
+      });
+    });
+
     it('FAIL: create Director observation', async () => {
       const db = testEnv.authenticatedContext('teacherA').firestore();
       await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'reviewObservations', 'obs-teacherA'), {
@@ -415,6 +529,412 @@ describe('Firestore Security Rules', () => {
         version: 2
       }));
     });
+
+    describe('SR-MD-19-B: Director Observation Resolution Governance (IN_REVIEW -> IN_REVIEW)', () => {
+      it('PASS: director1 can resolve observation while plan remains IN_REVIEW', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      it('FAIL: director1 cannot mutate days while resolving observation in IN_REVIEW', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        const mutatedDays = createRealistic5Days();
+        mutatedDays[0].directorReviewed = true;
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: mutatedDays,
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      it('FAIL: teacherA cannot resolve observation in IN_REVIEW', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'teacherA',
+            }
+          ]
+        }));
+      });
+
+      it('FAIL: supervisor1 cannot resolve observation in IN_REVIEW', async () => {
+        const db = testEnv.authenticatedContext('supervisor1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'supervisor1',
+            }
+          ]
+        }));
+      });
+
+      it('FAIL: director2 from another daycare cannot resolve observation', async () => {
+        const db = testEnv.authenticatedContext('director2').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director2',
+            }
+          ]
+        }));
+      });
+
+      it('FAIL: director1 cannot alter teacherId while resolving observation', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          teacherId: 'teacherB',
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      // -----------------------------------------------------------------------
+      // ADVERSARIAL GATE TESTS — SR-MD-19-B
+      // -----------------------------------------------------------------------
+      it('ADVERSARIAL FAIL: director1 cannot tamper with targetId of observation', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-TAMPERED-ID',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      it('ADVERSARIAL FAIL: director1 cannot tamper with observation text', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Texto alterado indebidamente',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      it('ADVERSARIAL FAIL: director1 cannot tamper with originalContent or currentContent', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original Falsificado',
+              currentContent: 'Corregido Falsificado',
+              status: 'RESOLVED',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      it('ADVERSARIAL FAIL: director1 cannot tamper with reviewer identity', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'RESOLVED',
+              reviewer: 'anotherPerson',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+
+      it('ADVERSARIAL FAIL: director1 cannot set status to arbitrary state like PENDING_CORRECTION', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          granularObservations: [
+            {
+              targetId: 'act-MONDAY-1',
+              observation: 'Ajustar materiales',
+              originalContent: 'Original',
+              currentContent: 'Corregido',
+              status: 'PENDING_CORRECTION',
+              reviewer: 'director1',
+              resolvedBy: 'director1',
+            }
+          ]
+        }));
+      });
+    });
+
+    describe('SR-MD-19-E: Director Daily Review Governance (IN_REVIEW -> IN_REVIEW)', () => {
+      it('PASS: director1 can mark a single day as reviewed while plan remains IN_REVIEW', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        const baseDays = createRealistic5Days();
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+
+      it('PASS: director1 can mark all 5 days sequentially one by one', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        const days = createRealistic5Days();
+        for (let i = 0; i < 5; i++) {
+          days[i].directorReviewed = true;
+          await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+            days: [...days]
+          }));
+        }
+      });
+
+      it('FAIL: director1 cannot mutate multiple days at once in a single operation', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        // Reset plan with unreviewed days
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await updateDoc(doc(context.firestore(), 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+            days: createRealistic5Days()
+          });
+        });
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        newDays[1].directorReviewed = true; // Attempt to mutate 2 days at once
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+
+      it('FAIL: director1 cannot revert directorReviewed from true to false', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        // Setup day 0 as reviewed
+        const daysWithDay0Reviewed = createRealistic5Days();
+        daysWithDay0Reviewed[0].directorReviewed = true;
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await updateDoc(doc(context.firestore(), 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+            days: daysWithDay0Reviewed
+          });
+        });
+        // Revert attempt: set day 0 directorReviewed to false
+        const revertedDays = createRealistic5Days();
+        revertedDays[0].directorReviewed = false;
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: revertedDays
+        }));
+      });
+
+      it('FAIL: director1 cannot mutate pedagogical activities while marking day reviewed', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await updateDoc(doc(context.firestore(), 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+            days: createRealistic5Days()
+          });
+        });
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        newDays[0].activities[0].description = 'Intento de modificar contenido pedagógico';
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+
+      it('FAIL: director1 cannot mutate materials or complementaryActivities', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        newDays[0].materials = 'Materiales cambiados no autorizados';
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+
+      it('FAIL: director1 cannot alter other document fields (e.g. status) while reviewing day', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays,
+          status: 'APPROVED'
+        }));
+      });
+
+      it('FAIL: teacherA cannot mark directorReviewed on days', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+
+      it('FAIL: supervisor1 cannot mark directorReviewed on days', async () => {
+        const db = testEnv.authenticatedContext('supervisor1').firestore();
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+
+      it('FAIL: director2 from another daycare cannot mark day reviewed', async () => {
+        const db = testEnv.authenticatedContext('director2').firestore();
+        const newDays = createRealistic5Days();
+        newDays[0].directorReviewed = true;
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-with-obs'), {
+          days: newDays
+        }));
+      });
+    });
+
+    describe('SR-MD-19-E.2: Director Planning Approval Hardening (IN_REVIEW -> APPROVED)', () => {
+      beforeEach(async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          const db = context.firestore();
+          // Plan with all 5 days reviewed
+          await setDoc(doc(db, 'weeklyPlannings', 'plan-all-5-reviewed'), createRealisticSerializedPlan({
+            planningId: 'plan-all-5-reviewed',
+            daycareId: 'daycare-1',
+            teacherId: 'teacherA',
+            status: 'IN_REVIEW',
+            days: createRealisticReviewed5Days(),
+          }));
+
+          // Plan with 4 days reviewed and Monday (day 0) unreviewed (directorReviewed: false) but with a RESOLVED observation
+          const partialDays = createRealisticReviewed5Days();
+          partialDays[0].directorReviewed = false;
+          await setDoc(doc(db, 'weeklyPlannings', 'plan-4-reviewed-with-resolved-obs'), {
+            ...createRealisticSerializedPlan({
+              planningId: 'plan-4-reviewed-with-resolved-obs',
+              daycareId: 'daycare-1',
+              teacherId: 'teacherA',
+              status: 'IN_REVIEW',
+              days: partialDays,
+            }),
+            granularObservations: [
+              {
+                targetId: 'act-MONDAY-1',
+                observation: 'Ajustar materiales',
+                originalContent: 'Original',
+                currentContent: 'Corregido',
+                status: 'RESOLVED',
+                reviewer: 'director1',
+                resolvedBy: 'director1',
+              }
+            ],
+          });
+        });
+      });
+
+      it('PASS: director1 can approve plan when all 5 days are directorReviewed: true', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-all-5-reviewed'), {
+          status: 'APPROVED',
+          version: 2,
+        }));
+      });
+
+      it('FAIL: director1 cannot approve plan when 4 days are reviewed and Monday has directorReviewed: false even with observation RESOLVED', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-4-reviewed-with-resolved-obs'), {
+          status: 'APPROVED',
+          version: 2,
+        }));
+      });
+
+      it('FAIL: director1 cannot mutate days while approving plan', async () => {
+        const db = testEnv.authenticatedContext('director1').firestore();
+        const mutatedDays = createRealisticReviewed5Days();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-4-reviewed-with-resolved-obs'), {
+          status: 'APPROVED',
+          days: mutatedDays,
+          version: 2,
+        }));
+      });
+
+      it('FAIL: teacherA cannot approve plan even when all 5 days are directorReviewed: true', async () => {
+        const db = testEnv.authenticatedContext('teacherA').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-all-5-reviewed'), {
+          status: 'APPROVED',
+          version: 2,
+        }));
+      });
+
+      it('FAIL: supervisor1 cannot approve plan even when all 5 days are directorReviewed: true', async () => {
+        const db = testEnv.authenticatedContext('supervisor1').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-all-5-reviewed'), {
+          status: 'APPROVED',
+          version: 2,
+        }));
+      });
+
+      it('FAIL: director2 from another daycare cannot approve plan even when all 5 days are directorReviewed: true', async () => {
+        const db = testEnv.authenticatedContext('director2').firestore();
+        await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-all-5-reviewed'), {
+          status: 'APPROVED',
+          version: 2,
+        }));
+      });
+    });
+
 
     it('FAIL: read teacherC plan in daycare-2', async () => {
       const db = testEnv.authenticatedContext('director1').firestore();

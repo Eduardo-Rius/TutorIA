@@ -5,6 +5,7 @@ import { PlanningActorRole, PlanningWorkflowService } from '../../application/pl
 import { PedagogicalRecommendationSource } from '../../application/planning/PedagogicalRecommendationSource';
 import { WeeklyPlanning, PlanningDay } from '../../domain/planning/WeeklyPlanning';
 import { RoomCatalog, Room } from '../../domain/planning/RoomCatalog';
+import { PedagogicalAgePolicyCatalog } from '../../domain/planning/PedagogicalAgePolicy';
 import { CurricularSelectionControl } from './CurricularSelectionControl';
 import { CurricularRecommendationSource } from '../../application/planning/CurricularRecommendationSource';
 import {
@@ -14,9 +15,10 @@ import {
   FIRST_LIGHT_TEACHER_ID,
   FIRST_LIGHT_CECI_EMAIL,
   FIRST_LIGHT_DIRECTOR_ID,
+  FIRST_LIGHT_TERE_EMAIL,
+  FIRST_LIGHT_SUPERVISOR_ID,
   FIRST_LIGHT_DAYCARE_ID,
   FIRST_LIGHT_ROOM_ID,
-  FIRST_LIGHT_PLANNING_ID,
 } from './firstLightLabHarness';
 import { AuthenticationProvider } from '../../application/ports/AuthenticationProvider';
 import { FirebaseAuthenticationProvider } from '../../infrastructure/authentication/FirebaseAuthenticationProvider';
@@ -82,10 +84,186 @@ export function generateUniquePlanningId(prefix?: string): string {
   return `p-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/**
+ * Safely extracts planId and action search parameters from current window URL.
+ */
+export function getUrlParams(): { planId: string | null; action: string | null } {
+  if (typeof window !== 'undefined' && window.location?.search) {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        planId: params.get('planId') || null,
+        action: params.get('action') || null,
+      };
+    } catch {
+      return { planId: null, action: null };
+    }
+  }
+  return { planId: null, action: null };
+}
+
+/**
+ * Safely updates URL query parameters without full page reload.
+ */
+export function updateUrlParams(updates: { planId?: string | null; action?: string | null }, replace = false) {
+  if (typeof window !== 'undefined' && window.history) {
+    try {
+      const currentHref = window.location.href || 'http://localhost/';
+      const url = new URL(currentHref);
+      if ('planId' in updates) {
+        if (updates.planId) {
+          url.searchParams.set('planId', updates.planId);
+        } else {
+          url.searchParams.delete('planId');
+        }
+      }
+      if ('action' in updates) {
+        if (updates.action) {
+          url.searchParams.set('action', updates.action);
+        } else {
+          url.searchParams.delete('action');
+        }
+      }
+      const newRelative = url.pathname + (url.search ? url.search : '') + (url.hash ? url.hash : '');
+      if (replace) {
+        window.history.replaceState({}, '', newRelative);
+      } else {
+        window.history.pushState({}, '', newRelative);
+      }
+    } catch {}
+  }
+}
+
+/**
+ * Resolves teacher planning session when no planId is specified in URL (SR-MD-03).
+ *
+ * Rules:
+ * - Query only authorized plannings for this teacher (and daycare if provided).
+ * - If exactly 1 active planning exists (!== 'CLOSED'): return ACTIVE_PLANNING mode.
+ * - If >1 active plannings exist: return LIST mode for human selection.
+ * - If 0 active plannings exist: return LIST mode (historical CLOSED plannings accessible from list,
+ *   never auto-opened).
+ * - If query fails: throw error (fail-closed, never swallow into empty list).
+ */
+export async function resolveTeacherPlanningSession(
+  service: PlanningWorkflowService,
+  teacherId: string,
+  daycareId?: string
+): Promise<{
+  mode: 'ACTIVE_PLANNING' | 'LIST';
+  selectedPlanId: string | null;
+  view: 'CREATE' | 'LIST';
+  activePlans: WeeklyPlanning[];
+  allPlans: WeeklyPlanning[];
+}> {
+  const teacherPlans = await service.listTeacherPlanning(teacherId, daycareId);
+
+  const authorizedPlans = (teacherPlans || []).filter((p) => {
+    if (p.teacherId !== teacherId) return false;
+    if (daycareId && p.daycareId !== daycareId) return false;
+    return true;
+  });
+
+  const activePlans = authorizedPlans.filter((p) => p.status !== 'CLOSED');
+
+  if (activePlans.length === 1) {
+    return {
+      mode: 'ACTIVE_PLANNING',
+      selectedPlanId: activePlans[0].planningId,
+      view: 'CREATE',
+      activePlans,
+      allPlans: authorizedPlans,
+    };
+  }
+
+  return {
+    mode: 'LIST',
+    selectedPlanId: null,
+    view: 'LIST',
+    activePlans,
+    allPlans: authorizedPlans,
+  };
+}
+
+/**
+ * Resolves director review session when no planId is specified in URL (SR-MD-03).
+ *
+ * Rules:
+ * - Query authorized plannings pending review or follow-up:
+ *   1. Plannings IN_REVIEW.
+ *   2. Plannings APPROVED with daily evaluations pending review (evaluationStatus === 'IN_REVIEW').
+ *   3. Plannings APPROVED ready for closure (5 approved days, not yet CLOSED).
+ * - If exactly 1 pending planning exists: return ACTIVE_PLANNING mode for direct review.
+ * - If >1 pending plannings exist: return LIST mode for human selection.
+ * - If 0 pending plannings exist: return LIST mode for true empty state.
+ * - Never auto-open a historical CLOSED planning as fallback.
+ * - If query fails: throw error (fail-closed, never swallow into empty list).
+ */
+export async function resolveDirectorReviewSession(
+  service: PlanningWorkflowService,
+  daycareId?: string
+): Promise<{
+  mode: 'ACTIVE_PLANNING' | 'LIST';
+  selectedPlanId: string | null;
+  view: 'REVIEW' | 'LIST';
+  pendingPlans: WeeklyPlanning[];
+}> {
+  const [inReviewPlans, approvedPlans] = await Promise.all([
+    service.listDirectorReviewQueue('DIRECTOR', daycareId),
+    service.listSupervisorApprovedPlanning('DIRECTOR', daycareId),
+  ]);
+
+  const map = new Map<string, WeeklyPlanning>();
+
+  for (const p of inReviewPlans || []) {
+    if (daycareId && p.daycareId !== daycareId) continue;
+    if (p.status === 'IN_REVIEW') {
+      map.set(p.planningId, p);
+    }
+  }
+
+  for (const p of approvedPlans || []) {
+    if (daycareId && p.daycareId !== daycareId) continue;
+    if (p.status === 'CLOSED') continue; // Historical CLOSED is never pending review
+    const isApproved = p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION';
+    if (!isApproved) continue;
+
+    const hasPendingDailyEval = Boolean(p.days && p.days.some((d) => d.evaluationStatus === 'IN_REVIEW'));
+    const isReadyForClosure = Boolean(
+      p.days &&
+      p.days.length === 5 &&
+      p.days.every((d) => d.evaluationStatus === 'APPROVED')
+    );
+
+    if (hasPendingDailyEval || isReadyForClosure) {
+      map.set(p.planningId, p);
+    }
+  }
+
+  const pendingPlans = Array.from(map.values());
+
+  if (pendingPlans.length === 1) {
+    return {
+      mode: 'ACTIVE_PLANNING',
+      selectedPlanId: pendingPlans[0].planningId,
+      view: 'REVIEW',
+      pendingPlans,
+    };
+  }
+
+  return {
+    mode: 'LIST',
+    selectedPlanId: null,
+    view: 'LIST',
+    pendingPlans,
+  };
+}
+
 export interface PlanningDemoAppProps {
   service: PlanningWorkflowService;
   source: PedagogicalRecommendationSource;
   curricularRecommendationSource?: CurricularRecommendationSource | undefined;
+  effectiveWeeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined;
   weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined;
   evaluationRecommendationSource?: EvaluationRecommendationSource | undefined;
   currentDate?: string | undefined;
@@ -95,39 +273,97 @@ export interface PlanningDemoAppProps {
   firstLightWeeklyPlanningSource?: WeeklyPlanningProposalSource | undefined;
   roomOverride?: Room | undefined;
   initialAction?: 'new' | 'continue' | string | undefined;
+  role?: PlanningActorRole | undefined;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, evaluationRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride, initialAction }) => {
-  const [role, setRole] = useState<PlanningActorRole>('TEACHER');
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource: externalEffectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride, initialAction, role: initialRole }) => {
+  const [role, setRole] = useState<PlanningActorRole>(initialRole || 'TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
   useEffect(() => {
     if (currentDate) setSimulatedDate(currentDate);
   }, [currentDate]);
+
+  useEffect(() => {
+    if (initialRole && initialRole !== role) {
+      setRole(initialRole);
+    }
+  }, [initialRole]);
+
   const [view, setView] = useState<'LIST' | 'CREATE' | 'REVIEW' | 'PRINT'>('LIST');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [sessionKey, setSessionKey] = useState<string>(() => {
+    const { planId: urlPlanId } = getUrlParams();
+    return urlPlanId || 'new-session';
+  });
   const [refreshKey, setRefreshKey] = useState(0);
   const [modality, setModality] = useState<'DIRECT' | 'INDIRECT'>('DIRECT');
 
   // Detect explicit NEW intent from prop or browser URL search params
   const isNewIntent = React.useMemo(() => {
     if (initialAction === 'new') return true;
-    if (typeof window !== 'undefined' && window.location?.search) {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('action') === 'new';
-      } catch {
-        return false;
-      }
-    }
-    return false;
+    const { action } = getUrlParams();
+    return action === 'new';
   }, [initialAction]);
 
   // FIRST LIGHT LAB HARNESS
   const firstLightGuard = React.useMemo(() => evaluateFirstLightLabGuard(firstLightEnv), [firstLightEnv]);
 
+  const [userSelectedRoomId, setUserSelectedRoomId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (roomOverride) {
+      setUserSelectedRoomId(null);
+    }
+  }, [roomOverride]);
+
+  const effectiveAuthorizedRooms = React.useMemo<Room[]>(() => {
+    const list: Room[] = [
+      RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) || {
+        roomId: FIRST_LIGHT_ROOM_ID,
+        name: 'Lactantes A',
+        minAgeMonths: 0,
+        maxAgeMonths: 6,
+      },
+      RoomCatalog.getRoom('room-lactantes-b') || {
+        roomId: 'room-lactantes-b',
+        name: 'Lactantes B',
+        minAgeMonths: 7,
+        maxAgeMonths: 12,
+      },
+    ];
+    if (!firstLightGuard.isEligible) {
+      const lactantesC = RoomCatalog.getRoom('lactantes-c') || {
+        roomId: 'lactantes-c',
+        name: 'Lactantes C',
+        minAgeMonths: 13,
+        maxAgeMonths: 18,
+      };
+      if (!list.some(r => r.roomId === lactantesC.roomId)) {
+        list.push(lactantesC);
+      }
+    }
+    if (roomOverride && !list.some(r => r.roomId === roomOverride.roomId)) {
+      list.push(roomOverride);
+    }
+    return list;
+  }, [firstLightGuard.isEligible, roomOverride]);
+
   // CANONICAL ACTIVE ROOM: Single source of truth for presentation and generation
   const activeRoom = React.useMemo<Room>(() => {
+    if (userSelectedRoomId) {
+      const found = effectiveAuthorizedRooms.find(r => r.roomId === userSelectedRoomId) || RoomCatalog.getRoom(userSelectedRoomId);
+      if (found) return found;
+      if (userSelectedRoomId === 'room-lactantes-b') {
+        return { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 };
+      }
+      if (userSelectedRoomId === 'room-lactantes-a') {
+        return { roomId: 'room-lactantes-a', name: 'Lactantes A', minAgeMonths: 0, maxAgeMonths: 6 };
+      }
+      if (userSelectedRoomId === 'lactantes-c') {
+        return { roomId: 'lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 };
+      }
+    }
     if (roomOverride) return roomOverride;
     if (firstLightGuard.isEligible) {
       return (
@@ -147,7 +383,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         maxAgeMonths: 18,
       }
     );
-  }, [roomOverride, firstLightGuard.isEligible]);
+  }, [userSelectedRoomId, roomOverride, firstLightGuard.isEligible, effectiveAuthorizedRooms]);
 
   const [firstLightAuthInstance] = useState<AuthenticationProvider>(() => {
     return firstLightAuth || new FirebaseAuthenticationProvider();
@@ -162,11 +398,14 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   const [firstLightLoginError, setFirstLightLoginError] = useState<string | null>(null);
   const [isFirstLightLoggingIn, setIsFirstLightLoggingIn] = useState(false);
   const [bootstrapStatus, setBootstrapStatus] = useState<FirstLightBootstrapStatus>(() => {
-    return firstLightGuard.isEligible ? 'AUTH_PENDING' : 'NO_PLANNING_FOUND';
+    if (firstLightGuard.isEligible) return 'AUTH_PENDING';
+    const { planId: urlPlanId } = getUrlParams();
+    return urlPlanId ? 'PLANNING_PENDING' : 'NO_PLANNING_FOUND';
   });
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapRetryCount, setBootstrapRetryCount] = useState(0);
   const [canonicalPlanningAggregate, setCanonicalPlanningAggregate] = useState<WeeklyPlanning | null>(null);
+  const navigationRequestIdRef = React.useRef<number>(0);
 
   const effectiveCurricularSource = React.useMemo(() => {
     if (!firstLightGuard.isEligible) {
@@ -176,11 +415,19 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   }, [firstLightGuard.isEligible, curricularRecommendationSource, firstLightSource]);
 
   const effectiveWeeklyPlanningProposalSource = React.useMemo(() => {
+    if (externalEffectiveWeeklyPlanningProposalSource) {
+      return externalEffectiveWeeklyPlanningProposalSource;
+    }
+
     if (weeklyPlanningProposalSource) {
       return weeklyPlanningProposalSource;
     }
 
     if (firstLightGuard.isEligible) {
+      const policy = PedagogicalAgePolicyCatalog.getPolicyForRoom(activeRoom);
+      if (!policy || !PedagogicalAgePolicyCatalog.isAiGenerationAuthorized(policy.roomType)) {
+        return undefined;
+      }
       return (
         firstLightWeeklyPlanningSource ??
         new FirebaseWeeklyPlanningProposalSource({
@@ -195,9 +442,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     return undefined;
   }, [
     firstLightGuard.isEligible,
+    externalEffectiveWeeklyPlanningProposalSource,
     weeklyPlanningProposalSource,
     firstLightWeeklyPlanningSource,
-    activeRoom.roomId,
+    activeRoom,
   ]);
 
   const handleFirstLightLogin = async (password: string, email: string = FIRST_LIGHT_ANITA_EMAIL) => {
@@ -222,9 +470,11 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       setFirstLightUser(null);
       setAuthenticatedTeacherId(null);
       setSelectedPlanId(null);
+      setSessionKey('new-session');
       setView('LIST');
       setCanonicalPlanningAggregate(null);
       setBootstrapStatus('AUTH_PENDING');
+      updateUrlParams({ planId: null, action: null });
     } catch {
       // ignore
     }
@@ -234,10 +484,118 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     ? authenticatedTeacherId
     : 't1';
 
+  // NON-FIRST-LIGHT URL PERSISTENCE & RESOLUTION (SR-MD-02 & SR-MD-03 & SR-MD-05)
+  useEffect(() => {
+    if (firstLightGuard.isEligible) return;
+
+    let isMounted = true;
+    const currentReqId = ++navigationRequestIdRef.current;
+    const { planId: urlPlanId, action: urlAction } = getUrlParams();
+
+    if (urlAction === 'new' || isNewIntent) {
+      setSelectedPlanId(null);
+      setSessionKey(`new-${Date.now()}`);
+      setView('CREATE');
+      setBootstrapStatus('EXISTING_PLANNING_FOUND');
+      setBootstrapError(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (urlPlanId) {
+      setBootstrapStatus('PLANNING_PENDING');
+      setBootstrapError(null);
+      service.getPlanning(urlPlanId)
+        .then((plan) => {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          if (!plan) {
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError(`La planeación solicitada (${urlPlanId}) no fue encontrada.`);
+            return;
+          }
+          if (role === 'TEACHER' && plan.teacherId && plan.teacherId !== (effectiveTeacherId || 't1')) {
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError('La planeación solicitada no pertenece a la docente autenticada.');
+            return;
+          }
+          setSelectedPlanId(urlPlanId);
+          setSessionKey(urlPlanId);
+          setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+          setBootstrapError(null);
+        })
+        .catch(() => {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          setBootstrapStatus('BOOTSTRAP_ERROR');
+          setBootstrapError('No pudimos recuperar tu planeación. Intenta nuevamente.');
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    // No planId: deterministic resolution (SR-MD-03 & SR-MD-05)
+    if (role === 'TEACHER') {
+      setBootstrapStatus('PLANNING_PENDING');
+      setBootstrapError(null);
+      resolveTeacherPlanningSession(service, effectiveTeacherId || 't1')
+        .then((res) => {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          if (res.mode === 'ACTIVE_PLANNING' && res.selectedPlanId) {
+            setSelectedPlanId(res.selectedPlanId);
+            setSessionKey(res.selectedPlanId);
+            setView('CREATE');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+          } else {
+            setSelectedPlanId(null);
+            setView('LIST');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+          }
+        })
+        .catch(() => {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          setBootstrapStatus('BOOTSTRAP_ERROR');
+          setBootstrapError('No pudimos consultar las planeaciones de la docente. Intenta nuevamente.');
+        });
+    } else if (role === 'DIRECTOR') {
+      setBootstrapStatus('PLANNING_PENDING');
+      setBootstrapError(null);
+      resolveDirectorReviewSession(service)
+        .then((res) => {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          if (res.mode === 'ACTIVE_PLANNING' && res.selectedPlanId) {
+            setSelectedPlanId(res.selectedPlanId);
+            setSessionKey(res.selectedPlanId);
+            setView('REVIEW');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+          } else {
+            setSelectedPlanId(null);
+            setView('LIST');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+          }
+        })
+        .catch(() => {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          setBootstrapStatus('BOOTSTRAP_ERROR');
+          setBootstrapError('No pudimos consultar las planeaciones pendientes de revisión. Intenta nuevamente.');
+        });
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [firstLightGuard.isEligible, service, role, isNewIntent, effectiveTeacherId, bootstrapRetryCount]);
+
   useEffect(() => {
     if (!firstLightGuard.isEligible) return;
 
     let isMounted = true;
+    const currentReqId = ++navigationRequestIdRef.current;
 
     const runBootstrap = async () => {
       setBootstrapStatus('AUTH_PENDING');
@@ -248,13 +606,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       try {
         resolvedUid = await firstLightAuthInstance.restoreSession();
       } catch (authErr) {
-        if (!isMounted) return;
+        if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
         setBootstrapStatus('BOOTSTRAP_ERROR');
         setBootstrapError('Error al restaurar sesión en First Light LAB.');
         return;
       }
 
-      if (!isMounted) return;
+      if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
 
       // Invariant: expected authenticated identity is Anita or Ceci
       if (!resolvedUid) {
@@ -265,7 +623,11 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         return;
       }
 
-      if (resolvedUid !== FIRST_LIGHT_TEACHER_ID && resolvedUid !== FIRST_LIGHT_DIRECTOR_ID) {
+      if (
+        resolvedUid !== FIRST_LIGHT_TEACHER_ID &&
+        resolvedUid !== FIRST_LIGHT_DIRECTOR_ID &&
+        resolvedUid !== FIRST_LIGHT_SUPERVISOR_ID
+      ) {
         setFirstLightUser(null);
         setAuthenticatedTeacherId(resolvedUid);
         setBootstrapStatus('BOOTSTRAP_ERROR');
@@ -274,55 +636,142 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       }
 
       const isDirector = resolvedUid === FIRST_LIGHT_DIRECTOR_ID;
-      const effectiveEmail = isDirector ? FIRST_LIGHT_CECI_EMAIL : FIRST_LIGHT_ANITA_EMAIL;
+      const isSupervisor = resolvedUid === FIRST_LIGHT_SUPERVISOR_ID;
+      const effectiveEmail = isSupervisor
+        ? FIRST_LIGHT_TERE_EMAIL
+        : isDirector
+        ? FIRST_LIGHT_CECI_EMAIL
+        : FIRST_LIGHT_ANITA_EMAIL;
 
-      // Successful auth for Anita or Ceci
+      // Successful auth for Anita, Ceci, or Tere
       setFirstLightUser(effectiveEmail);
       setAuthenticatedTeacherId(resolvedUid);
-      setRole(isDirector ? 'DIRECTOR' : 'TEACHER');
+      setRole(isSupervisor ? 'SUPERVISOR' : isDirector ? 'DIRECTOR' : 'TEACHER');
 
-      // STEP 2: DIRECT CANONICAL LAB RESOLUTION
+      const { planId: urlPlanId, action: urlAction } = getUrlParams();
+
+      // =========================================================================
+      // SR-MD-02: EXACT PLANID RESOLUTION FIRST
+      // REGLA INNEGOCIABLE: SI LA URL CONTIENE planId=X, LA APLICACIÓN DEBE
+      // INTENTAR RECUPERAR X. NUNCA SUSTITUIR X SILENCIOSAMENTE POR OTRO EXPEDIENTE.
+      // =========================================================================
+      if (urlPlanId) {
+        setBootstrapStatus('PLANNING_PENDING');
+        try {
+          const requestedPlan = await service.getPlanning(urlPlanId);
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+
+          if (!requestedPlan) {
+            // REQUISITO 7: Si el ID solicitado no existe: mostrar error explícito. No cargar el seed histórico.
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError(`La planeación solicitada (${urlPlanId}) no fue encontrada.`);
+            return;
+          }
+
+          // Security & Authorization validation
+          if (requestedPlan.daycareId !== FIRST_LIGHT_DAYCARE_ID) {
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError('La planeación solicitada no pertenece a la estancia autorizada.');
+            return;
+          }
+
+          if (!isDirector && !isSupervisor && requestedPlan.teacherId !== resolvedUid) {
+            // REQUISITO 6 & H: Acceso no autorizado: error visible y cero fallback histórico.
+            setBootstrapStatus('BOOTSTRAP_ERROR');
+            setBootstrapError('La planeación solicitada no pertenece a la docente autenticada.');
+            return;
+          }
+
+          // Exact identity recovered!
+          setSelectedPlanId(urlPlanId);
+          setSessionKey(urlPlanId);
+          setView(isDirector || isSupervisor ? 'REVIEW' : 'CREATE');
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+          setBootstrapError(null);
+          return;
+        } catch (lookupErr) {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          // REQUISITO 8: Si Firestore rechaza la lectura: mostrar error explícito. No sustituir por otro expediente.
+          setBootstrapStatus('BOOTSTRAP_ERROR');
+          setBootstrapError('No pudimos recuperar tu planeación. Intenta nuevamente.');
+          return;
+        }
+      }
+
+      // If action=new: do not load canonical plan into view
+      if (urlAction === 'new' || isNewIntent) {
+        if (!isDirector && !isSupervisor) {
+          setSelectedPlanId(null);
+          setSessionKey(`new-${Date.now()}`);
+          setView('CREATE');
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+          setBootstrapError(null);
+          return;
+        }
+      }
+
+      // STEP 2: DETERMINISTIC PLANNING RESOLUTION WITHOUT PLANID (SR-MD-03 & SR-MD-05)
       setBootstrapStatus('PLANNING_PENDING');
 
       try {
-        const canonicalPlan = await service.getPlanning(FIRST_LIGHT_PLANNING_ID);
-        if (!isMounted) return;
-
-        if (canonicalPlan) {
-          // STEP 3: AUTHORIZATION DEFENSE
-          if (canonicalPlan.daycareId !== FIRST_LIGHT_DAYCARE_ID) {
-            setBootstrapStatus('BOOTSTRAP_ERROR');
-            setBootstrapError('La planeación canónica no pertenece a la estancia autorizada.');
-            return;
-          }
-
-          if (!isDirector && canonicalPlan.teacherId !== resolvedUid) {
-            setBootstrapStatus('BOOTSTRAP_ERROR');
-            setBootstrapError('La planeación canónica no pertenece a la docente autenticada.');
-            return;
-          }
-
-          setCanonicalPlanningAggregate(canonicalPlan);
-          if (isNewIntent && !isDirector) {
-            setSelectedPlanId(null);
-            setView('CREATE');
-          } else {
-            setSelectedPlanId(canonicalPlan.planningId);
-            setView(isDirector ? 'REVIEW' : 'CREATE');
-          }
-          setBootstrapStatus('EXISTING_PLANNING_FOUND');
-        } else {
-          // STEP 4: AUTHORITATIVE NO PLANNING FOUND
-          setCanonicalPlanningAggregate(null);
+        if (isSupervisor) {
+          // CASO SUPERVISIÓN SIN planId -> LISTA DE REGISTROS CERRADOS
           setSelectedPlanId(null);
-          setView(isNewIntent ? 'CREATE' : 'LIST');
-          setBootstrapStatus('NO_PLANNING_FOUND');
+          setSessionKey('supervisor-list');
+          setView('LIST');
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+          setBootstrapError(null);
+          return;
+        } else if (isDirector) {
+          // CASO 4 — DIRECCIÓN SIN planId
+          const resolution = await resolveDirectorReviewSession(service, FIRST_LIGHT_DAYCARE_ID);
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+
+          if (resolution.mode === 'ACTIVE_PLANNING' && resolution.selectedPlanId) {
+            setSelectedPlanId(resolution.selectedPlanId);
+            setSessionKey(resolution.selectedPlanId);
+            setView('REVIEW');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+            updateUrlParams({ planId: resolution.selectedPlanId, action: null }, true);
+            return;
+          }
+
+          // Multiple pending or zero pending -> LIST
+          setSelectedPlanId(null);
+          setSessionKey('director-list');
+          setView('LIST');
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+          setBootstrapError(null);
+          return;
+        } else {
+          // CASO 3 — DOCENTE SIN planId
+          const resolution = await resolveTeacherPlanningSession(service, resolvedUid, FIRST_LIGHT_DAYCARE_ID);
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+
+          if (resolution.mode === 'ACTIVE_PLANNING' && resolution.selectedPlanId) {
+            setSelectedPlanId(resolution.selectedPlanId);
+            setSessionKey(resolution.selectedPlanId);
+            setView('CREATE');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+            updateUrlParams({ planId: resolution.selectedPlanId, action: null }, true);
+            return;
+          }
+
+          // Multiple active or zero active (only CLOSED or empty) -> LIST
+          setSelectedPlanId(null);
+          setSessionKey('teacher-list');
+          setView('LIST');
+          setBootstrapStatus('EXISTING_PLANNING_FOUND');
+          setBootstrapError(null);
+          return;
         }
       } catch (lookupErr) {
-        if (!isMounted) return;
-        // STEP 5: LOOKUP ERROR (Fail closed)
+        if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+        // STEP 3: LOOKUP ERROR (Fail closed)
         setBootstrapStatus('BOOTSTRAP_ERROR');
-        setBootstrapError('No pudimos recuperar tu planeación. Intenta nuevamente.');
+        setBootstrapError('No pudimos recuperar las planeaciones. Intenta nuevamente.');
       }
     };
 
@@ -332,6 +781,61 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       isMounted = false;
     };
   }, [firstLightGuard.isEligible, firstLightAuthInstance, service, bootstrapRetryCount]);
+
+  // BROWSER POPSTATE SYNCHRONIZATION (SR-MD-02 & SR-MD-05)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let isMounted = true;
+
+    const handlePopState = async () => {
+      const currentReqId = ++navigationRequestIdRef.current;
+      const { planId: urlPlanId, action: urlAction } = getUrlParams();
+
+      if (urlAction === 'new') {
+        setSelectedPlanId(null);
+        setSessionKey(`new-${Date.now()}`);
+        setView('CREATE');
+        setBootstrapStatus('EXISTING_PLANNING_FOUND');
+        setBootstrapError(null);
+        return;
+      }
+
+      if (urlPlanId) {
+        try {
+          const plan = await service.getPlanning(urlPlanId);
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          if (plan) {
+            setSelectedPlanId(urlPlanId);
+            setSessionKey(urlPlanId);
+            setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
+            setBootstrapStatus('EXISTING_PLANNING_FOUND');
+            setBootstrapError(null);
+            return;
+          }
+          setBootstrapStatus('BOOTSTRAP_ERROR');
+          setBootstrapError(`La planeación solicitada (${urlPlanId}) no fue encontrada.`);
+        } catch {
+          if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          setBootstrapStatus('BOOTSTRAP_ERROR');
+          setBootstrapError('No pudimos recuperar tu planeación. Intenta nuevamente.');
+        }
+        return;
+      }
+
+      // No planId and no action=new -> LIST view
+      setSelectedPlanId(null);
+      setView('LIST');
+      setBootstrapStatus('EXISTING_PLANNING_FOUND');
+      setBootstrapError(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [role, service]);
 
   const triggerRefresh = () => setRefreshKey(k => k + 1);
 
@@ -344,43 +848,94 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   }
 
   const handleNew = () => {
-    if (typeof window !== 'undefined' && window.history) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('action', 'new');
-        window.history.pushState({}, '', url.toString());
-      } catch {}
-    }
+    ++navigationRequestIdRef.current;
+    updateUrlParams({ action: 'new', planId: null });
     setSelectedPlanId(null);
+    setSessionKey(`new-${Date.now()}`);
     setView('CREATE');
+    setBootstrapStatus('EXISTING_PLANNING_FOUND');
+    setBootstrapError(null);
     setRefreshKey(k => k + 1);
   };
 
   const handleBackToList = () => {
-    if (typeof window !== 'undefined' && window.history) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('action');
-        window.history.pushState({}, '', url.toString());
-      } catch {}
-    }
+    ++navigationRequestIdRef.current;
+    updateUrlParams({ action: null, planId: null });
+    setSelectedPlanId(null);
     setView('LIST');
+    setBootstrapStatus('EXISTING_PLANNING_FOUND');
+    setBootstrapError(null);
   };
 
   const handleSelectPlan = (id: string) => {
-    if (typeof window !== 'undefined' && window.history) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('action');
-        window.history.pushState({}, '', url.toString());
-      } catch {}
-    }
+    ++navigationRequestIdRef.current;
+    updateUrlParams({ planId: id, action: null });
     setSelectedPlanId(id);
-    setView('CREATE');
+    setSessionKey(id);
+    setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
+    setBootstrapStatus('EXISTING_PLANNING_FOUND');
+    setBootstrapError(null);
+  };
+
+  const handlePlanPersisted = (persistedId: string) => {
+    ++navigationRequestIdRef.current;
+    setSelectedPlanId(persistedId);
+    updateUrlParams({ planId: persistedId, action: null }, true);
+  };
+
+  const handleRoleChange = async (newRole: PlanningActorRole) => {
+    if (newRole === role) return;
+    const currentReqId = ++navigationRequestIdRef.current;
+
+    if (selectedPlanId) {
+      try {
+        const plan = await service.getPlanning(selectedPlanId);
+        if (currentReqId !== navigationRequestIdRef.current) return;
+        let isCompatible = false;
+        if (plan) {
+          if (newRole === 'SUPERVISOR') {
+            isCompatible = plan.status === 'CLOSED' && (!firstLightGuard.isEligible || plan.daycareId === FIRST_LIGHT_DAYCARE_ID);
+          } else if (newRole === 'DIRECTOR') {
+            isCompatible = !firstLightGuard.isEligible || plan.daycareId === FIRST_LIGHT_DAYCARE_ID;
+          } else if (newRole === 'TEACHER') {
+            const currentTeacherId = firstLightGuard.isEligible
+              ? (authenticatedTeacherId || FIRST_LIGHT_TEACHER_ID)
+              : (effectiveTeacherId || 't1');
+            isCompatible = plan.teacherId === currentTeacherId;
+          }
+        }
+        if (!isCompatible) {
+          setSelectedPlanId(null);
+          updateUrlParams({ planId: null, action: null });
+          setView('LIST');
+          setRole(newRole);
+          setRefreshKey(k => k + 1);
+          return;
+        } else {
+          setView(newRole === 'TEACHER' ? 'CREATE' : 'REVIEW');
+          setRole(newRole);
+          setRefreshKey(k => k + 1);
+          return;
+        }
+      } catch {
+        if (currentReqId !== navigationRequestIdRef.current) return;
+        setSelectedPlanId(null);
+        updateUrlParams({ planId: null, action: null });
+        setView('LIST');
+        setRole(newRole);
+        setRefreshKey(k => k + 1);
+        return;
+      }
+    }
+
+    setRole(newRole);
+    setView('LIST');
+    updateUrlParams({ planId: null, action: null });
+    setRefreshKey(k => k + 1);
   };
 
   return (
-    <div className="font-poppins text-text-primary min-h-screen bg-surface-soft pb-20 print:hidden">
+    <div className="font-poppins text-text-primary min-h-screen bg-surface-soft pb-12 print:hidden flex flex-col">
       {(firstLightGuard.isEligible || Boolean(firstLightGuard.error)) && (
         <FirstLightLabBanner
           isEligible={firstLightGuard.isEligible}
@@ -410,9 +965,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         <button
           onClick={() => {
             if (!firstLightGuard.isEligible) {
-              setRole('TEACHER');
-              setView('LIST');
-              setRefreshKey(k => k + 1);
+              handleRoleChange('TEACHER');
             }
           }}
           disabled={firstLightGuard.isEligible && role !== 'TEACHER'}
@@ -428,9 +981,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         <button
           onClick={() => {
             if (!firstLightGuard.isEligible) {
-              setRole('DIRECTOR');
-              setView('LIST');
-              setRefreshKey(k => k + 1);
+              handleRoleChange('DIRECTOR');
             }
           }}
           disabled={firstLightGuard.isEligible && role !== 'DIRECTOR'}
@@ -446,17 +997,15 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         <button
           onClick={() => {
             if (!firstLightGuard.isEligible) {
-              setRole('SUPERVISOR');
-              setView('LIST');
-              setRefreshKey(k => k + 1);
+              handleRoleChange('SUPERVISOR');
             }
           }}
-          disabled={firstLightGuard.isEligible}
+          disabled={firstLightGuard.isEligible && role !== 'SUPERVISOR'}
           className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
             role === 'SUPERVISOR'
               ? 'bg-role-supervisor text-white shadow-sm'
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          } ${firstLightGuard.isEligible ? 'opacity-40 cursor-not-allowed' : ''}`}
+          } ${firstLightGuard.isEligible && role !== 'SUPERVISOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
         >
           <img src={personas.tere} alt="Tere" className="w-6 h-6 rounded-full object-cover bg-white/20" />
           Tere (Supervisora)
@@ -487,7 +1036,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       </div>
 
       <div className="max-w-6xl mx-auto w-full px-4 print:max-w-none print:px-0">
-        {firstLightGuard.isEligible && (bootstrapStatus === 'AUTH_PENDING' || bootstrapStatus === 'PLANNING_PENDING') && (
+        {((firstLightGuard.isEligible && (bootstrapStatus === 'AUTH_PENDING' || bootstrapStatus === 'PLANNING_PENDING')) || (!firstLightGuard.isEligible && bootstrapStatus === 'PLANNING_PENDING')) && (
           <div data-testid="lab-bootstrap-loading" className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
             <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin mb-6"></div>
             <h2 className="text-2xl font-bold text-brand-dark mb-2">Cargando tu planeación pedagógica...</h2>
@@ -497,7 +1046,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           </div>
         )}
 
-        {firstLightGuard.isEligible && bootstrapStatus === 'BOOTSTRAP_ERROR' && (
+        {bootstrapStatus === 'BOOTSTRAP_ERROR' && (
           <div data-testid="lab-bootstrap-error" className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
             <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-2xl font-bold mb-4 border border-red-200">
               ⚠️
@@ -509,7 +1058,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
             <button
               type="button"
               data-testid="lab-bootstrap-retry-btn"
-              onClick={() => setBootstrapRetryCount(c => c + 1)}
+              onClick={() => {
+                setBootstrapError(null);
+                setBootstrapRetryCount(c => c + 1);
+              }}
               className="bg-brand-primary hover:bg-brand-dark text-white font-semibold px-6 py-2.5 rounded-xl shadow-sm transition text-sm flex items-center gap-2 cursor-pointer"
             >
               Reintentar
@@ -517,12 +1069,15 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           </div>
         )}
 
-        {role === 'TEACHER' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING' && bootstrapStatus !== 'BOOTSTRAP_ERROR')) && (
+        {role === 'TEACHER' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING')) && (
           <>
             {view === 'LIST' && (
               <TeacherList
                 service={service}
                 roomName={activeRoom.name}
+                activeRoom={activeRoom}
+                authorizedRooms={effectiveAuthorizedRooms}
+                onSelectRoom={(r) => setUserSelectedRoomId(r.roomId)}
                 teacherId={firstLightGuard.isEligible ? (effectiveTeacherId || FIRST_LIGHT_TEACHER_ID) : (effectiveTeacherId || 't1')}
                 onNew={handleNew}
                 onSelect={handleSelectPlan}
@@ -534,12 +1089,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
             )}
             {view === 'CREATE' && (
               <TeacherWizard
-                key={`${selectedPlanId || 'new'}-${refreshKey}`}
+                key={`${sessionKey}-${refreshKey}`}
                 role={role}
                 teacherId={firstLightGuard.isEligible ? (effectiveTeacherId || FIRST_LIGHT_TEACHER_ID) : (effectiveTeacherId || 't1')}
                 service={service}
                 source={source}
                 curricularRecommendationSource={effectiveCurricularSource}
+                effectiveWeeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
                 weeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
                 evaluationRecommendationSource={evaluationRecommendationSource}
                 isFirstLight={firstLightGuard.isEligible}
@@ -553,13 +1109,14 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 onNew={handleNew}
                 onSaved={triggerRefresh}
                 onViewOfficial={() => setView('PRINT')}
+                onPlanPersisted={handlePlanPersisted}
               />
             )}
           </>
         )}
-        {role === 'DIRECTOR' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING' && bootstrapStatus !== 'BOOTSTRAP_ERROR')) && (
+        {role === 'DIRECTOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING')) && (
           <>
-            {view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
+            {view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={handleSelectPlan} refreshKey={refreshKey} />}
             {view === 'REVIEW' && (
               <DirectorReview
                 service={service}
@@ -567,17 +1124,26 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 planId={selectedPlanId!}
                 authenticatedDirectorId={firstLightGuard.isEligible ? authenticatedTeacherId : undefined}
                 isFirstLight={firstLightGuard.isEligible}
-                onBack={() => setView('LIST')}
+                onBack={handleBackToList}
                 onSaved={triggerRefresh}
                 onViewOfficial={() => setView('PRINT')}
               />
             )}
           </>
         )}
-        {role === 'SUPERVISOR' && view === 'LIST' && <SupervisorList service={service} activeRoom={activeRoom} onSelect={(id) => { setSelectedPlanId(id); setView('REVIEW'); }} refreshKey={refreshKey} />}
-        {role === 'SUPERVISOR' && view === 'REVIEW' && <SupervisorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} modality={modality} onBack={() => setView('LIST')} onViewOfficial={() => setView('PRINT')} />}
+        {role === 'SUPERVISOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && view === 'LIST' && <SupervisorList service={service} activeRoom={activeRoom} onSelect={handleSelectPlan} refreshKey={refreshKey} />}
+        {role === 'SUPERVISOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && view === 'REVIEW' && <SupervisorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} modality={modality} onBack={handleBackToList} onViewOfficial={() => setView('PRINT')} />}
 
       </div>
+
+      <footer
+        data-testid="planning-ai-disclaimer-footer"
+        className="w-full py-6 px-4 text-center mt-auto print:hidden"
+      >
+        <p className="text-[11px] sm:text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
+          La IA puede cometer errores. Toda propuesta requiere revisión y validación del personal educativo responsable.
+        </p>
+      </footer>
     </div>
   );
 };
@@ -589,6 +1155,9 @@ const TeacherList = ({
   refreshKey,
   modality,
   roomName,
+  activeRoom,
+  authorizedRooms,
+  onSelectRoom,
   teacherId = 't1',
   isFirstLight = false,
   canonicalPlan = null,
@@ -599,55 +1168,263 @@ const TeacherList = ({
   refreshKey: number;
   modality: string;
   roomName?: string;
+  activeRoom?: Room;
+  authorizedRooms?: Room[];
+  onSelectRoom?: (room: Room) => void;
   teacherId?: string;
   isFirstLight?: boolean;
   canonicalPlan?: WeeklyPlanning | null;
 }) => {
-  const [plans, setPlans] = useState<WeeklyPlanning[]>(() => {
-    if (canonicalPlan) return [canonicalPlan];
-    return [];
-  });
-  useEffect(() => {
-    let isMounted = true;
+  const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const loadPlans = React.useCallback(() => {
+    setIsLoading(true);
+    setError(null);
     service.listTeacherPlanning(teacherId)
       .then((fetchedPlans) => {
-        if (!isMounted) return;
-        if (fetchedPlans && fetchedPlans.length > 0) {
-          if (canonicalPlan && !fetchedPlans.some(p => p.planningId === canonicalPlan.planningId)) {
-            setPlans([canonicalPlan, ...fetchedPlans]);
-          } else {
-            setPlans(fetchedPlans);
-          }
-        } else if (canonicalPlan) {
-          setPlans([canonicalPlan]);
-        } else {
-          setPlans([]);
-        }
+        setPlans(fetchedPlans || []);
       })
-      .catch(() => {
-        if (!isMounted) return;
-        setPlans(canonicalPlan ? [canonicalPlan] : []);
+      .catch((err) => {
+        console.error('Failed to list plannings from service:', err);
+        setError(err instanceof Error ? err.message : 'Error al consultar las planeaciones.');
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshKey, service, teacherId, canonicalPlan]);
+  }, [service, teacherId]);
 
-  const effectiveRoomLabel = roomName || 'Lactantes C';
+  useEffect(() => {
+    loadPlans();
+  }, [refreshKey, loadPlans]);
+
+  const effectiveActiveRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
+  const effectiveRoomLabel = activeRoom?.name || roomName || 'Lactantes C';
+
+  const authorizedRoomIds = React.useMemo(() => {
+    if (!authorizedRooms || authorizedRooms.length === 0) return [];
+    return authorizedRooms.map(r => r.roomId);
+  }, [authorizedRooms]);
+
+  // 1. Filtrar por salas autorizadas de la educadora (Validación B)
+  const getPlanRoomId = (p: WeeklyPlanning): string => {
+    return (p as any).roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
+  };
+
+  const authorizedPlans = React.useMemo(() => {
+    if (authorizedRoomIds.length === 0) return plans;
+    return plans.filter(p => authorizedRoomIds.includes(getPlanRoomId(p)));
+  }, [plans, authorizedRoomIds]);
+
+  // 2. Filtrar por sala activa (Validación A)
+  const roomPlans = React.useMemo(() => {
+    return authorizedPlans.filter(p => getPlanRoomId(p) === effectiveActiveRoomId);
+  }, [authorizedPlans, effectiveActiveRoomId]);
+
+  // 3. Orden cronológico usando fechas de semana disponibles (Requisito 4)
+  const sortedPlans = React.useMemo(() => {
+    return [...roomPlans].sort((a, b) => {
+      const weekA = a.weekStart || '';
+      const weekB = b.weekStart || '';
+      if (weekA !== weekB) {
+        return weekB.localeCompare(weekA); // Más reciente primero
+      }
+      return (a.planningId || '').localeCompare(b.planningId || '');
+    });
+  }, [roomPlans]);
+
+  // Conteo de días con actividades y detección de borradores vacíos de pruebas
+  const getDaysWithActivities = (p: WeeklyPlanning): number => {
+    if (!p.days || p.days.length === 0) return 0;
+    return p.days.filter((d: any) =>
+      (Array.isArray(d.activities) && d.activities.length > 0) ||
+      (Array.isArray(d.complementaryActivities) && d.complementaryActivities.length > 0)
+    ).length;
+  };
+
+  const isPlanEmptyDraft = (p: WeeklyPlanning): boolean => {
+    if (p.status !== 'DRAFT') return false;
+    const daysCount = getDaysWithActivities(p);
+    return daysCount === 0 && (!p.observations || p.observations.trim() === '') && (!p.identifiedNeeds || p.identifiedNeeds.trim() === '');
+  };
+
+  // 4. Separación visual en secciones requeridas (Requisito 5 y 6)
+  const draftsWithContent = sortedPlans.filter(p => p.status === 'DRAFT' && !isPlanEmptyDraft(p));
+  const submittedPlans = sortedPlans.filter(p => p.status === 'IN_REVIEW' || p.status === 'SUBMITTED' || p.status === 'REJECTED');
+  const approvedPlans = sortedPlans.filter(p => p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION');
+  const closedPlans = sortedPlans.filter(p => p.status === 'CLOSED');
+  const emptyHistoricalDrafts = sortedPlans.filter(p => p.status === 'DRAFT' && isPlanEmptyDraft(p));
+
+  const formatWeekRange = (start?: string, end?: string): string => {
+    if (!start && !end) return 'Semana pedagógica no especificada';
+    const fmt = (iso?: string) => {
+      if (!iso) return '';
+      const parts = iso.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return iso;
+    };
+    return `Semana: ${fmt(start)} – ${fmt(end)}`;
+  };
+
+  const formatCreatedAt = (val?: any): string => {
+    if (!val) return 'Fecha de creación no disponible';
+    try {
+      const d = val instanceof Date ? val : (val.toDate ? val.toDate() : new Date(val));
+      if (isNaN(d.getTime())) return 'Fecha de creación no disponible';
+      return `Creada: ${d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    } catch {
+      return 'Fecha de creación no disponible';
+    }
+  };
+
+  const renderPlanningCard = (p: WeeklyPlanning, isHistoricalEmpty = false) => {
+    const daysWithAct = getDaysWithActivities(p);
+    const totalDays = p.days?.length || 5;
+    const pRoomId = getPlanRoomId(p);
+    const cardRoomName = (RoomCatalog.getRoom(pRoomId)?.name) || effectiveRoomLabel;
+    const daycareLabel = p.daycareId
+      ? (p.daycareId.startsWith('0000') ? 'Guardería No. 1 (LAB)' : `Guardería ${p.daycareId.slice(0, 8)}`)
+      : 'Guardería Institucional';
+
+    let badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+    let badgeText = 'EN ELABORACIÓN';
+    let titleText = 'Trabajando en la propuesta';
+    let actionText = 'Continuar donde nos quedamos';
+
+    if (p.status === 'IN_REVIEW' || p.status === 'SUBMITTED') {
+      badgeClass = 'bg-blue-100 text-blue-800 border-blue-300';
+      badgeText = 'EN REVISIÓN INSTITUCIONAL';
+      titleText = 'La Directora la está leyendo';
+      actionText = 'Ver detalle';
+    } else if (p.status === 'REJECTED') {
+      badgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
+      badgeText = 'REQUIERE AJUSTES';
+      titleText = 'Revisar sugerencias de la Directora';
+      actionText = 'Continuar donde nos quedamos';
+    } else if (p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION') {
+      badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      badgeText = 'APROBADA INSTITUCIONALMENTE';
+      titleText = 'Propuesta lista para usarse 🌟 (Aprobada para ejecución)';
+      actionText = 'Ver detalle';
+    } else if (p.status === 'CLOSED') {
+      badgeClass = 'bg-teal-100 text-teal-800 border-teal-300';
+      badgeText = 'CONCLUIDA';
+      titleText = 'Semana cerrada ✓ (Registro completado)';
+      actionText = 'Semana concluida y archivada';
+    }
+
+    return (
+      <button
+        key={p.planningId}
+        data-testid={`planning-card-${p.planningId}`}
+        onClick={() => onSelect(p.planningId)}
+        className="bg-white border-2 border-border-soft hover:border-brand-primary focus:border-brand-primary p-5 rounded-xl shadow-sm text-left transition w-full outline-none flex flex-col gap-2 group"
+      >
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              Sala: {cardRoomName}
+            </span>
+            <span className="text-xs font-medium text-slate-500">
+              {daycareLabel}
+            </span>
+          </div>
+          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${badgeClass}`}>
+            {badgeText}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="font-bold text-text-primary text-base">
+            {titleText}
+          </span>
+          {p.status === 'REJECTED' && <span className="w-3 h-3 bg-status-adjustment rounded-full"></span>}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
+          <span className="font-semibold text-slate-700">
+            📅 {formatWeekRange(p.weekStart, p.weekEnd)}
+          </span>
+          <span>
+            📋 {daysWithAct} de {totalDays} días con actividades
+          </span>
+        </div>
+
+        <div className="text-[11px] text-slate-500 font-medium">
+          👤 Responsable: Educadora Titular — Sala {cardRoomName}
+        </div>
+
+        <div className="flex flex-wrap justify-between items-center pt-2 border-t border-slate-100 text-xs text-text-muted mt-1">
+          <div className="flex items-center gap-2">
+            <span>{formatCreatedAt((p as any).createdAt)}</span>
+            <span className="font-mono text-[10px] text-slate-400">ID: {p.planningId.slice(0, 8)}...</span>
+          </div>
+          <span className="font-semibold text-brand-primary group-hover:underline">
+            {actionText} →
+          </span>
+        </div>
+      </button>
+    );
+  };
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
+        <div className="p-6 bg-red-50 border border-red-200 rounded-xl max-w-md shadow-sm">
+          <p className="text-red-800 font-bold mb-2">No pudimos consultar tus planeaciones.</p>
+          <p className="text-red-600 text-sm mb-4">{error}</p>
+          <button
+            onClick={loadPlans}
+            className="bg-brand-primary hover:bg-brand-dark text-white font-semibold px-6 py-2 rounded-xl text-sm"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in">
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in max-w-2xl mx-auto w-full">
       <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola Anita 👋</h2>
-      <p className="text-2xl text-text-muted mb-8 max-w-xl leading-relaxed">
+      <p className="text-2xl text-text-muted mb-6 max-w-xl leading-relaxed">
         Vamos a preparar tu semana.<br/>
         Del 24 al 28 de agosto para <span className="font-bold text-text-primary">{effectiveRoomLabel}</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
       </p>
+
+      {/* Selector interactivo de salas autorizadas (Validación A) */}
+      {authorizedRooms && authorizedRooms.length > 1 && (
+        <div className="flex items-center justify-center gap-2 mb-8 bg-white/70 p-1.5 rounded-full border border-slate-200/80 shadow-xs" data-testid="teacher-room-selector">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-3">
+            Sala:
+          </span>
+          {authorizedRooms.map((room) => {
+            const isSelected = effectiveActiveRoomId === room.roomId;
+            return (
+              <button
+                key={room.roomId}
+                type="button"
+                data-testid={`room-tab-${room.roomId}`}
+                onClick={() => onSelectRoom && onSelectRoom(room)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  isSelected
+                    ? 'bg-brand-primary text-white shadow-sm ring-2 ring-brand-primary/20'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                {room.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <p className="text-sm font-medium text-brand-primary bg-surface-ivory px-6 py-3 rounded-full mb-10 shadow-sm border border-brand-primary/20">
         ✨ Podemos continuar fortaleciendo la exploración sensorial esta semana.
       </p>
 
-      <div className="grid gap-4 w-full max-w-md">
+      <div className="grid gap-4 w-full">
         <button
           onClick={onNew}
           data-testid="list-new-planning-btn"
@@ -661,22 +1438,80 @@ const TeacherList = ({
           </span>
         </button>
 
-        {plans.map(p => (
-           <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border-2 border-border-soft hover:border-brand-primary focus:border-brand-primary p-5 rounded-xl shadow-sm text-left transition w-full outline-none">
-             <div className="flex justify-between items-center mb-1">
-               <span className="font-bold text-text-primary">
-                 {p.status === 'DRAFT' && 'Trabajando en la propuesta'}
-                 {p.status === 'IN_REVIEW' && 'La Directora la está leyendo'}
-                 {p.status === 'REJECTED' && 'Revisar sugerencias de la Directora'}
-                 {(p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION') && 'Propuesta lista para usarse 🌟 (Aprobada para ejecución)'}
-                 {p.status === 'CLOSED' && 'Semana cerrada ✓ (Registro completado)'}
-               </span>
-               {p.status === 'REJECTED' && <span className="w-3 h-3 bg-status-adjustment rounded-full"></span>}
-               {p.status === 'CLOSED' && <span className="text-xs font-bold bg-teal-100 text-teal-800 border border-teal-300 px-2.5 py-0.5 rounded-full">Cerrada</span>}
-             </div>
-             <p className="text-sm text-text-muted font-medium">{p.status === 'CLOSED' ? 'Semana concluida y archivada' : 'Continuar donde nos quedamos'}</p>
-           </button>
-        ))}
+        {/* 1. SECCIÓN: PLANEACIONES EN ELABORACIÓN */}
+        {draftsWithContent.length > 0 && (
+          <div className="w-full text-left mt-4" data-testid="section-drafts-with-content">
+            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>✏️</span> Planeaciones en elaboración ({draftsWithContent.length})
+            </h3>
+            <div className="grid gap-3 w-full">
+              {draftsWithContent.map(p => renderPlanningCard(p))}
+            </div>
+          </div>
+        )}
+
+        {/* 2. SECCIÓN: ENVIADAS A DIRECCIÓN / EN REVISIÓN */}
+        {submittedPlans.length > 0 && (
+          <div className="w-full text-left mt-4" data-testid="section-submitted-plans">
+            <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>📬</span> Enviadas a dirección ({submittedPlans.length})
+            </h3>
+            <div className="grid gap-3 w-full">
+              {submittedPlans.map(p => renderPlanningCard(p))}
+            </div>
+          </div>
+        )}
+
+        {/* 3. SECCIÓN: APROBADAS INSTITUCIONALMENTE */}
+        {approvedPlans.length > 0 && (
+          <div className="w-full text-left mt-4" data-testid="section-approved-plans">
+            <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>🌟</span> Aprobadas institucionalmente ({approvedPlans.length})
+            </h3>
+            <div className="grid gap-3 w-full">
+              {approvedPlans.map(p => renderPlanningCard(p))}
+            </div>
+          </div>
+        )}
+
+        {/* 4. SECCIÓN: EXPEDIENTES CONCLUIDOS */}
+        {closedPlans.length > 0 && (
+          <div className="w-full text-left mt-4" data-testid="section-closed-plans">
+            <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>🔒</span> Expedientes concluidos ({closedPlans.length})
+            </h3>
+            <div className="grid gap-3 w-full">
+              {closedPlans.map(p => renderPlanningCard(p))}
+            </div>
+          </div>
+        )}
+
+        {/* 5. SECCIÓN SECUNDARIA COLAPSABLE: BORRADORES HISTÓRICOS SIN ACTIVIDADES */}
+        {emptyHistoricalDrafts.length > 0 && (
+          <details
+            className="w-full text-left mt-4 border border-amber-200/80 rounded-xl bg-amber-50/30 overflow-hidden"
+            data-testid="empty-drafts-accordion"
+            open={draftsWithContent.length === 0 && emptyHistoricalDrafts.length <= 2}
+          >
+            <summary className="p-3.5 cursor-pointer font-semibold text-xs text-amber-900 flex items-center justify-between hover:bg-amber-100/40 select-none">
+              <span className="flex items-center gap-2">
+                <span>📁</span> Borradores iniciales sin actividades ({emptyHistoricalDrafts.length})
+              </span>
+              <span className="text-[11px] font-normal text-amber-700">
+                Registros previos recuperables
+              </span>
+            </summary>
+            <div className="p-3 grid gap-3 border-t border-amber-200/60 bg-white/50">
+              {emptyHistoricalDrafts.map(p => renderPlanningCard(p, true))}
+            </div>
+          </details>
+        )}
+
+        {roomPlans.length === 0 && (
+          <p className="text-sm text-text-muted mt-6 font-medium">
+            No hay planeaciones registradas para {effectiveRoomLabel}.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -861,7 +1696,7 @@ const createDefaultWeekDays = (): PlanningDay[] =>
     materials: [],
   }));
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId, onPlanPersisted }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, effectiveWeeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string, onPlanPersisted?: (id: string) => void }) => {
   const effectiveTeacher = teacherId || (isFirstLight ? FIRST_LIGHT_TEACHER_ID : 't1');
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
@@ -888,11 +1723,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
     if (planId) {
       stableIdRef.current = planId;
     } else if (isFirstLight) {
-      if (!canonicalPlan && !isNewIntent) {
-        stableIdRef.current = FIRST_LIGHT_PLANNING_ID;
-      } else {
-        stableIdRef.current = generateUniquePlanningId();
-      }
+      stableIdRef.current = generateUniquePlanningId();
     } else {
       stableIdRef.current = generateUniquePlanningId('p-demo-');
     }
@@ -952,6 +1783,9 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
 
   useEffect(() => {
     if (planId) {
+      if (planningObj && planningObj.planningId === planId && days.some(d => d.activities && d.activities.length > 0)) {
+        return;
+      }
       service.getPlanning(planId).then((p: any) => {
         if (p) {
           setPlanningObj(p);
@@ -1016,15 +1850,6 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
               }
               setStatus(existing.status);
             } else {
-              try {
-                await service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, effectiveTeacher, MOCK_START, MOCK_END, 'TEACHER');
-                const created = await service.getPlanning(currentPlanId);
-                if (created) {
-                  setPlanningObj(created);
-                }
-              } catch {
-                // Offline / local draft safe fallback
-              }
               setDays(prev => prev.length === 5 ? prev : createDefaultWeekDays());
               setStatus('DRAFT');
             }
@@ -1045,8 +1870,10 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
     setIsGenerating(true);
     setProposalError(null);
 
+    const activeProposalSource = effectiveWeeklyPlanningProposalSource ?? weeklyPlanningProposalSource;
+
     // Governed WeeklyPlanningProposalSource Human Gate path
-    if (weeklyPlanningProposalSource) {
+    if (activeProposalSource) {
       try {
         const req: WeeklyPlanningProposalRequest = {
           planningId: currentPlanId,
@@ -1062,7 +1889,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
             availableMaterials: availableMaterials,
           },
         };
-        const proposal = await weeklyPlanningProposalSource.propose(req);
+        const proposal = await activeProposalSource.propose(req);
         // Human Gate: Store proposal transiently in memory for Anita's review.
         // ZERO saveDraft, ZERO persistence, ZERO aggregate mutation!
         setPendingWeeklyProposal(proposal);
@@ -1092,6 +1919,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
       isGeneratingRef.current = false;
       setIsGenerating(false);
       try {
+        await ensurePlanningAggregateCreated();
         await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], recommended, 'TEACHER', initialSnapshot);
         const updated = await service.getPlanning(currentPlanId);
         if (updated) {
@@ -1151,11 +1979,6 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
       };
     });
 
-    setDays(convertedDays);
-    setOriginalContext(initialSnapshot);
-    setContextLocked(true);
-    setPendingWeeklyProposal(null);
-
     // Call service.saveDraft EXACTLY ONCE upon human acceptance
     try {
       await ensurePlanningAggregateCreated();
@@ -1173,12 +1996,19 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
       const updated = await service.getPlanning(currentPlanId);
       if (updated) {
         setPlanningObj(updated);
+        updateUrlParams({ planId: currentPlanId, action: null });
+        if (onPlanPersisted) onPlanPersisted(currentPlanId);
       }
+      setDays(convertedDays);
+      setOriginalContext(initialSnapshot);
+      setContextLocked(true);
+      setPendingWeeklyProposal(null);
       setToastMessage('✓ Propuesta incorporada a tu planeación como borrador.');
       setTimeout(() => setToastMessage(''), 3000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar el borrador.';
       setToastMessage(msg);
+      setProposalError(msg);
     } finally {
       setIsAcceptingProposal(false);
     }
@@ -1211,7 +2041,11 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
 
       // Auto-update local status for UX so color changes to yellow
       const updated = await service.getPlanning(currentPlanId);
-      if (updated) setGranularObservations(updated.granularObservations || []);
+      if (updated) {
+        setGranularObservations(updated.granularObservations || []);
+        updateUrlParams({ planId: currentPlanId, action: null });
+        if (onPlanPersisted) onPlanPersisted(currentPlanId);
+      }
     }
     onSaved();
     setToastMessage('✓ Avance del día guardado.');
@@ -1220,7 +2054,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
 
   const handleSubmit = async () => {
     if (status === 'REJECTED') {
-      await service.resubmit(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
+      await service.saveDraft(currentPlanId, obs, needs, specialSituations, availableMaterials, [], days, 'TEACHER');
+      await service.submit(currentPlanId, 'TEACHER');
     } else {
       if (days.length === 5) {
         await ensurePlanningAggregateCreated();
@@ -1506,6 +2341,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                          });
                                          setDays(updatedDays);
                                          try {
+                                           await ensurePlanningAggregateCreated();
                                            await service.saveDraft(
                                              currentPlanId,
                                              obs,
@@ -1535,6 +2371,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                         planning={planningObj}
                         readOnly={readOnly || (status !== 'DRAFT' && status !== 'REJECTED')}
                         onSave={async (updatedActivities) => {
+                          await ensurePlanningAggregateCreated();
                           await service.setDayComplementaryActivities(
                             currentPlanId,
                             d.dayOfWeek,
@@ -1555,6 +2392,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                         planning={planningObj}
                         readOnly={readOnly || (status !== 'DRAFT' && status !== 'REJECTED')}
                         onSave={async (updatedPractices) => {
+                          await ensurePlanningAggregateCreated();
                           await service.setDayPrioritizedPractices(
                             currentPlanId,
                             d.dayOfWeek,
@@ -1580,6 +2418,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                           ) : (
                             <button
                               onClick={async () => {
+                                await ensurePlanningAggregateCreated();
                                 await service.markTeacherDayReviewed(currentPlanId, d.dayOfWeek, 'TEACHER', effectiveTeacher, undefined, days);
                                 const updatedPlan = await service.getPlanning(currentPlanId);
                                 if (updatedPlan) {
@@ -1588,7 +2427,6 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
                                 }
                                 setToastMessage('✓ Día marcado como revisado.');
                                 setTimeout(() => setToastMessage(''), 2000);
-                                onSaved();
                               }}
                               className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 rounded-full shadow-sm transition flex items-center gap-2 text-base"
                             >
@@ -1925,40 +2763,85 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, weekly
           onAccept={handleAcceptProposal}
           onDiscard={handleDiscardProposal}
           isAccepting={isAcceptingProposal}
-          isLabMode={isFirstLight}
+          isLabMode={Boolean(isFirstLight)}
           evidenceContext={evidenceContext}
         />
       )}
     </div>
   );
 };
-const DirectorList = ({ service, onSelect, refreshKey, activeRoom }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number, activeRoom?: Room | undefined }) => {
+const DirectorList = ({
+  service,
+  onSelect,
+  refreshKey,
+  activeRoom,
+}: {
+  service: PlanningWorkflowService;
+  onSelect: (id: string) => void;
+  refreshKey: number;
+  activeRoom?: Room | undefined;
+}) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const loadPlans = React.useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+    resolveDirectorReviewSession(service)
+      .then((res) => {
+        setPlans(res.pendingPlans);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Error al consultar las propuestas pendientes.');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [service]);
+
   useEffect(() => {
-    Promise.all([
-      service.listDirectorReviewQueue('DIRECTOR').catch(() => []),
-      service.listSupervisorApprovedPlanning('SUPERVISOR').catch(() => [])
-    ]).then(([reviewPlans, approvedPlans]) => {
-      const map = new Map<string, WeeklyPlanning>();
-      for (const p of reviewPlans) map.set(p.planningId, p);
-      for (const p of approvedPlans) if (!map.has(p.planningId)) map.set(p.planningId, p);
-      setPlans(Array.from(map.values()));
-    });
-  }, [refreshKey, service]);
+    loadPlans();
+  }, [refreshKey, loadPlans]);
+
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto animate-fade-in p-6 bg-red-50 border border-red-200 rounded-xl text-center">
+        <p className="text-red-800 font-bold mb-2">No pudimos cargar la lista de propuestas para revisar.</p>
+        <p className="text-red-600 text-sm mb-4">{error}</p>
+        <button
+          onClick={loadPlans}
+          className="bg-brand-primary hover:bg-brand-dark text-white font-semibold px-6 py-2 rounded-xl text-sm"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">
       <h1 className="text-4xl font-bold mb-10 text-center">Acompañamiento pedagógico</h1>
       <p className="text-center text-text-muted text-lg mb-8">Tus docentes han enviado estas propuestas para que las revisen juntas.</p>
       <div className="grid gap-4 w-full">
-        {plans.map(p => (
-           <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border-2 border-border-soft hover:border-brand-primary p-8 rounded-xl shadow-sm text-left transition w-full outline-none">
-             <div className="flex justify-between items-center mb-3">
-               <span className="font-bold text-text-primary text-2xl">Anita</span>
-               <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-status-review/20 text-status-review">Lista para conversar</span>
-             </div>
-             <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
-           </button>
-        ))}
+        {plans.map(p => {
+          const hasPendingEval = (p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION') && p.days?.some(d => d.evaluationStatus === 'IN_REVIEW');
+          const isReadyForClosure = (p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION') && p.days?.length === 5 && p.days.every(d => d.evaluationStatus === 'APPROVED');
+
+          let badgeLabel = 'Lista para conversar';
+          if (hasPendingEval) badgeLabel = 'Evaluación diaria pendiente';
+          else if (isReadyForClosure) badgeLabel = 'Semana lista para cierre';
+
+          return (
+            <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border-2 border-border-soft hover:border-brand-primary p-8 rounded-xl shadow-sm text-left transition w-full outline-none">
+              <div className="flex justify-between items-center mb-3">
+                <span className="font-bold text-text-primary text-2xl">Anita</span>
+                <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-status-review/20 text-status-review">{badgeLabel}</span>
+              </div>
+              <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
+            </button>
+          );
+        })}
         {plans.length === 0 && <p className="text-text-muted text-center mt-12 text-xl font-medium">No tenemos propuestas para conversar en este momento.</p>}
       </div>
     </div>
@@ -1992,6 +2875,7 @@ const DirectorReview = ({
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
   const [directorReviewedDays, setDirectorReviewedDays] = useState<Record<string, boolean>>({});
+  const [markingDayOfWeek, setMarkingDayOfWeek] = useState<string | null>(null);
 
   // DRAFTING STATE (Review Round)
   const [newGranularObs, setNewGranularObs] = useState<Record<string, string>>({});
@@ -2049,7 +2933,7 @@ const DirectorReview = ({
         setPlan(p);
         const initialReviewed: Record<string, boolean> = {};
         for (const d of p.days) {
-          if (typeof p.isDirectorDayReviewed === "function" ? p.isDirectorDayReviewed(d.dayOfWeek) : Boolean(d.directorReviewed)) {
+          if (Boolean(d.directorReviewed)) {
             initialReviewed[d.dayOfWeek] = true;
           }
         }
@@ -2072,7 +2956,6 @@ const DirectorReview = ({
     const activeDay = plan?.days?.[activeDayIndex];
     if (activeDay) {
       setDirectorReviewedDays(prev => ({ ...prev, [activeDay.dayOfWeek]: true }));
-      service.markDirectorDayReviewed(planId, activeDay.dayOfWeek, "DIRECTOR");
     }
     setToastMessage('✓ Observación preparada localmente (No enviada)');
     setTimeout(() => { setToastMessage(''); }, 2000);
@@ -2099,11 +2982,6 @@ const DirectorReview = ({
       });
     }
 
-    for (const [dayOfWeek, isRev] of Object.entries(directorReviewedDays)) {
-      if (isRev) {
-        await service.markDirectorDayReviewed(planId, dayOfWeek as any, "DIRECTOR");
-      }
-    }
     await service.reject(planId, "Se requieren ajustes en la planeación.", "DIRECTOR", "DIRECTOR", granularObsArray);
 
     setPreparedObservations({});
@@ -2113,22 +2991,29 @@ const DirectorReview = ({
   };
 
   const handleResolve = async (activityId: string) => {
-    await service.resolveGranularObservation(planId, activityId, "DIRECTOR", "Ceci");
-    const updatedPlan = await service.getPlanning(planId);
-    if (updatedPlan) {
-      setPlan(updatedPlan);
-      const newReviewed: Record<string, boolean> = {};
-      for (const d of updatedPlan.days) {
-        if (typeof updatedPlan.isDirectorDayReviewed === "function" ? updatedPlan.isDirectorDayReviewed(d.dayOfWeek) : Boolean(d.directorReviewed)) {
-          newReviewed[d.dayOfWeek] = true;
+    try {
+      await service.resolveGranularObservation(planId, activityId, "DIRECTOR", "Ceci");
+      const updatedPlan = await service.getPlanning(planId);
+      if (updatedPlan) {
+        setPlan(updatedPlan);
+        const newReviewed: Record<string, boolean> = {};
+        for (const d of updatedPlan.days) {
+          if (typeof updatedPlan.isDirectorDayReviewed === "function" ? updatedPlan.isDirectorDayReviewed(d.dayOfWeek) : Boolean(d.directorReviewed)) {
+            newReviewed[d.dayOfWeek] = true;
+          }
         }
+        setDirectorReviewedDays(prev => ({ ...prev, ...newReviewed }));
       }
-      setDirectorReviewedDays(prev => ({ ...prev, ...newReviewed }));
+      setCollapsedResolved(prev => ({ ...prev, [activityId]: true }));
+      setToastMessage("✅ OBSERVACIÓN ATENDIDA");
+      onSaved();
+      setTimeout(() => { setToastMessage(""); }, 2000);
+    } catch (err: unknown) {
+      console.error("[SR-MD-19-B] Error al resolver observación:", err);
+      const errMsg = err instanceof Error ? err.message : "Error al guardar en el servidor";
+      setToastMessage(`❌ Error al marcar atendida: ${errMsg}`);
+      setTimeout(() => { setToastMessage(""); }, 4000);
     }
-    setCollapsedResolved(prev => ({ ...prev, [activityId]: true }));
-    setToastMessage("✅ OBSERVACIÓN ATENDIDA");
-    onSaved();
-    setTimeout(() => { setToastMessage(""); }, 2000);
   };
 
   const preparedCount = Object.keys(preparedObservations).length;
@@ -2150,16 +3035,6 @@ const DirectorReview = ({
       return directorReviewedDays[dayOfWeek];
     }
 
-    const hasObs = plan?.granularObservations?.some((o: any) =>
-      day?.activities?.some((a: any) => a.activityId === o.targetId)
-    );
-    if (hasObs && plan?.status === "IN_REVIEW") {
-      return true;
-    }
-
-    if (plan && typeof plan.isDirectorDayReviewed === "function") {
-      return plan.isDirectorDayReviewed(dayOfWeek);
-    }
     return Boolean(day?.directorReviewed);
   };
 
@@ -2469,7 +3344,14 @@ const DirectorReview = ({
                             {/* RE-REVIEW STATE (P0-8) */}
                             {existingObs && (existingObs.status === 'CHANGED_BY_EDUCATOR' || existingObs.status === 'PENDING_CORRECTION' || existingObs.status === 'RESOLVED') && !isPrepared && (
                               <div className={`p-5 rounded-xl border mt-4 mb-6 ${existingObs.status === 'RESOLVED' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-300 shadow-sm'}`}>
-                                <h5 className={`font-bold text-sm uppercase tracking-wider mb-3 ${existingObs.status === 'RESOLVED' ? 'text-green-900' : 'text-yellow-900'}`}>MI OBSERVACIÓN PREVIA:</h5>
+                                <div className="flex items-center justify-between mb-3">
+                                  <h5 className={`font-bold text-sm uppercase tracking-wider ${existingObs.status === 'RESOLVED' ? 'text-green-900' : 'text-yellow-900'}`}>MI OBSERVACIÓN PREVIA:</h5>
+                                  {existingObs.status === 'RESOLVED' && (
+                                    <span className="bg-green-700 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                                      <span>✓</span> OBSERVACIÓN ATENDIDA
+                                    </span>
+                                  )}
+                                </div>
                                 <p className={`mb-4 font-bold text-lg ${existingObs.status === 'RESOLVED' ? 'text-green-900' : 'text-yellow-900'}`}>{existingObs.observation}</p>
                                 <div className="grid grid-cols-2 gap-4">
                                   <div className="bg-white p-4 rounded border border-gray-200">
@@ -2857,17 +3739,36 @@ const DirectorReview = ({
                  return (
                    <div className="mt-10 pt-6 border-t border-border-soft flex justify-center">
                      <button
+                       disabled={markingDayOfWeek === d.dayOfWeek || Boolean(markingDayOfWeek)}
                        onClick={async () => {
-                          setDirectorReviewedDays(prev => ({ ...prev, [d.dayOfWeek]: true }));
-                          await service.markDirectorDayReviewed(planId, d.dayOfWeek, "DIRECTOR");
-                          const updated = await service.getPlanning(planId);
-                          if (updated) setPlan(updated);
-                          setToastMessage("✓ Día marcado como revisado");
-                          setTimeout(() => setToastMessage(""), 2000);
-                        }}
-                       className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-3 rounded-full transition shadow-sm flex items-center gap-2"
+                         if (markingDayOfWeek) return;
+                         setMarkingDayOfWeek(d.dayOfWeek);
+                         try {
+                           await service.markDirectorDayReviewed(planId, d.dayOfWeek, "DIRECTOR");
+                           const updated = await service.getPlanning(planId);
+                           if (!updated) {
+                             throw new Error("No se pudo recuperar la planeación actualizada.");
+                           }
+                           const dayInUpdated = updated.days.find((day: any) => day.dayOfWeek === d.dayOfWeek);
+                           const isPersisted = Boolean(dayInUpdated?.directorReviewed);
+                           if (!isPersisted) {
+                             throw new Error("La revisión del día no quedó persistida en el repositorio.");
+                           }
+                           setPlan(updated);
+                           setDirectorReviewedDays(prev => ({ ...prev, [d.dayOfWeek]: true }));
+                           setToastMessage("✓ Día marcado como revisado");
+                           setTimeout(() => setToastMessage(""), 2000);
+                         } catch (err: any) {
+                           console.error("[SR-MD-19-E] Error al marcar día como revisado:", err);
+                           setToastMessage(`❌ Error al marcar día revisado: ${err?.message || "Error de permisos o red"}`);
+                           setTimeout(() => setToastMessage(""), 4000);
+                         } finally {
+                           setMarkingDayOfWeek(null);
+                         }
+                       }}
+                       className="bg-surface-ivory hover:bg-teal-50 border border-teal-200 text-teal-700 font-bold px-8 py-3 rounded-full transition shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                      >
-                       <span className="text-xl">✓</span> Marcar día revisado
+                       <span className="text-xl">✓</span> {markingDayOfWeek === d.dayOfWeek ? "Guardando revisión..." : "Marcar día revisado"}
                      </button>
                    </div>
                  );
@@ -2891,7 +3792,21 @@ const DirectorReview = ({
             {(() => {
               const existingObsList = plan?.granularObservations || [];
               const pendingCount = existingObsList.filter((o: any) => o.status === 'PENDING_CORRECTION' || o.status === 'CHANGED_BY_EDUCATOR').length;
-              const canApprove = reviewedDirectorCount === 5 && preparedCount === 0 && pendingCount === 0;
+
+              const dayNames: Record<string, string> = {
+                MONDAY: "Lunes",
+                TUESDAY: "Martes",
+                WEDNESDAY: "Miércoles",
+                THURSDAY: "Jueves",
+                FRIDAY: "Viernes",
+              };
+
+              const unreviewedDays = (plan?.days || [])
+                .filter((d: any) => !Boolean(d.directorReviewed))
+                .map((d: any) => dayNames[d.dayOfWeek] || d.dayOfWeek);
+
+              const allDaysExplicitlyReviewed = (plan?.days || []).length === 5 && unreviewedDays.length === 0;
+              const canApprove = allDaysExplicitlyReviewed && preparedCount === 0 && pendingCount === 0;
 
               return (
                 <>
@@ -2905,12 +3820,16 @@ const DirectorReview = ({
                       setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
                     }}
                     disabled={!canApprove}
-                    className="w-full bg-brand-primary hover:bg-brand-dark text-white font-bold text-lg px-8 py-6 rounded-full shadow-lg transition flex items-center justify-center gap-3 disabled:opacity-50"
+                    className="w-full bg-brand-primary hover:bg-brand-dark text-white font-bold text-lg px-8 py-6 rounded-full shadow-lg transition flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span>✓ APROBAR TODA LA PLANEACIÓN</span>
                     <span className="text-xs font-bold bg-white/25 px-3 py-1 rounded-full uppercase tracking-wider">Para Ejecución</span>
                   </button>
-                  {reviewedDirectorCount < 5 && <p className="text-center text-text-muted text-sm font-medium">Debes revisar los 5 días ({reviewedDirectorCount}/5 revisados) para poder aprobar la planeación.</p>}
+                  {!allDaysExplicitlyReviewed && (
+                    <p className="text-center text-text-muted text-sm font-medium">
+                      Debes marcar como revisados los 5 días en la planeación para poder aprobarla. {unreviewedDays.length > 0 && `(Días pendientes: ${unreviewedDays.join(", ")})`}
+                    </p>
+                  )}
                   {preparedCount > 0 && <p className="text-center text-orange-700 text-sm font-bold">La aprobación está bloqueada porque hay observaciones preparadas sin enviar.</p>}
                   {pendingCount > 0 && preparedCount === 0 && <p className="text-center text-orange-700 text-sm font-bold">La aprobación está bloqueada porque hay observaciones pendientes de revisar o atender.</p>}
                 </>
@@ -3476,7 +4395,7 @@ const PrintableView = ({
             <p className="font-bold text-xs print:text-[9px] text-black">
               {a.objective} <span className="font-bold">({a.durationMinutes} min)</span>
             </p>
-            <p className="text-xs print:text-[8.5px] text-black font-normal leading-snug print:leading-tight">
+            <p className="text-xs print:text-[8.5px] text-black font-normal leading-snug print:leading-tight whitespace-pre-line">
               {a.description}
             </p>
           </div>
@@ -3992,7 +4911,7 @@ const PrintableView = ({
                               <p className="font-bold text-xs print:text-[8.5px] text-black">
                                 {a.objective} <span className="font-bold">({a.durationMinutes} min)</span>
                               </p>
-                              <p className="text-black text-xs print:text-[8px] font-normal leading-tight">
+                              <p className="text-black text-xs print:text-[8px] font-normal leading-tight whitespace-pre-line">
                                 {a.description}
                               </p>
                             </div>
