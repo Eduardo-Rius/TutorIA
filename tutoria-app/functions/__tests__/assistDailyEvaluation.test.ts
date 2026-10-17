@@ -719,5 +719,57 @@ describe('H1R13.3E — assistDailyEvaluation Firebase Callable Bridge', () => {
       expect(caughtError.message).not.toContain('sk-');
       expect(caughtError.code).toBe('unavailable');
     });
+
+    it('SR-MD-18-AB: logs safe rejection telemetry when provider response exceeds max length without leaking text', async () => {
+      const planning = createApprovedPlanning();
+      const mockRepo = new FirestoreWeeklyPlanningAdminRepository({
+        docReader: async () => mockRepo.serialize(planning),
+      });
+
+      const oversizedText = 'Texto descriptivo institucional '.repeat(45); // > 1300 chars
+      const provider: EvaluationAIProvider = {
+        assist: async () => ({
+          suggestedEvaluation: oversizedText,
+        }),
+      };
+
+      const logEntries: AssistDailyEvaluationLogEntry[] = [];
+      const mockLogger = { write: (entry: AssistDailyEvaluationLogEntry) => logEntries.push(entry) };
+
+      const request = createMockCallableRequest(validPublicRequest);
+
+      let caughtError: any = null;
+      try {
+        await handleAssistDailyEvaluation(request, {
+          authorizer: async () => validTeacherAuthDoc,
+          repository: mockRepo,
+          provider,
+          clock: { now: () => new Date('2026-10-05T12:00:00-06:00') },
+          logger: mockLogger,
+        });
+      } catch (err) {
+        caughtError = err;
+      }
+
+      // 1. Error is standard safe HttpsError
+      expect(caughtError).toBeInstanceOf(HttpsError);
+      expect(caughtError.code).toBe('internal');
+      expect(caughtError.message).toBe('AI assistance response failed governance validation.');
+
+      // 2. Telemetry log contains precise technical diagnostics without leaking text
+      expect(logEntries).toHaveLength(1);
+      const entry = logEntries[0];
+      expect(entry.event).toBe('assist_daily_evaluation.failed');
+      expect(entry.safeErrorCode).toBe('INVALID_PROVIDER_RESPONSE');
+      expect(entry.rejectionStage).toBe('EXCEEDS_MAX_LENGTH');
+      expect(entry.limitChars).toBe(1000);
+      expect(entry.responseLengthChars).toBe(oversizedText.trim().length);
+      expect(entry.hasValidStructure).toBe(true);
+
+      // 3. Confirm zero evaluation text or PII in log
+      const serializedLog = JSON.stringify(entry);
+      expect(serializedLog).not.toContain(oversizedText);
+      expect(serializedLog).not.toContain('institucional');
+    });
   });
 });

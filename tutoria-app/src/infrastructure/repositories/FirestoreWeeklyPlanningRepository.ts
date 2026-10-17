@@ -1,5 +1,5 @@
-import { doc, getDoc, setDoc, collection, query, where, getDocs, Timestamp, DocumentData } from 'firebase/firestore';
-import { db } from '../firebase/firebaseConfig';
+import { doc, getDoc, setDoc, deleteDoc, writeBatch, collection, query, where, getDocs, Timestamp, DocumentData } from 'firebase/firestore';
+import { db, auth } from '../firebase/firebaseConfig';
 import {
   WeeklyPlanning,
   WeeklyPlanStatus,
@@ -7,6 +7,7 @@ import {
   WeeklyContextSnapshot,
   GranularObservation,
   ReviewRound,
+  DirectorDraftObservation,
 } from '../../domain/planning/WeeklyPlanning';
 import { WeeklyPlanningRepository } from '../../application/ports/WeeklyPlanningRepository';
 
@@ -84,6 +85,41 @@ export function toRequiredDate(val: unknown, fieldName: string): Date {
 
 export class FirestoreWeeklyPlanningRepository implements WeeklyPlanningRepository {
   private readonly collectionName = 'weeklyPlannings';
+  private cachedDaycareIdByUid: Map<string, string> = new Map();
+  private explicitDefaultDaycareId?: string;
+
+  public setAuthorizedDaycareId(daycareId: string): void {
+    this.explicitDefaultDaycareId = daycareId;
+  }
+
+  public async resolveAuthorizedDaycareId(explicitDaycareId?: string): Promise<string | undefined> {
+    if (explicitDaycareId) {
+      return explicitDaycareId;
+    }
+    if (this.explicitDefaultDaycareId) {
+      return this.explicitDefaultDaycareId;
+    }
+    try {
+      const currentUid = auth?.currentUser?.uid;
+      if (currentUid) {
+        if (this.cachedDaycareIdByUid.has(currentUid)) {
+          return this.cachedDaycareIdByUid.get(currentUid);
+        }
+        const authCtxDoc = await getDoc(doc(db, 'authorizationContexts', currentUid));
+        if (authCtxDoc.exists()) {
+          const data = authCtxDoc.data();
+          if (Array.isArray(data?.authorizedDaycareIds) && data.authorizedDaycareIds.length > 0) {
+            const daycareId = data.authorizedDaycareIds[0];
+            this.cachedDaycareIdByUid.set(currentUid, daycareId);
+            return daycareId;
+          }
+        }
+      }
+    } catch {
+      // In offline, unauthenticated, or mock test environments, fail-safe
+    }
+    return undefined;
+  }
 
   public async save(planning: WeeklyPlanning): Promise<void> {
     planning.assertValidCurricularInvariants();
@@ -100,28 +136,123 @@ export class FirestoreWeeklyPlanningRepository implements WeeklyPlanningReposito
     return this.deserialize(snapshot.data());
   }
 
-  public async listByTeacher(teacherId: string): Promise<WeeklyPlanning[]> {
-    const q = query(collection(db, this.collectionName), where('teacherId', '==', teacherId));
+  public async listByTeacher(teacherId: string, daycareId?: string): Promise<WeeklyPlanning[]> {
+    const effectiveDaycareId = await this.resolveAuthorizedDaycareId(daycareId);
+    const constraints: any[] = [where('teacherId', '==', teacherId)];
+    if (effectiveDaycareId) {
+      constraints.push(where('daycareId', '==', effectiveDaycareId));
+    }
+    const q = query(collection(db, this.collectionName), ...constraints);
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => this.deserialize(doc.data()));
   }
 
-  public async listInReview(): Promise<WeeklyPlanning[]> {
-    const q = query(collection(db, this.collectionName), where('status', '==', 'IN_REVIEW'));
+  public async listInReview(daycareId?: string): Promise<WeeklyPlanning[]> {
+    const effectiveDaycareId = await this.resolveAuthorizedDaycareId(daycareId);
+    const constraints: any[] = [where('status', '==', 'IN_REVIEW')];
+    if (effectiveDaycareId) {
+      constraints.push(where('daycareId', '==', effectiveDaycareId));
+    }
+    const q = query(collection(db, this.collectionName), ...constraints);
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => this.deserialize(doc.data()));
   }
 
-  public async listApproved(): Promise<WeeklyPlanning[]> {
-    const q = query(collection(db, this.collectionName), where('status', '==', 'APPROVED'));
+  public async listApproved(daycareId?: string): Promise<WeeklyPlanning[]> {
+    const effectiveDaycareId = await this.resolveAuthorizedDaycareId(daycareId);
+    const constraints: any[] = [where('status', '==', 'APPROVED')];
+    if (effectiveDaycareId) {
+      constraints.push(where('daycareId', '==', effectiveDaycareId));
+    }
+    const q = query(collection(db, this.collectionName), ...constraints);
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => this.deserialize(doc.data()));
   }
 
-  public async listClosed(): Promise<WeeklyPlanning[]> {
-    const q = query(collection(db, this.collectionName), where('status', '==', 'CLOSED'));
+  public async listClosed(daycareId?: string): Promise<WeeklyPlanning[]> {
+    const effectiveDaycareId = await this.resolveAuthorizedDaycareId(daycareId);
+    const constraints: any[] = [where('status', '==', 'CLOSED')];
+    if (effectiveDaycareId) {
+      constraints.push(where('daycareId', '==', effectiveDaycareId));
+    }
+    const q = query(collection(db, this.collectionName), ...constraints);
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => this.deserialize(doc.data()));
+  }
+
+  // SR-MD-21 Phase 2: Private Director Draft Observations Subcollection
+  public async saveDraftObservation(planningId: string, draft: DirectorDraftObservation): Promise<void> {
+    const currentUid = auth?.currentUser?.uid || draft.createdBy;
+    const docRef = doc(db, this.collectionName, planningId, 'directorDraftObservations', draft.activityId);
+    await setDoc(docRef, {
+      activityId: draft.activityId,
+      observation: draft.observation,
+      dayOfWeek: draft.dayOfWeek ?? null,
+      createdBy: currentUid,
+      createdAt: toFirestoreTimestamp(draft.createdAt || new Date()),
+      updatedAt: toFirestoreTimestamp(new Date()),
+    });
+  }
+
+  public async listDraftObservations(planningId: string, directorId?: string): Promise<DirectorDraftObservation[]> {
+    const effectiveDirectorId = directorId || auth?.currentUser?.uid;
+    const constraints: any[] = [];
+    if (effectiveDirectorId) {
+      constraints.push(where('createdBy', '==', effectiveDirectorId));
+    }
+    const q = query(collection(db, this.collectionName, planningId, 'directorDraftObservations'), ...constraints);
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => {
+      const data = d.data();
+      return {
+        activityId: data.activityId || d.id,
+        observation: data.observation || '',
+        dayOfWeek: data.dayOfWeek || undefined,
+        createdBy: data.createdBy,
+        createdAt: toDateOrUndefined(data.createdAt) || new Date(),
+        updatedAt: toDateOrUndefined(data.updatedAt) || new Date(),
+      };
+    });
+  }
+
+  public async deleteDraftObservation(planningId: string, activityId: string): Promise<void> {
+    const docRef = doc(db, this.collectionName, planningId, 'directorDraftObservations', activityId);
+    await deleteDoc(docRef);
+  }
+
+  public async clearDraftObservations(planningId: string): Promise<void> {
+    const currentUid = auth?.currentUser?.uid;
+    const constraints: any[] = [];
+    if (currentUid) {
+      constraints.push(where('createdBy', '==', currentUid));
+    }
+    const q = query(collection(db, this.collectionName, planningId, 'directorDraftObservations'), ...constraints);
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return;
+    const batch = writeBatch(db);
+    for (const d of snapshot.docs) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+  }
+
+  // SR-MD-21 Phase 2B: Atomic publication and cleanup
+  public async savePlanningAndClearDrafts(planning: WeeklyPlanning): Promise<void> {
+    const planRef = doc(db, this.collectionName, planning.planningId);
+    const currentUid = auth?.currentUser?.uid;
+    const constraints: any[] = [];
+    if (currentUid) {
+      constraints.push(where('createdBy', '==', currentUid));
+    }
+    const q = query(collection(db, this.collectionName, planning.planningId, 'directorDraftObservations'), ...constraints);
+    const snapshot = await getDocs(q);
+
+    const batch = writeBatch(db);
+    batch.set(planRef, this.serialize(planning));
+    for (const d of snapshot.docs) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
   }
 
   public serialize(planning: WeeklyPlanning): DocumentData {
@@ -176,8 +307,29 @@ export class FirestoreWeeklyPlanningRepository implements WeeklyPlanningReposito
             if (entry.reviewedAt) {
               serializedEntry.reviewedAt = toFirestoreTimestamp(entry.reviewedAt);
             }
+            for (const k of Object.keys(serializedEntry)) {
+              if (serializedEntry[k] === undefined) {
+                delete serializedEntry[k];
+              }
+            }
             return serializedEntry;
           });
+        }
+        if (Array.isArray(serializedDay.activities)) {
+          serializedDay.activities = serializedDay.activities.map((act: Record<string, any>) => {
+            const serializedAct: Record<string, any> = { ...act };
+            for (const k of Object.keys(serializedAct)) {
+              if (serializedAct[k] === undefined) {
+                delete serializedAct[k];
+              }
+            }
+            return serializedAct;
+          });
+        }
+        for (const k of Object.keys(serializedDay)) {
+          if (serializedDay[k] === undefined) {
+            delete serializedDay[k];
+          }
         }
         return serializedDay;
       }),

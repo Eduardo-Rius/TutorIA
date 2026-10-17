@@ -330,6 +330,69 @@ service cloud.firestore {
           
         allow delete: if false;
       }
+
+      // -----------------------------------------------------------------------
+      // Director Draft Observations Subcollection (SR-MD-21 Phase 2 & 2B)
+      // Private drafts accessible strictly to authorized Directors with hardened schema
+      // -----------------------------------------------------------------------
+      match /directorDraftObservations/{draftId} {
+        
+        function getParentPlan() {
+          return get(/databases/$(database)/documents/weeklyPlannings/$(planningId)).data;
+        }
+
+        function isParentPlanInReview() {
+          return getParentPlan().status == 'IN_REVIEW';
+        }
+
+        function isValidDraftPayload() {
+          let data = request.resource.data;
+          let keys = data.keys();
+          return keys.hasOnly(['activityId', 'observation', 'dayOfWeek', 'createdBy', 'createdAt', 'updatedAt'])
+            && draftId == data.activityId
+            && data.activityId is string
+            && data.activityId.size() > 0
+            && data.activityId.size() <= 100
+            && data.observation is string
+            && data.observation.size() > 0
+            && data.observation.size() <= 2000
+            && data.createdBy == request.auth.uid;
+        }
+
+        function isImmutableDraftUpdate() {
+          return request.resource.data.activityId == resource.data.activityId
+            && request.resource.data.createdBy == resource.data.createdBy
+            && request.resource.data.createdAt == resource.data.createdAt;
+        }
+
+        // Only authorized DIRECTOR in the same daycare can read their own private drafts
+        allow read: if isSignedIn() 
+          && isDirector() 
+          && belongsToDaycare(getParentPlan().daycareId)
+          && resource.data.createdBy == request.auth.uid;
+
+        // Only authorized DIRECTOR can create private drafts during IN_REVIEW
+        allow create: if isSignedIn() 
+          && isDirector() 
+          && belongsToDaycare(getParentPlan().daycareId)
+          && isParentPlanInReview()
+          && isValidDraftPayload();
+
+        // Only the creator DIRECTOR can update their private draft during IN_REVIEW
+        allow update: if isSignedIn() 
+          && isDirector() 
+          && belongsToDaycare(getParentPlan().daycareId)
+          && isParentPlanInReview()
+          && resource.data.createdBy == request.auth.uid
+          && isValidDraftPayload()
+          && isImmutableDraftUpdate();
+
+        // Only the creator DIRECTOR can delete their private draft
+        allow delete: if isSignedIn() 
+          && isDirector() 
+          && belongsToDaycare(getParentPlan().daycareId)
+          && resource.data.createdBy == request.auth.uid;
+      }
     }
 
     // -------------------------------------------------------------------------

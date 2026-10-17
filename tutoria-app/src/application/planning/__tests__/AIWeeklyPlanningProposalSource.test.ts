@@ -26,6 +26,15 @@ import {
   ADULT_MEDIATION_MODES,
   createRequestScopedMaterialTable,
   validateProceduralActionEnclosure,
+  validateLactantesAActivityAdaptations,
+  projectInternalActivityToCanonical,
+  LACTANTES_A_EARLY_MARKER_REGEX,
+  LACTANTES_A_OLDER_MARKER_REGEX,
+  LACTANTES_A_LATE_MARKER_REGEX,
+  LACTANTES_A_SUPERFICIAL_NON_ACTION_REGEX,
+  LACTANTES_A_AGE_ONLY_REPETITION_REGEX,
+  UNEQUIVOCAL_READING_REGEX,
+  isUnequivocalReadingActivity,
 } from '../AIWeeklyPlanningProposalSource';
 import {
   InvalidWeeklyPlanningProposalError,
@@ -88,7 +97,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
           category: 'EXPERIENCIAS ARTÍSTICAS',
           objective: 'Estimulación auditiva y rítmica suave con nanas',
           proceduralAction:
-            'Reproducir {material} suave y cantar nanas sosteniendo contacto visual afectivo.',
+            'Reproducir {material} suave y cantar nanas sosteniendo contacto visual afectivo.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física y entonando nanas en tono muy suave.\n• Adaptación 4 a 6 meses: Recostar al bebé sobre colchoneta acolchada permitiendo el seguimiento visual y movimiento libre de brazos.',
           durationMinutes: 15,
           materialRefs: ['MAT-01'],
           progression: {
@@ -103,7 +112,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
           category: 'AMBIENTES DE APRENDIZAJE',
           objective: 'Exploración táctil suave en brazos del lactante',
           proceduralAction:
-            'Deslizar {material} suavemente sobre los brazos del lactante sobre superficie segura.',
+            'Deslizar {material} suavemente sobre los brazos del lactante sobre superficie segura.\n• Adaptación 43 días a 3 meses: Contacto piel a piel con roces muy lentos observando gestos de relajación o alerta.\n• Adaptación 4 a 6 meses: Permitir que el infante explore y toque la textura con ambas manos sobre la colchoneta.',
           durationMinutes: 15,
           materialRefs: ['MAT-02'],
           progression: {
@@ -118,7 +127,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
           category: 'ACTIVACIÓN FÍSICA',
           objective: 'Movimiento guiado de pataleo libre y flexión suave',
           proceduralAction:
-            'Presentar {material} frente al lactante durante el pataleo libre y flexión guiada de extremidades.',
+            'Presentar {material} frente al lactante durante el pataleo libre y flexión guiada de extremidades.\n• Adaptación 43 días a 3 meses: Acompañar el pataleo espontáneo en posición boca arriba sin forzar ninguna postura.\n• Adaptación 4 a 6 meses: Motivar el alcance del objeto favoreciendo los intentos de rolado con apoyo suave.',
           durationMinutes: 10,
           materialRefs: ['MAT-03'],
           progression: {
@@ -133,7 +142,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
           category: 'LECTURA EN VOZ ALTA',
           objective: 'Vínculo afectivo mediante narración sonora y rimas',
           proceduralAction:
-            'Entonar rimas breves con voz suave y acompañar con {material} de fondo observando las respuestas.',
+            'Entonar rimas breves con voz suave y acompañar con {material} de fondo observando las respuestas.\n• Adaptación 43 días a 3 meses: Modulación vocal cercana y contacto visual afectivo uno a uno en brazos.\n• Adaptación 4 a 6 meses: Mostrar imágenes contrastantes sobre colchoneta incentivando balbuceos y sonrisas.',
           durationMinutes: 15,
           materialRefs: ['MAT-01'],
           progression: {
@@ -148,7 +157,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
           category: 'PENSAMIENTO MATEMÁTICO',
           objective: 'Seguimiento visual y noción de permanencia ocular',
           proceduralAction:
-            'Desplazar lentamente {material} frente al campus visual del lactante para favorecer la fijación ocular.',
+            'Desplazar lentamente {material} frente al campus visual del lactante para favorecer la fijación ocular.\n• Adaptación 43 días a 3 meses: Movimientos horizontales muy lentos a 25 cm del rostro del bebé recostado.\n• Adaptación 4 a 6 meses: Desplazamientos en arcos amplios invitando al giro coordinado de cabeza y tronco.',
           durationMinutes: 10,
           materialRefs: ['MAT-01'],
           progression: {
@@ -213,7 +222,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             category: 'EXPERIENCIAS ARTÍSTICAS',
             objective: 'Manipulación y moldeado temprano',
             proceduralAction:
-              'Los niños amasan la plastilina con sus manos formando pequeñas bolitas y viboritas sobre la mesa con {material}.',
+              'Los niños amasan la plastilina con sus manos formando pequeñas bolitas y viboritas sobre la mesa con {material}.\n• Adaptación 43 días a 3 meses: Exploración pasiva de textura.\n• Adaptación 4 a 6 meses: Moldeado temprano sobre la mesa.',
             durationMinutes: 20,
             materialRefs: ['MAT-03'],
             progression: {
@@ -234,7 +243,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             category: 'ACTIVACIÓN FÍSICA',
             objective: 'Desplazamiento motor en el suelo',
             proceduralAction:
-              'Se colocan aros en el suelo para invitar a los niños a gatear o rodar hacia los aros frente a {material}.',
+              'Se colocan aros en el suelo para invitar a los niños a gatear o rodar hacia los aros frente a {material}.\n• Adaptación 43 días a 3 meses: Observación de aros en reposo.\n• Adaptación 4 a 6 meses: Desplazamiento activo hacia aros.',
             durationMinutes: 20,
             materialRefs: ['MAT-03'],
             progression: {
@@ -255,7 +264,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             category: 'AMBIENTES DE APRENDIZAJE',
             objective: 'Exploración sensorial táctil',
             proceduralAction:
-              'Se colocan semillas de diferentes tamaños y texturas para que los niños las toquen y manipulen en {material}.',
+              'Se colocan semillas de diferentes tamaños y texturas para que los niños las toquen y manipulen en {material}.\n• Adaptación 43 días a 3 meses: Estimulación táctil pasiva.\n• Adaptación 4 a 6 meses: Manipulación directa de semillas.',
             durationMinutes: 20,
             materialRefs: ['MAT-03'],
             progression: {
@@ -276,7 +285,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             category: 'PENSAMIENTO MATEMÁTICO',
             objective: 'Clasificación cognitiva temprana',
             proceduralAction:
-              'Los niños agrupan los bloques separando los grandes de los pequeños y los rojos de los azules con {material}.',
+              'Los niños agrupan los bloques separando los grandes de los pequeños y los rojos de los azules con {material}.\n• Adaptación 43 días a 3 meses: Fijación visual en bloques.\n• Adaptación 4 a 6 meses: Clasificación temprana de bloques.',
             durationMinutes: 20,
             materialRefs: ['MAT-03'],
             progression: {
@@ -297,7 +306,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             category: 'LECTURA EN VOZ ALTA',
             objective: 'Participar activamente en narración',
             proceduralAction:
-              'Lectura interactiva donde los lactantes imitan sonidos de animales acompañados de {material}.',
+              'Lectura interactiva donde los lactantes imitan sonidos de animales acompañados de {material}.\n• Adaptación 43 días a 3 meses: Escucha atenta de sonidos.\n• Adaptación 4 a 6 meses: Balbuceo imitativo con imágenes.',
             durationMinutes: 15,
             materialRefs: ['MAT-01'],
             progression: {
@@ -369,10 +378,10 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       expect(payload.systemPrompt).toContain('FLEXIBLE DAILY PEDAGOGICAL COMPOSITION & TECHNICAL SAFETY BOUNDS');
       expect(payload.systemPrompt).toContain('NO fixed numeric quota of activities per day or week');
       expect(payload.systemPrompt).toContain('DAILY READING ALOUD — TUTORIA V1 PRODUCT POLICY');
-      expect(payload.systemPrompt).toContain('Lectura en voz alta: 15 minutos diariamente');
+      expect(payload.systemPrompt).toContain('Lectura en voz alta diariamente');
       expect(payload.systemPrompt).toContain('category "LECTURA EN VOZ ALTA"');
-      expect(payload.systemPrompt).toContain('durationMinutes" for this reading activity MUST be deterministically set to exactly 15');
-      expect(payload.systemPrompt).toContain('NON-READING DURATION & CATEGORY FLEXIBILITY');
+      expect(payload.systemPrompt).toContain('duration for this reading activity must be a positive integer within general safety limits');
+      expect(payload.systemPrompt).toContain('DURATION & CATEGORY FLEXIBILITY');
       expect(payload.systemPrompt).toContain('PURPOSEFUL REPETITION & PROGRESSION');
       expect(payload.systemPrompt).toContain('OBSERVATION INFERENCE BOUNDARY');
       expect(payload.systemPrompt).toContain('Do NOT infer or invent emotional states, motor capabilities');
@@ -520,7 +529,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         ...(output['days'] as any[])[0].activities[0],
         category: 'EXPERIENCIAS ARTÍSTICAS',
         objective: 'Modelado y motricidad fina',
-        proceduralAction: 'Manipulación de {material} formando bolitas con las manos.',
+        proceduralAction: 'Manipulación de {material} formando bolitas con las manos.\n• Adaptación 43 días a 3 meses: Exploración pasiva de textura.\n• Adaptación 4 a 6 meses: Moldeado temprano sobre la mesa.',
         durationMinutes: 15,
         materialRefs: ['MAT-03'],
       };
@@ -550,7 +559,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         ...(output['days'] as any[])[2].activities[0],
         category: 'AMBIENTES DE APRENDIZAJE',
         objective: 'Exploración sensorial táctil',
-        proceduralAction: 'Se colocan {material} sueltas para manipulación sensorial.',
+        proceduralAction: 'Se colocan {material} sueltas para manipulación sensorial.\n• Adaptación 43 días a 3 meses: Contacto pasivo con textura.\n• Adaptación 4 a 6 meses: Exploración manual con semillas.',
         durationMinutes: 15,
         materialRefs: ['MAT-03'],
       };
@@ -571,7 +580,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         ...(output['days'] as any[])[1].activities[0],
         category: 'ACTIVACIÓN FÍSICA',
         objective: 'Desplazamiento motor',
-        proceduralAction: 'Invitar a los lactantes a gatear hacia los aros frente a {material}.',
+        proceduralAction: 'Invitar a los lactantes a gatear hacia los aros frente a {material}.\n• Adaptación 43 días a 3 meses: Sostén cefálico gradual en colchoneta.\n• Adaptación 4 a 6 meses: Gateo coordinado hacia los aros.',
         durationMinutes: 15,
         materialRefs: ['MAT-03'],
       };
@@ -592,7 +601,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         ...(output['days'] as any[])[3].activities[0],
         category: 'PENSAMIENTO MATEMÁTICO',
         objective: 'Clasificar objetos por color y tamaño',
-        proceduralAction: 'Los niños agrupan bloques separando rojos de azules con {material}.',
+        proceduralAction: 'Los niños agrupan bloques separando rojos de azules con {material}.\n• Adaptación 43 días a 3 meses: Fijación visual en bloques contrastantes.\n• Adaptación 4 a 6 meses: Clasificación temprana por color.',
         durationMinutes: 15,
         materialRefs: ['MAT-03'],
       };
@@ -652,7 +661,8 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'EXPERIENCIAS ARTÍSTICAS',
               objective: 'Estimulación auditiva suave',
-              proceduralAction: 'Nanas suaves con {material}.',
+              proceduralAction:
+                'Nanas suaves con {material} presentando el estímulo sonoro.\n• Adaptación 43 días a 3 meses: Escucha en brazos.\n• Adaptación 4 a 6 meses: Seguimiento sonoro.',
               durationMinutes: 15,
               materialRefs: ['MAT-01'],
             },
@@ -688,14 +698,16 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura diaria en voz alta',
-              proceduralAction: 'Cantar nanas con voz cálida.',
+              proceduralAction:
+                'Cantar nanas con voz cálida acompañando al lactante.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física.\n• Adaptación 4 a 6 meses: Colocar al bebé en colchoneta invitando al balbuceo.',
               durationMinutes: 15,
               materialRefs: [],
             },
             {
               category: 'EXPERIENCIAS ARTÍSTICAS',
               objective: 'Estimulación auditiva suave',
-              proceduralAction: 'Nanas suaves con {material}.',
+              proceduralAction:
+                'Nanas suaves con {material} presentando el estímulo frente al lactante.\n• Adaptación 43 días a 3 meses: Movimiento suave en brazos con voz cercana.\n• Adaptación 4 a 6 meses: Seguimiento visual del estímulo sobre colchoneta.',
               durationMinutes: 10,
               materialRefs: ['MAT-01'],
             },
@@ -726,14 +738,16 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura diaria en voz alta',
-              proceduralAction: 'Cantar nanas con voz cálida.',
+              proceduralAction:
+                'Cantar nanas con voz cálida acompañando al lactante.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física.\n• Adaptación 4 a 6 meses: Colocar al bebé en colchoneta invitando al balbuceo.',
               durationMinutes: 15,
               materialRefs: [],
             },
             {
               category: 'EXPERIENCIAS ARTÍSTICAS',
               objective: 'Estimulación auditiva suave',
-              proceduralAction: 'Nanas suaves con {material}.',
+              proceduralAction:
+                'Nanas suaves con {material} presentando el estímulo frente al lactante.\n• Adaptación 43 días a 3 meses: Movimiento suave en brazos con voz cercana.\n• Adaptación 4 a 6 meses: Seguimiento visual del estímulo sobre colchoneta.',
               durationMinutes: 10,
               materialRefs: ['MAT-01'],
             },
@@ -768,7 +782,8 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         ...(outputWithSingleUnsafeDay['days'] as any[])[4].activities[4],
         category: 'PENSAMIENTO MATEMÁTICO',
         objective: 'Manipulación y modelado',
-        proceduralAction: 'Amasar {material} con las manos.',
+        proceduralAction:
+          'Amasar {material} con las manos sobre la mesa.\n• Adaptación 43 días a 3 meses: Exploración pasiva de textura.\n• Adaptación 4 a 6 meses: Moldeado activo sobre mesa.',
         durationMinutes: 15,
         materialRefs: ['MAT-04'],
       };
@@ -997,6 +1012,9 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
   // 6. H1R12.5 — V1 WEEKLY PEDAGOGICAL COMPOSITION POLICY INVARIANTS
   // =========================================================================
   describe('6. H1R12.5 — V1 Weekly Pedagogical Composition Policy Invariants', () => {
+    const sampleLactantesAAdaptations =
+      '\n• Adaptación 43 días a 3 meses: Sostén en brazos con contención física y contacto visual suave.\n• Adaptación 4 a 6 meses: En colchoneta facilitando exploración táctil y movimientos libres.';
+
     const createFlexibleResponse = (): WeeklyPlanningProposalResponse => ({
       days: [
         {
@@ -1005,14 +1023,14 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura diaria de nanas y rimas en voz alta',
-              description: 'Cantar nanas y rimas sosteniendo mirada afectiva.',
+              description: 'Cantar nanas y rimas sosteniendo mirada afectiva.' + sampleLactantesAAdaptations,
               durationMinutes: 15,
               materials: [],
             },
             {
               category: 'EXPERIENCIAS ARTÍSTICAS',
               objective: 'Seguimiento visual suave',
-              description: 'Mover tela suave frente al lactante.',
+              description: 'Mover tela suave frente al lactante.' + sampleLactantesAAdaptations,
               durationMinutes: 10,
               materials: ['pelotas suaves'],
             },
@@ -1024,21 +1042,21 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura diaria con cuentos táctiles',
-              description: 'Mostrar cuento y describir texturas con voz pausada.',
+              description: 'Mostrar cuento y describir texturas con voz pausada.' + sampleLactantesAAdaptations,
               durationMinutes: 15,
               materials: [],
             },
             {
               category: 'ACTIVACIÓN FÍSICA',
               objective: 'Pataleo libre en colchoneta',
-              description: 'Acompañar pataleo libre con música suave.',
+              description: 'Acompañar pataleo libre con música suave.' + sampleLactantesAAdaptations,
               durationMinutes: 20,
               materials: ['música infantil'],
             },
             {
               category: 'AMBIENTES DE APRENDIZAJE',
               objective: 'Exploración táctil libre',
-              description: 'Colocar telas de texturas variadas al alcance del bebé.',
+              description: 'Colocar telas de texturas variadas al alcance del bebé.' + sampleLactantesAAdaptations,
               durationMinutes: 12,
               materials: ['telas de diferentes texturas'],
             },
@@ -1050,7 +1068,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura de poemas cortos para primera infancia',
-              description: 'Recitar poesía breve modulando la entonación.',
+              description: 'Recitar poesía breve modulando la entonación.' + sampleLactantesAAdaptations,
               durationMinutes: 15,
               materials: [],
             },
@@ -1062,28 +1080,28 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Narración oral con canciones tradicionales',
-              description: 'Entonar historias cantadas con contacto visual.',
+              description: 'Entonar historias cantadas con contacto visual.' + sampleLactantesAAdaptations,
               durationMinutes: 15,
               materials: [],
             },
             {
               category: 'PENSAMIENTO MATEMÁTICO',
               objective: 'Permanencia de objetos con tela',
-              description: 'Ocultar parcialmente pelota bajo tela suave.',
+              description: 'Ocultar parcialmente pelota bajo tela suave.' + sampleLactantesAAdaptations,
               durationMinutes: 8,
               materials: ['pelotas suaves', 'telas de diferentes texturas'],
             },
             {
               category: 'EXPERIENCIAS ARTÍSTICAS',
               objective: 'Apreciación rítmica musical',
-              description: 'Balanceo suave al ritmo de nana infantil.',
+              description: 'Balanceo suave al ritmo de nana infantil.' + sampleLactantesAAdaptations,
               durationMinutes: 14,
               materials: ['música infantil'],
             },
             {
               category: 'AMBIENTES DE APRENDIZAJE',
               objective: 'Sensación de contrastes de textura',
-              description: 'Acariciar manitas con tela sedosa y áspera.',
+              description: 'Acariciar manitas con tela sedosa y áspera.' + sampleLactantesAAdaptations,
               durationMinutes: 10,
               materials: ['telas de diferentes texturas'],
             },
@@ -1095,14 +1113,14 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura de cierre semanal y arrullo sonoro',
-              description: 'Narrar cuento breve como momento de calma.',
+              description: 'Narrar cuento breve como momento de calma.' + sampleLactantesAAdaptations,
               durationMinutes: 15,
               materials: [],
             },
             {
               category: 'ACTIVACIÓN FÍSICA',
               objective: 'Estiramiento y relajación motriz suave',
-              description: 'Flexión asistida suave de piernas en colchoneta.',
+              description: 'Flexión asistida suave de piernas en colchoneta.' + sampleLactantesAAdaptations,
               durationMinutes: 10,
               materials: ['música infantil'],
             },
@@ -1352,7 +1370,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
                 {
                   category: 'EXPERIENCIAS ARTÍSTICAS',
                   objective: 'Seguimiento visual suave', // same as Monday
-                  description: 'Mover tela suave frente al lactante.', // same as Monday
+                  description: 'Mover tela suave frente al lactante.' + sampleLactantesAAdaptations, // same as Monday
                   durationMinutes: 10,
                   materials: ['pelotas suaves'],
                 },
@@ -1403,7 +1421,10 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Lectura diaria',
-              proceduralAction: idx === 0 ? 'Mover sonajas suaves frente al bebé.' : 'Cantar nanas suaves.',
+              proceduralAction:
+                idx === 0
+                  ? 'Mover sonajas suaves frente al bebé.' + sampleLactantesAAdaptations
+                  : 'Cantar nanas suaves.' + sampleLactantesAAdaptations,
               materialRefs: [],
               durationMinutes: 15,
             },
@@ -1524,10 +1545,10 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       );
     });
 
-    it('E. Prompt still requires reading duration = 15', () => {
+    it('E. Prompt requires reading duration within general safety limits', () => {
       const payload = getStandardPayload();
       expect(payload.systemPrompt).toContain(
-        'The "durationMinutes" for this reading activity MUST be deterministically set to exactly 15'
+        'duration for this reading activity must be a positive integer within general safety limits'
       );
     });
 
@@ -1834,7 +1855,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         '5. DAILY READING ALOUD — TUTORIA V1 PRODUCT POLICY (NOT ESTABLISHED HERE AS A CURRENT IMSS NORMATIVE REQUIREMENT):'
       );
       expect(payload.systemPrompt).toContain(
-        'TutorIA V1 Policy: "Lectura en voz alta: 15 minutos diariamente" (TutorIA product policy; not established as a current IMSS normative requirement).'
+        'TutorIA V1 Policy: "Lectura en voz alta diariamente" (TutorIA product policy; not established as a current IMSS normative requirement).'
       );
       expect(payload.systemPrompt).not.toContain('LEVEL 1 INSTITUTIONAL REQUIREMENT');
       expect(payload.systemPrompt).not.toContain('Institutional Requirement: "Lectura en voz alta');
@@ -1844,9 +1865,9 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         'Every operational day (Monday through Friday) MUST contain EXACTLY ONE proposed activity with category "LECTURA EN VOZ ALTA"'
       );
       expect(payload.systemPrompt).toContain(
-        'The "durationMinutes" for this reading activity MUST be deterministically set to exactly 15'
+        'duration for this reading activity must be a positive integer within general safety limits'
       );
-      expect(payload.systemPrompt).toContain('Lectura en voz alta: 15 minutos diariamente');
+      expect(payload.systemPrompt).toContain('Lectura en voz alta diariamente');
 
       // Validator test: preserves exactly 1 reading activity of 15 min per day
       expect(() => {
@@ -2184,7 +2205,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
               category: 'LECTURA EN VOZ ALTA',
               objective: 'Vínculo afectivo mediante narración oral y rimas cantadas',
               proceduralAction:
-                'Entonar rimas y canciones con entonación suave sosteniendo mirada afectiva y esperando balbuceos.',
+                'Entonar rimas y canciones con entonación suave sosteniendo mirada afectiva y esperando balbuceos.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos con contacto visual cercano y entonación de nanas en susurro.\n• Adaptación 4 a 6 meses: Recostar al bebé sobre colchoneta acolchada mostrando gestos expresivos e invitando a la respuesta sonora.',
               durationMinutes: 15,
               materialRefs: [],
               progression: {
@@ -2199,7 +2220,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
               category: 'AMBIENTES DE APRENDIZAJE',
               objective: 'Exploración sensorial táctil acompañada sobre colchoneta',
               proceduralAction:
-                'Presentar {material} permitiendo que el lactante toque las texturas a su propio ritmo con acompañamiento cercano.',
+                'Presentar {material} permitiendo que el lactante toque las texturas a su propio ritmo con acompañamiento cercano.\n• Adaptación 43 días a 3 meses: Deslizar muy suavemente la tela sobre el dorso de las manos del lactante sostenido en regazo.\n• Adaptación 4 a 6 meses: Extender la tela sobre la colchoneta facilitando que el infante intente alcanzarla con ambas manos.',
               durationMinutes: 10,
               materialRefs: ['MAT-01'],
               progression: {
@@ -2421,7 +2442,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         'Every operational day (Monday through Friday) MUST contain EXACTLY ONE proposed activity with category "LECTURA EN VOZ ALTA"'
       );
       expect(payload.systemPrompt).toContain(
-        'The "durationMinutes" for this reading activity MUST be deterministically set to exactly 15'
+        'duration for this reading activity must be a positive integer within general safety limits'
       );
 
       // Fails closed if missing reading activity
@@ -2452,7 +2473,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
         '5. DAILY READING ALOUD — TUTORIA V1 PRODUCT POLICY (NOT ESTABLISHED HERE AS A CURRENT IMSS NORMATIVE REQUIREMENT):'
       );
       expect(payload.systemPrompt).toContain(
-        'TutorIA V1 Policy: "Lectura en voz alta: 15 minutos diariamente" (TutorIA product policy; not established as a current IMSS normative requirement).'
+        'TutorIA V1 Policy: "Lectura en voz alta diariamente" (TutorIA product policy; not established as a current IMSS normative requirement).'
       );
       expect(payload.systemPrompt).not.toContain('LEVEL 1 INSTITUTIONAL REQUIREMENT');
       expect(payload.systemPrompt).not.toContain('Institutional Requirement: "Lectura en voz alta');
@@ -2714,6 +2735,938 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
           expect((act as any).chainOfThought).toBeUndefined();
         }
       }
+    });
+
+    // 21. SR-MD-18-E — Prompt contains explicit instructions regarding revisitsSlot and EXPLORE
+    it('21. System prompt includes explicit instructions that null revisitsSlot requires EXPLORE role', () => {
+      const payload = getCaboExamPayload();
+      expect(payload.systemPrompt).toContain('Si revisitsSlot es null, el rol debe ser EXPLORE');
+      expect(payload.systemPrompt).toContain('Nunca inventar identificadores');
+      expect(payload.systemPrompt).toContain('Si no existe una referencia válida, formular una experiencia autónoma con rol EXPLORE');
+    });
+
+    // 22. SR-MD-18-E/J — Validator regression: relationship-bearing roles with null revisitsSlot and explicit prior dependency are strictly rejected
+    it('22. Validator fail-closed regression: relationship-bearing roles (VARY, DEEPEN_OR_ADAPT, OBSERVE_OR_CONSOLIDATE) with null revisitsSlot and explicit dependency are strictly rejected', async () => {
+      for (const relRole of ['VARY', 'DEEPEN_OR_ADAPT', 'OBSERVE_OR_CONSOLIDATE'] as const) {
+        const rawOutput = createValidCaboExamMockResponse();
+        (rawOutput['days'] as any[])[1].activities[1].progression = {
+          role: relRole,
+          revisitsSlot: null,
+          repetitionPurpose: null,
+          variationDimensions: relRole === 'VARY' ? ['SENSORY_EXPERIENCE'] : null,
+          observationTarget: 'Observar progresión respecto a la actividad anterior',
+        };
+
+        const mockExecutor: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutput),
+        };
+        const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+
+        await expect(source.propose(createRequest())).rejects.toThrowError(
+          expect.objectContaining({
+            message: expect.stringContaining(
+              `has relationship-bearing role '${relRole}' but missing required revisitsSlot reference`
+            ),
+            diagnosticSubtype: 'RELATIONSHIP_ROLE_MISSING_REFERENCE',
+          })
+        );
+      }
+
+      // Revisit without revisitsSlot also fails closed with REVISIT_REFERENCE_MISSING
+      const rawOutputRevisit = createValidCaboExamMockResponse();
+      (rawOutputRevisit['days'] as any[])[1].activities[0].progression = {
+        role: 'REVISIT',
+        revisitsSlot: null,
+        repetitionPurpose: 'FAMILIARIZATION',
+        variationDimensions: ['ADULT_MEDIATION'],
+        observationTarget: 'Observar reconocimiento',
+      };
+      const mockExecRevisit: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue(rawOutputRevisit),
+      };
+      const sourceRevisit = new AIWeeklyPlanningProposalSource(mockExecRevisit);
+      await expect(sourceRevisit.propose(createRequest())).rejects.toThrowError(
+        expect.objectContaining({
+          diagnosticSubtype: 'REVISIT_REFERENCE_MISSING',
+        })
+      );
+    });
+
+    // ========================================================================
+    // SR-MD-18-J — Deterministic Conservative Progression Normalization (Tests 1–7)
+    // ========================================================================
+    describe('23. SR-MD-18-J — Progression Reference Deterministic Normalization Matrix', () => {
+      // 1. Rol EXPLORE sin referencia -> válido
+      it('1. Rol EXPLORE sin referencia es válido y aceptado limpiamente', async () => {
+        const rawOutput = createValidCaboExamMockResponse();
+        (rawOutput['days'] as any[])[1].activities[1].progression = {
+          role: 'EXPLORE',
+          revisitsSlot: null,
+          repetitionPurpose: null,
+          variationDimensions: null,
+          observationTarget: 'Observar interés y respuesta libre ante el objeto',
+        };
+        const mockExecutor: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutput),
+        };
+        const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+        const result = await source.propose(createRequest());
+
+        expect(result).toBeDefined();
+        const exp = result.progression!.experiences[3];
+        expect(exp.role).toBe('EXPLORE');
+        expect(exp.revisitsExperienceId).toBeUndefined();
+      });
+
+      // 2. Rol relacional con referencia anterior válida -> se conserva
+      it('2. Rol relacional con referencia anterior válida se conserva sin modificaciones', async () => {
+        const rawOutput = createValidCaboExamMockResponse();
+        (rawOutput['days'] as any[])[1].activities[1].progression = {
+          role: 'VARY',
+          revisitsSlot: 'D1_A2',
+          repetitionPurpose: null,
+          variationDimensions: ['SENSORY_EXPERIENCE'],
+          observationTarget: 'Observar confort y exploración de texturas',
+        };
+        const mockExecutor: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutput),
+        };
+        const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+        const result = await source.propose(createRequest());
+
+        expect(result).toBeDefined();
+        const exp = result.progression!.experiences[3];
+        expect(exp.role).toBe('VARY');
+        expect(exp.revisitsExperienceId).toBe('EXP-D1-A2');
+        expect(exp.variationDimensions).toEqual(['SENSORY_EXPERIENCE']);
+      });
+
+      // 3. Rol relacional sin referencia, pero actividad autónoma demostrable -> normalización conservadora
+      it('3. Rol relacional sin referencia pero con actividad autónoma demostrable se normaliza conservadoramente a EXPLORE', async () => {
+        for (const relRole of ['VARY', 'DEEPEN_OR_ADAPT', 'OBSERVE_OR_CONSOLIDATE'] as const) {
+          const rawOutput = createValidCaboExamMockResponse();
+          (rawOutput['days'] as any[])[1].activities[1].progression = {
+            role: relRole,
+            revisitsSlot: null,
+            repetitionPurpose: null,
+            variationDimensions: relRole === 'VARY' ? ['SENSORY_EXPERIENCE'] : null,
+            observationTarget: 'Observar comodidad y tiempo de sostén boca abajo',
+          };
+          const mockExecutor: WeeklyPlanningAIExecutor = {
+            execute: vi.fn().mockResolvedValue(rawOutput),
+          };
+          const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+          const result = await source.propose(createRequest());
+
+          expect(result).toBeDefined();
+          const exp = result.progression!.experiences[3];
+          expect(exp.role).toBe('EXPLORE');
+          expect(exp.revisitsExperienceId).toBeUndefined();
+          expect(exp.repetitionPurpose).toBeUndefined();
+          expect(exp.variationDimensions).toBeUndefined();
+        }
+      });
+
+      // 4. Rol relacional con dependencia real no resoluble -> rechazo
+      it('4. Rol relacional con dependencia real no resoluble se rechaza con error canónico cerrado', async () => {
+        const rawOutput = createValidCaboExamMockResponse();
+        (rawOutput['days'] as any[])[1].activities[1].proceduralAction =
+          'Continuando con la actividad anterior de telas, presentar el material a mayor distancia.\n• Adaptación 43 días a 3 meses: Sostener al lactante con apoyo suave.\n• Adaptación 4 a 6 meses: Invitar a alcanzar el objeto.';
+        (rawOutput['days'] as any[])[1].activities[1].progression = {
+          role: 'DEEPEN_OR_ADAPT',
+          revisitsSlot: null,
+          repetitionPurpose: null,
+          variationDimensions: null,
+          observationTarget: 'Observar avance respecto a la sesión anterior',
+        };
+        const mockExecutor: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutput),
+        };
+        const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+
+        await expect(source.propose(createRequest())).rejects.toThrowError(
+          expect.objectContaining({
+            diagnosticSubtype: 'RELATIONSHIP_ROLE_MISSING_REFERENCE',
+          })
+        );
+      });
+
+      // 5. Referencia futura o inexistente -> nunca se acepta como vínculo válido
+      it('5. Referencia futura o inexistente nunca se acepta como vínculo válido', async () => {
+        // Case 5A: Dependent activity with future slot -> fails closed with REVISIT_FORWARD_OR_UNKNOWN_REFERENCE
+        const rawOutputDep = createValidCaboExamMockResponse();
+        (rawOutputDep['days'] as any[])[1].activities[1].progression = {
+          role: 'VARY',
+          revisitsSlot: 'D5_A1',
+          variationDimensions: ['SENSORY_EXPERIENCE'],
+          observationTarget: 'Observar progresión respecto a la actividad anterior',
+        };
+        const mockExecDep: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutputDep),
+        };
+        const sourceDep = new AIWeeklyPlanningProposalSource(mockExecDep);
+        await expect(sourceDep.propose(createRequest())).rejects.toThrowError(
+          expect.objectContaining({
+            diagnosticSubtype: 'REVISIT_FORWARD_OR_UNKNOWN_REFERENCE',
+          })
+        );
+
+        // Case 5B: Autonomous activity with future or unknown slot -> normalized to EXPLORE without arbitrary linking
+        const rawOutputAuto = createValidCaboExamMockResponse();
+        (rawOutputAuto['days'] as any[])[1].activities[1].progression = {
+          role: 'VARY',
+          revisitsSlot: 'D5_A1',
+          variationDimensions: ['SENSORY_EXPERIENCE'],
+          observationTarget: 'Observar exploración táctil tranquila',
+        };
+        const mockExecAuto: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutputAuto),
+        };
+        const sourceAuto = new AIWeeklyPlanningProposalSource(mockExecAuto);
+        const resAuto = await sourceAuto.propose(createRequest());
+        const expAuto = resAuto.progression!.experiences[3];
+        expect(expAuto.role).toBe('EXPLORE');
+        expect(expAuto.revisitsExperienceId).toBeUndefined();
+      });
+
+      // 6. La normalización no altera materiales, instrucciones pedagógicas ni referencias curriculares
+      it('6. La normalización no altera materiales, instrucciones pedagógicas ni adaptaciones', async () => {
+        const rawOutput = createValidCaboExamMockResponse();
+        const originalAction = (rawOutput['days'] as any[])[1].activities[1].proceduralAction;
+        const originalObjective = (rawOutput['days'] as any[])[1].activities[1].objective;
+
+        (rawOutput['days'] as any[])[1].activities[1].progression = {
+          role: 'OBSERVE_OR_CONSOLIDATE',
+          revisitsSlot: null,
+          repetitionPurpose: null,
+          variationDimensions: null,
+          observationTarget: 'Observar exploración autónoma',
+        };
+        const mockExecutor: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutput),
+        };
+        const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+        const result = await source.propose(createRequest());
+
+        const act = result.days[1].activities[1];
+        expect(act.category).toBe('AMBIENTES DE APRENDIZAJE');
+        expect(act.durationMinutes).toBe(10);
+        expect(act.materials).toEqual(['pelotas suaves']);
+        expect(act.objective).toBe(originalObjective);
+        expect(act.description).toBe(
+          originalAction.replace('{material}', 'pelotas suaves')
+        );
+      });
+
+      // 7. Las infracciones de seguridad siguen bloqueadas
+      it('7. Las infracciones de seguridad siguen bloqueadas a pesar de la normalización', async () => {
+        const rawOutput = createValidCaboExamMockResponse();
+        (rawOutput['days'] as any[])[1].activities[1].proceduralAction =
+          'Presentar sonaja no autorizada para que el lactante la agite.\n• Adaptación 43 días a 3 meses: ...\n• Adaptación 4 a 6 meses: ...';
+        (rawOutput['days'] as any[])[1].activities[1].progression = {
+          role: 'VARY',
+          revisitsSlot: null,
+          observationTarget: 'Observar reflejo de prensión',
+        };
+        const mockExecutor: WeeklyPlanningAIExecutor = {
+          execute: vi.fn().mockResolvedValue(rawOutput),
+        };
+        const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+
+        await expect(source.propose(createRequest())).rejects.toThrow();
+      });
+    });
+  });
+
+  // ============================================================================
+  // 10. SR-MD-15 — Lactantes A Bimodal Age Adaptations Policy & Verification
+  // ============================================================================
+  describe('10. SR-MD-15 — Lactantes A Bimodal Age Adaptations Policy & Verification', () => {
+    const table = createRequestScopedMaterialTable(['telas suaves', 'sonajas suaves']);
+
+    it('1. Prompt exclusivo de Lactantes A incluye directrices de adaptaciones bimodales', () => {
+      const lactantesARequest = createRequest({
+        room: {
+          roomId: 'room-lactantes-a',
+          name: 'Lactantes A',
+          minAgeMonths: 0,
+          maxAgeMonths: 6,
+        },
+      });
+      const policyA = PedagogicalAgePolicyCatalog.getPolicyForRoom(lactantesARequest.room)!;
+      const projectionA = projectPedagogicalGenerationPolicy(policyA, lactantesARequest);
+      const inputA = buildPrivacyMinimizedAIInput(lactantesARequest, projectionA);
+      const systemPromptA = buildWeeklyPlanningAISystemPrompt(inputA);
+
+      expect(systemPromptA).toContain('OBLIGATORY BIMODAL AGE ADAPTATIONS (LACTANTES A EXCLUSIVE POLICY)');
+      expect(systemPromptA).toContain('• Adaptación 43 días a 3 meses:');
+      expect(systemPromptA).toContain('• Adaptación 4 a 6 meses:');
+      expect(systemPromptA).toContain('Non-Clinical & Non-Operational');
+    });
+
+    it('2. Ambas adaptaciones presentes en proceduralAction se procesan y preservan en description', () => {
+      const validBimodalAction =
+        'Presentar suavemente {material} al frente del lactante invitando a su exploración.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física y acercar el material lentamente.\n• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta acolchada boca abajo para favorecer el alcance con ambas manos.';
+
+      // Structural validator passes without error
+      expect(() => {
+        validateLactantesAActivityAdaptations(validBimodalAction, 0, 0);
+      }).not.toThrow();
+
+      // Canonical activity projection preserves both adaptations
+      const rawAct = {
+        category: 'AMBIENTES DE APRENDIZAJE',
+        objective: 'Exploración sensorial táctil de texturas suaves',
+        proceduralAction: validBimodalAction,
+        materialRefs: ['MAT-01'],
+        durationMinutes: 15,
+      };
+
+      const canonical = projectInternalActivityToCanonical(rawAct, table, 0, 0, 'LACTANTES_A');
+      expect(canonical.description).toContain('Presentar suavemente telas suaves al frente del lactante');
+      expect(canonical.description).toContain('• Adaptación 43 días a 3 meses: Sostener al bebé en brazos');
+      expect(canonical.description).toContain('• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta');
+    });
+
+    it('3. Rechazo de adaptaciones vacías o superficiales', () => {
+      // Empty early adaptation
+      const emptyEarly =
+        'Presentar suavemente {material} al frente del lactante.\n• Adaptación 43 días a 3 meses:\n• Adaptación 4 a 6 meses: Colocar al bebé en colchoneta boca abajo.';
+      expect(() => {
+        validateLactantesAActivityAdaptations(emptyEarly, 0, 0);
+      }).toThrow(/must contain a non-empty adaptation for 43 días a 3 meses/);
+
+      // Empty older adaptation
+      const emptyOlder =
+        'Presentar suavemente {material} al frente del lactante.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención.\n• Adaptación 4 a 6 meses:\n';
+      expect(() => {
+        validateLactantesAActivityAdaptations(emptyOlder, 0, 0);
+      }).toThrow(/must contain a non-empty adaptation for 4 a 6 meses/);
+
+      // Missing central action (starts directly with adaptation)
+      const missingCentral =
+        '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención.\n• Adaptación 4 a 6 meses: Colocar al bebé en colchoneta boca abajo.';
+      expect(() => {
+        validateLactantesAActivityAdaptations(missingCentral, 0, 0);
+      }).toThrow(/must contain a non-empty central developmental action before adaptations/);
+    });
+
+    it('4. Rechazo de adaptación faltante', () => {
+      // Missing 43d to 3m
+      const missingEarly =
+        'Presentar suavemente {material} al frente del lactante.\n• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta acolchada.';
+      expect(() => {
+        validateLactantesAActivityAdaptations(missingEarly, 0, 0);
+      }).toThrow(/missing required adaptation for 43 días a 3 meses/);
+
+      // Missing 4 to 6m
+      const missingOlder =
+        'Presentar suavemente {material} al frente del lactante.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos con contención.';
+      expect(() => {
+        validateLactantesAActivityAdaptations(missingOlder, 0, 0);
+      }).toThrow(/missing required adaptation for 4 a 6 meses/);
+
+      // Raw activity in Lactantes A rejected when parsed with roomType === 'LACTANTES_A'
+      const rawActWithoutAdaptations = {
+        category: 'AMBIENTES DE APRENDIZAJE',
+        objective: 'Exploración sensorial táctil',
+        proceduralAction: 'Presentar {material} frente al lactante sin adaptaciones.',
+        materialRefs: ['MAT-01'],
+        durationMinutes: 15,
+      };
+
+      expect(() => {
+        projectInternalActivityToCanonical(rawActWithoutAdaptations, table, 0, 0, 'LACTANTES_A');
+      }).toThrow(InvalidWeeklyPlanningProposalError);
+    });
+
+    it('5. Rechazo de tracción prohibida dentro de cualquiera de las adaptaciones', async () => {
+      // 5.A: Prohibited traction in early adaptation (43d-3m)
+      const tractionInEarly = createValid25ActivityResponse();
+      (tractionInEarly['days'] as any[])[0].activities[0].proceduralAction =
+        'Estimulación motora inicial frente al lactante con {material}.\n• Adaptación 43 días a 3 meses: Jalar de los brazos para incorporarlo sobre la colchoneta.\n• Adaptación 4 a 6 meses: Permitir movimiento libre de brazos sobre el suelo.';
+
+      const mockExecutorEarly: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue(tractionInEarly),
+      };
+      const providerEarly = new AIWeeklyPlanningProposalSource(mockExecutorEarly);
+      await expect(providerEarly.propose(createRequest())).rejects.toThrow(
+        PedagogicalPolicyViolationError
+      );
+
+      // 5.B: Prohibited traction in older adaptation (4-6m)
+      const tractionInOlder = createValid25ActivityResponse();
+      (tractionInOlder['days'] as any[])[0].activities[0].proceduralAction =
+        'Estimulación motora inicial frente al lactante con {material}.\n• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física.\n• Adaptación 4 a 6 meses: Tirar de sus manos para sentarlo rápidamente frente al objeto.';
+
+      const mockExecutorOlder: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue(tractionInOlder),
+      };
+      const providerOlder = new AIWeeklyPlanningProposalSource(mockExecutorOlder);
+      await expect(providerOlder.propose(createRequest())).rejects.toThrow(
+        PedagogicalPolicyViolationError
+      );
+    });
+
+    it('6. Rechazo de material físico no autorizado en adaptaciones cuando es detectable por los controles existentes', () => {
+      // Canary unauthorized material 'sonaja' introduced in an adaptation when not in table
+      const emptyTable = createRequestScopedMaterialTable([]);
+      const sonajaInAdaptation =
+        'Cantar una nana suavemente frente al lactante.\n• Adaptación 43 días a 3 meses: Mover sonajas suaves frente al rostro del bebé.\n• Adaptación 4 a 6 meses: Colocar al bebé en colchoneta.';
+
+      expect(() => {
+        validateProceduralActionEnclosure(sonajaInAdaptation, [], emptyTable, 0, 0);
+      }).toThrow(/unauthorized material 'sonaja\(s\)' not present in request-scoped authorized materials/);
+
+      // Unauthorized request-scoped material mentioned without declaring ref
+      const tableWithPelotas = createRequestScopedMaterialTable(['pelotas suaves']);
+      const undeclaredMaterialInAdaptation =
+        'Cantar una nana suavemente frente al lactante.\n• Adaptación 43 días a 3 meses: Sostener al lactante con contacto afectivo.\n• Adaptación 4 a 6 meses: Acercar pelotas suaves para que intente alcanzarlas.';
+
+      expect(() => {
+        validateProceduralActionEnclosure(undeclaredMaterialInAdaptation, [], tableWithPelotas, 0, 0);
+      }).toThrow(/mentions material 'pelotas suaves' without declaring its ref in materialRefs/);
+    });
+
+    it('7. Ausencia de cambios en otras salas (Lactantes C o salas no Lactantes A)', () => {
+      // 7.A: System prompt for non-Lactantes A room does NOT contain bimodal instructions
+      const lactantesCRequest = createRequest({
+        room: {
+          roomId: 'room-lactantes-c',
+          name: 'Lactantes C',
+          minAgeMonths: 13,
+          maxAgeMonths: 18,
+        },
+      });
+      const policyC = {
+        ...LACTANTES_A_AGE_POLICY,
+        roomType: 'LACTANTES_C',
+        roomName: 'Lactantes C',
+        minAgeMonths: 13,
+        maxAgeMonths: 18,
+      };
+      const projectionC = projectPedagogicalGenerationPolicy(policyC as any, lactantesCRequest);
+      const inputC = buildPrivacyMinimizedAIInput(lactantesCRequest, projectionC);
+      const systemPromptC = buildWeeklyPlanningAISystemPrompt(inputC);
+
+      expect(systemPromptC).not.toContain('OBLIGATORY BIMODAL AGE ADAPTATIONS');
+
+      // 7.B: Standard non-bimodal activity passes without error when roomType is NOT LACTANTES_A
+      const standardSingleAction =
+        'Presentar el libro frente al grupo invitando a señalar las figuras con el dedo.';
+
+      const rawActC = {
+        category: 'LECTURA EN VOZ ALTA',
+        objective: 'Exploración de imágenes en libro',
+        proceduralAction: standardSingleAction,
+        materialRefs: [],
+        durationMinutes: 15,
+      };
+
+      expect(() => {
+        projectInternalActivityToCanonical(rawActC, table, 0, 0, 'LACTANTES_C');
+      }).not.toThrow();
+
+      const canonicalC = projectInternalActivityToCanonical(rawActC, table, 0, 0, 'LACTANTES_A_FALSE' as any);
+      expect(canonicalC.description).toBe(standardSingleAction);
+    });
+  });
+
+  describe('11. SR-MD-18-M — Lactantes A Bimodal Adaptations Robust Semantic Verification Matrix', () => {
+    const table = createRequestScopedMaterialTable(['telas suaves']);
+
+    it('1. Adaptaciones explícitas de ambos subgrupos se validan y preservan canónicamente', () => {
+      const canonicalAction =
+        'Presentar suavemente {material} al frente del lactante invitando a su exploración visual y auditiva.\n' +
+        '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física y acercar el material lentamente a 20 cm de su rostro.\n' +
+        '• Adaptación 4 a 6 meses: Colocar al lactante sobre colchoneta acolchada boca abajo para favorecer el alcance bimanual.';
+
+      expect(() => {
+        validateLactantesAActivityAdaptations(canonicalAction, 0, 0);
+      }).not.toThrow();
+
+      const rawAct = {
+        category: 'AMBIENTES DE APRENDIZAJE',
+        objective: 'Exploración sensorial táctil de texturas suaves',
+        proceduralAction: canonicalAction,
+        materialRefs: ['MAT-01'],
+        durationMinutes: 15,
+      };
+
+      const canonical = projectInternalActivityToCanonical(rawAct, table, 0, 0, 'LACTANTES_A');
+      expect(canonical.description).toContain('Presentar suavemente telas suaves al frente del lactante');
+      expect(canonical.description).toContain('• Adaptación 43 días a 3 meses: Sostener al bebé en brazos');
+      expect(canonical.description).toContain('• Adaptación 4 a 6 meses: Colocar al lactante sobre colchoneta');
+    });
+
+    it('2. Variantes válidas de redacción y formato para ambos subgrupos son aceptadas limpiamente', () => {
+      const variants = [
+        {
+          name: 'Markdown bold con formato estándar',
+          text:
+            'Presentar suavemente {material} al frente del lactante invitando a su exploración activa.\n' +
+            '**Adaptación 43 días a 3 meses:** Sostener al lactante en regazo con sostén cefálico cuidadoso y afectivo.\n' +
+            '**Adaptación 4 a 6 meses:** Colocar al lactante sobre colchoneta en decúbito prono con apoyo suave en tronco.',
+        },
+        {
+          name: 'Equivalente semántico pediátrico 0 a 3 meses',
+          text:
+            'Presentar suavemente {material} al frente del lactante invitando a su exploración activa.\n' +
+            '• Adaptación 0 a 3 meses: Ofrecer contención física cercana y presentar el objeto en campo visual pausado.\n' +
+            '• Adaptación 4 a 6 meses: Facilitar exploración en posición prona sobre colchoneta con libertad de movimiento.',
+        },
+        {
+          name: 'Redacción descriptiva "para lactantes de"',
+          text:
+            'Presentar suavemente {material} al frente del lactante con palabras cálidas y afectuosas.\n' +
+            '• Adaptación para lactantes de 43 días a 3 meses: Brindar contención en brazos y entonar una melodía suave de acompañamiento.\n' +
+            '• Adaptación para lactantes de 4 a 6 meses: Favorecer seguimiento visual y alcance sobre colchoneta acolchada.',
+        },
+        {
+          name: 'Preposición directa "De 43 días a 3 meses"',
+          text:
+            'Acompañar la experiencia de movimiento libre con presencia docente atenta y amorosa.\n' +
+            '• De 43 días a 3 meses: Mantener contacto visual afectivo y presentar el estímulo con movimientos lentos.\n' +
+            '• De 4 a 6 meses: Invitar al alcance motriz y apoyo sobre antebrazos en colchoneta segura.',
+        },
+        {
+          name: 'Lista numerada con paréntesis',
+          text:
+            'Presentar suavemente {material} al frente del lactante fomentando la curiosidad y la calma.\n' +
+            '1. Adaptación (43 días a 3 meses): Sostener con apoyo corporal completo y hablarle con calidez.\n' +
+            '2. Adaptación (4 a 6 meses): Permitir agarre con ambas manos y explorar el objeto sobre la colchoneta.',
+        },
+        {
+          name: 'Orden invertido (tardío primero, temprano después)',
+          text:
+            'Presentar suavemente {material} al frente del lactante invitando a la exploración sensorial.\n' +
+            '• Adaptación 4 a 6 meses: Colocar en prono sobre colchoneta para alcance dinámico y exploración activa.\n' +
+            '• Adaptación 43 días a 3 meses: Sostener en brazos con postura cómoda y contención física amorosa.',
+        },
+        {
+          name: 'Adecuación como sinónimo de adaptación con sufijo de edad',
+          text:
+            'Interacción comunicativa sensible frente al lactante con lenguaje pausado y afectuoso.\n' +
+            '• Adecuación 43 días a 3 meses de edad: Mirar a los ojos en brazos y modular la voz con suavidad.\n' +
+            '• Adecuación 4 a 6 meses de edad: Colocar frente a frente en colchoneta respondiendo a balbuceos.',
+        },
+      ];
+
+      for (const variant of variants) {
+        expect(() => {
+          validateLactantesAActivityAdaptations(variant.text, 0, 0);
+        }, `Fallo inesperado en variante: ${variant.name}`).not.toThrow();
+      }
+    });
+
+    it('3. Ausencia de adaptación temprana se rechaza fail-closed con código exacto', () => {
+      const missingEarly =
+        'Presentar suavemente {material} al frente del lactante invitando a su exploración.\n' +
+        '• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta acolchada boca abajo para favorecer el alcance.';
+
+      expect(() => {
+        validateLactantesAActivityAdaptations(missingEarly, 0, 0);
+      }).toThrowError(
+        expect.objectContaining({
+          message: expect.stringContaining('missing required adaptation for 43 días a 3 meses'),
+          diagnosticSubtype: 'LACTANTES_A_EARLY_ADAPTATION_MISSING',
+        })
+      );
+    });
+
+    it('4. Ausencia de adaptación tardía se rechaza fail-closed con código exacto', () => {
+      const missingOlder =
+        'Presentar suavemente {material} al frente del lactante invitando a su exploración.\n' +
+        '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención física y cercanía afectiva.';
+
+      expect(() => {
+        validateLactantesAActivityAdaptations(missingOlder, 0, 0);
+      }).toThrowError(
+        expect.objectContaining({
+          message: expect.stringContaining('missing required adaptation for 4 a 6 meses'),
+          diagnosticSubtype: 'LACTANTES_A_OLDER_ADAPTATION_MISSING',
+        })
+      );
+    });
+
+    it('5. Etiquetas sin acciones concretas o superficiales se rechazan fail-closed', () => {
+      const nonActionCases = [
+        {
+          name: 'Etiqueta temprana vacía',
+          text:
+            'Presentar suavemente {material} al frente del lactante.\n' +
+            '• Adaptación 43 días a 3 meses:\n' +
+            '• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta boca abajo para favorecer alcance.',
+          expectedSubtype: 'LACTANTES_A_EARLY_ADAPTATION_EMPTY',
+        },
+        {
+          name: 'Etiqueta tardía vacía',
+          text:
+            'Presentar suavemente {material} al frente del lactante.\n' +
+            '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención física y afectiva.\n' +
+            '• Adaptación 4 a 6 meses:',
+          expectedSubtype: 'LACTANTES_A_OLDER_ADAPTATION_EMPTY',
+        },
+        {
+          name: 'Etiqueta temprana superficial "No aplica"',
+          text:
+            'Presentar suavemente {material} al frente del lactante.\n' +
+            '• Adaptación 43 días a 3 meses: No aplica para esta actividad.\n' +
+            '• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta boca abajo para favorecer alcance.',
+          expectedSubtype: 'LACTANTES_A_EARLY_ADAPTATION_EMPTY',
+        },
+        {
+          name: 'Etiqueta tardía superficial "Sin cambios"',
+          text:
+            'Presentar suavemente {material} al frente del lactante.\n' +
+            '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención física y afectiva.\n' +
+            '• Adaptación 4 a 6 meses: Sin cambios respecto a la actividad principal.',
+          expectedSubtype: 'LACTANTES_A_OLDER_ADAPTATION_EMPTY',
+        },
+        {
+          name: 'Solo repite el rango de edad sin acción concreta en temprana',
+          text:
+            'Presentar suavemente {material} al frente del lactante.\n' +
+            '• Adaptación 43 días a 3 meses: Para lactantes de 43 días a 3 meses de edad.\n' +
+            '• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta boca abajo para favorecer alcance.',
+          expectedSubtype: 'LACTANTES_A_EARLY_ADAPTATION_EMPTY',
+        },
+        {
+          name: 'Solo repite el rango de edad sin acción concreta en tardía',
+          text:
+            'Presentar suavemente {material} al frente del lactante.\n' +
+            '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención física y afectiva.\n' +
+            '• Adaptación 4 a 6 meses: De 4 a 6 meses de edad.\n',
+          expectedSubtype: 'LACTANTES_A_OLDER_ADAPTATION_EMPTY',
+        },
+        {
+          name: 'Desarrollo central ausente (comienza de inmediato con adaptación)',
+          text:
+            '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos ofreciendo contención física y afectiva.\n' +
+            '• Adaptación 4 a 6 meses: Colocar al bebé sobre colchoneta boca abajo para favorecer alcance.',
+          expectedSubtype: 'LACTANTES_A_CENTRAL_ACTION_EMPTY',
+        },
+      ];
+
+      for (const c of nonActionCases) {
+        expect(() => {
+          validateLactantesAActivityAdaptations(c.text, 0, 0);
+        }, `Fallo en detección de: ${c.name}`).toThrowError(
+          expect.objectContaining({
+            diagnosticSubtype: c.expectedSubtype,
+          })
+        );
+      }
+    });
+
+    it('6. Material no autorizado dentro de adaptaciones se bloquea por los controles existentes', () => {
+      const sonajaInAdaptation =
+        'Cantar una nana suavemente frente al lactante con afecto.\n' +
+        '• Adaptación 43 días a 3 meses: Agitar sonajas plásticas frente al rostro del bebé.\n' +
+        '• Adaptación 4 a 6 meses: Colocar al lactante sobre colchoneta acolchada en posición prona.';
+
+      expect(() => {
+        validateProceduralActionEnclosure(sonajaInAdaptation, [], table, 0, 0);
+      }).toThrow(/unauthorized material 'sonaja\(s\)'/);
+    });
+
+    it('7. Acciones inseguras para lactantes se bloquean por política pedagógica', async () => {
+      // 7.1: Tracción o sentado forzado en temprana
+      const unsafeEarly = createValid25ActivityResponse();
+      (unsafeEarly['days'] as any[])[0].activities[0].proceduralAction =
+        'Estimulación motora inicial frente al lactante con {material}.\n' +
+        '• Adaptación 43 días a 3 meses: Jalar de los brazos para incorporarlo sobre la colchoneta.\n' +
+        '• Adaptación 4 a 6 meses: Permitir movimiento libre de brazos sobre el suelo acolchado.';
+
+      const mockExecutorEarly: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue(unsafeEarly),
+      };
+      const providerEarly = new AIWeeklyPlanningProposalSource(mockExecutorEarly);
+      await expect(providerEarly.propose(createRequest())).rejects.toThrow(
+        PedagogicalPolicyViolationError
+      );
+
+      // 7.2: Tracción o sentado forzado en tardía
+      const unsafeOlder = createValid25ActivityResponse();
+      (unsafeOlder['days'] as any[])[0].activities[0].proceduralAction =
+        'Estimulación motora inicial frente al lactante con {material}.\n' +
+        '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física y cercanía.\n' +
+        '• Adaptación 4 a 6 meses: Tirar de sus manos para sentarlo rápidamente frente al objeto.';
+
+      const mockExecutorOlder: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue(unsafeOlder),
+      };
+      const providerOlder = new AIWeeklyPlanningProposalSource(mockExecutorOlder);
+      await expect(providerOlder.propose(createRequest())).rejects.toThrow(
+        PedagogicalPolicyViolationError
+      );
+    });
+
+    it('8. El esquema JSON y el prompt del sistema refuerzan la presencia bimodal obligatoria', () => {
+      const lactantesARequest = createRequest();
+      const policyA = LACTANTES_A_AGE_POLICY;
+      const projectionA = projectPedagogicalGenerationPolicy(policyA, lactantesARequest);
+      const inputA = buildPrivacyMinimizedAIInput(lactantesARequest, projectionA);
+      const promptPayload = buildWeeklyPlanningAIPromptPayload(inputA, table);
+
+      // Prompt contains strict enforcement
+      expect(promptPayload.systemPrompt).toContain('100% OF ACTIVITIES MANDATORY');
+      expect(promptPayload.systemPrompt).toContain('Exact bullet headers');
+      expect(promptPayload.systemPrompt).toContain('• Adaptación 43 días a 3 meses:');
+      expect(promptPayload.systemPrompt).toContain('• Adaptación 4 a 6 meses:');
+
+      // JSON format illustration shows bimodal structure for Lactantes A
+      expect(promptPayload.systemPrompt).toContain(
+        '• Adaptación 43 días a 3 meses: <adecuación concreta en brazos con contención física>'
+      );
+
+      // JSON schema description for proceduralAction includes explicit adaptation guidance
+      const schema = promptPayload.responseSchema as any;
+      const actProperties = schema.properties.days.items.properties.activities.items.properties;
+      expect(actProperties.proceduralAction.description).toContain('For Lactantes A, MUST include');
+      expect(actProperties.proceduralAction.description).toContain('• Adaptación 43 días a 3 meses:');
+      expect(actProperties.proceduralAction.description).toContain('• Adaptación 4 a 6 meses:');
+    });
+
+    it('9. Exportación de LACTANTES_A_LATE_MARKER_REGEX como alias de LACTANTES_A_OLDER_MARKER_REGEX', () => {
+      expect(LACTANTES_A_LATE_MARKER_REGEX).toBe(LACTANTES_A_OLDER_MARKER_REGEX);
+    });
+  });
+
+  describe('12. SR-MD-18-P — Daily Reading Focused Correction Matrix', () => {
+    const table = createRequestScopedMaterialTable([
+      'música infantil',
+      'telas suaves',
+      'pelotas suaves',
+    ]);
+
+    it('1. UNEQUIVOCAL_READING_REGEX y isUnequivocalReadingActivity identifican certeramente lectura real vs experiencias no lectoras', () => {
+      // Lectura inequívoca:
+      const readingSamples = [
+        { objective: 'Lectura en voz alta de cuentos ilustrados', proceduralAction: 'Mediación con libro de tela' },
+        { objective: 'Lectura compartida y fomento del lenguaje', proceduralAction: 'Mostrar las páginas con entonación suave' },
+        { objective: 'Desarrollo de atención mediante lectura de imágenes', proceduralAction: 'Describir láminas contrastantes' },
+        { objective: 'Vínculo afectivo con el lactante', proceduralAction: 'Leer un cuento breve con modulación de voz' },
+        { objective: 'Narración oral de cuentos para bebés', proceduralAction: 'Narrar un cuento con títeres en brazos' },
+        { objective: 'Experiencia de lectura en regazo', proceduralAction: 'Sostener al infante y leer en voz alta' },
+        { objective: 'Hora del cuento con el grupo', proceduralAction: 'Presentar el cuento señalando figuras' },
+      ];
+
+      for (const sample of readingSamples) {
+        expect(isUnequivocalReadingActivity(sample)).toBe(true);
+      }
+
+      // Experiencias no lectoras (no deben confundirse ni transformarse en lectura):
+      const nonReadingSamples = [
+        { objective: 'Cantar nanas y canciones de cuna', proceduralAction: 'Entonar melodías suaves meciendo al bebé' },
+        { objective: 'Estimulación del balbuceo y diálogo imitativo', proceduralAction: 'Responder a sonidos vocálicos del infante' },
+        { objective: 'Exploración de telas de texturas variadas', proceduralAction: 'Acariciar suavemente las manos con las telas' },
+        { objective: 'Movimiento libre y pataleo en colchoneta', proceduralAction: 'Acompañar la flexión suave de piernas' },
+        { objective: 'Masaje y relajación de extremidades', proceduralAction: 'Movimientos circulares en brazos y piernas' },
+        { objective: 'Seguimiento visual de la sonaja', proceduralAction: 'Desplazar lentamente el objeto sonoro en arco' },
+      ];
+
+      for (const sample of nonReadingSamples) {
+        expect(isUnequivocalReadingActivity(sample)).toBe(false);
+      }
+    });
+
+    it('2. El esquema JSON y el prompt del sistema refuerzan la presencia obligatoria de LECTURA EN VOZ ALTA y duración 15', () => {
+      const request = createRequest();
+      const policy = LACTANTES_A_AGE_POLICY;
+      const projection = projectPedagogicalGenerationPolicy(policy, request);
+      const input = buildPrivacyMinimizedAIInput(request, projection);
+      const payload = buildWeeklyPlanningAIPromptPayload(input, table);
+
+      // Schema guidance
+      const schema = payload.responseSchema as any;
+      const actProps = schema.properties.days.items.properties.activities.items.properties;
+      expect(actProps.category.description).toContain('LECTURA EN VOZ ALTA');
+      expect(actProps.durationMinutes.description).toContain('between 1 and 60');
+
+      // Prompt guidance
+      expect(payload.systemPrompt).toContain('Real Daily Read-Aloud Experience: The activity classified as "LECTURA EN VOZ ALTA" must be a genuine reading-aloud');
+      expect(payload.systemPrompt).toContain('category "LECTURA EN VOZ ALTA"');
+      expect(payload.systemPrompt).toContain('duration for this reading activity must be a positive integer within general safety limits');
+    });
+
+    it('3. Actividad inequívoca de lectura clasificada bajo otra categoría corrige ÚNICAMENTE su categoría a LECTURA EN VOZ ALTA', () => {
+      const rawOutput = createValid25ActivityResponse();
+      // On Monday (day 0), change activity index 3 (the reading activity) to AMBIENTES DE APRENDIZAJE
+      const mondayReading = (rawOutput['days'] as any[])[0].activities[3];
+      mondayReading.category = 'AMBIENTES DE APRENDIZAJE';
+      mondayReading.objective = 'Favorecer la atención y el lenguaje mediante la lectura de cuentos';
+      mondayReading.proceduralAction =
+        'Lectura en voz alta de un cuento ilustrado con {material} modulando la voz con ternura.\n' +
+        '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física y entonando suavemente.\n' +
+        '• Adaptación 4 a 6 meses: Mostrar las láminas del cuento sobre colchoneta incentivando la fijación visual.';
+      mondayReading.durationMinutes = 15;
+
+      const parsed = parseAndAllowlistUntrustedProposal(rawOutput, table, {
+        requireProgression: true,
+        roomType: 'LACTANTES_A',
+      });
+
+      // Category was corrected to LECTURA EN VOZ ALTA:
+      expect(parsed.days[0].activities[3].category).toBe('LECTURA EN VOZ ALTA');
+      // Duration was NOT modified:
+      expect(parsed.days[0].activities[3].durationMinutes).toBe(15);
+      // Validates cleanly against canonical daily reading invariant:
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(parsed)).not.toThrow();
+    });
+
+    it('4. Actividad inequívoca de lectura con duración distinta a 15 min (ej. 20 min) es aceptada limpiamente dentro de límites seguros', () => {
+      const rawOutput = createValid25ActivityResponse();
+      // On Monday, reading activity has duration 20 instead of 15 and is misclassified under AMBIENTES DE APRENDIZAJE
+      const mondayReading = (rawOutput['days'] as any[])[0].activities[3];
+      mondayReading.category = 'AMBIENTES DE APRENDIZAJE';
+      mondayReading.objective = 'Lectura de cuentos breves y rimas sonoras';
+      mondayReading.durationMinutes = 20;
+
+      const parsed = parseAndAllowlistUntrustedProposal(rawOutput, table, {
+        requireProgression: true,
+        roomType: 'LACTANTES_A',
+      });
+
+      // Category is corrected:
+      expect(parsed.days[0].activities[3].category).toBe('LECTURA EN VOZ ALTA');
+      // Duration remains 20 (NOT modified automatically):
+      expect(parsed.days[0].activities[3].durationMinutes).toBe(20);
+
+      // Passes cleanly without rejection:
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(parsed)).not.toThrow();
+
+      // Duración inválida fuera de límites de seguridad (ej. 0 min) sí es rechazada fail-closed:
+      const invalidReadingProposal = JSON.parse(JSON.stringify(parsed));
+      invalidReadingProposal.days[0].activities[3].durationMinutes = 0;
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(invalidReadingProposal)).toThrow(
+        /reading activity duration is invalid/i
+      );
+    });
+
+    it('5. Día sin actividades de lectura (0 candidatas) NO inventa actividades y falla cerrado con MISSING_DAILY_READING', () => {
+      const rawOutput = createValid25ActivityResponse();
+      // On Monday, replace reading activity with a purely motor non-reading activity
+      (rawOutput['days'] as any[])[0].activities[3] = {
+        category: 'ACTIVACIÓN FÍSICA',
+        objective: 'Estimulación de pataleo y movimiento libre',
+        proceduralAction:
+          'Acompañar el pataleo del infante con {material} en superficie firme y segura.\n' +
+          '• Adaptación 43 días a 3 meses: Sostener al bebé en brazos brindando contención física y caricias.\n' +
+          '• Adaptación 4 a 6 meses: Permitir el movimiento libre sobre colchoneta animando el alcance del objeto.',
+        durationMinutes: 15,
+        materialRefs: ['MAT-03'],
+        progression: {
+          role: 'EXPLORE',
+          revisitsSlot: null,
+          repetitionPurpose: null,
+          variationDimensions: null,
+          observationTarget: 'Observar respuesta y confort',
+        },
+      };
+
+      const parsed = parseAndAllowlistUntrustedProposal(rawOutput, table, {
+        requireProgression: true,
+        roomType: 'LACTANTES_A',
+      });
+
+      // No activity was transformed into LECTURA EN VOZ ALTA, count remains 5:
+      expect(parsed.days[0].activities).toHaveLength(5);
+      expect(parsed.days[0].activities.every((a) => a.category !== 'LECTURA EN VOZ ALTA')).toBe(true);
+
+      // Fails closed as missing daily reading:
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(parsed)).toThrow(
+        /missing the required daily reading activity \('LECTURA EN VOZ ALTA'\)/i
+      );
+    });
+
+    it('6. Día con múltiples actividades inequívocas de lectura candidatas (>1) NO altera ninguna por ambigüedad y falla cerrado', () => {
+      const rawOutput = createValid25ActivityResponse();
+      // On Monday, have 2 activities mentioning reading, neither categorized as LECTURA EN VOZ ALTA
+      (rawOutput['days'] as any[])[0].activities[1].category = 'AMBIENTES DE APRENDIZAJE';
+      (rawOutput['days'] as any[])[0].activities[1].objective = 'Lectura de cuentos táctiles';
+      (rawOutput['days'] as any[])[0].activities[3].category = 'EXPERIENCIAS ARTÍSTICAS';
+      (rawOutput['days'] as any[])[0].activities[3].objective = 'Lectura de imágenes y rimas';
+
+      const parsed = parseAndAllowlistUntrustedProposal(rawOutput, table, {
+        requireProgression: true,
+        roomType: 'LACTANTES_A',
+      });
+
+      // Neither was modified due to ambiguity:
+      expect(parsed.days[0].activities[1].category).toBe('AMBIENTES DE APRENDIZAJE');
+      expect(parsed.days[0].activities[3].category).toBe('EXPERIENCIAS ARTÍSTICAS');
+
+      // Fails closed as missing daily reading:
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(parsed)).toThrow(
+        /missing the required daily reading activity \('LECTURA EN VOZ ALTA'\)/i
+      );
+    });
+
+    it('7. Preservación estricta de adaptaciones bimodales y seguridad en actividades con categoría corregida', () => {
+      const rawOutput = createValid25ActivityResponse();
+      // Misclassified reading activity with missing early adaptation
+      (rawOutput['days'] as any[])[0].activities[3].category = 'AMBIENTES DE APRENDIZAJE';
+      (rawOutput['days'] as any[])[0].activities[3].objective = 'Lectura de cuentos para lactantes';
+      (rawOutput['days'] as any[])[0].activities[3].proceduralAction =
+        'Lectura de cuentos mostrando las ilustraciones con voz clara.\n' +
+        '• Adaptación 4 a 6 meses: Mostrar las páginas sobre colchoneta incentivando balbuceos.';
+
+      expect(() =>
+        parseAndAllowlistUntrustedProposal(rawOutput, table, {
+          requireProgression: true,
+          roomType: 'LACTANTES_A',
+        })
+      ).toThrow(InvalidWeeklyPlanningProposalError);
+    });
+
+    it('8. Normalización case-insensitive de LECTURA EN VOZ ALTA cuando solo difiere en mayúsculas o espacios', () => {
+      const rawOutput = createValid25ActivityResponse();
+      (rawOutput['days'] as any[])[0].activities[3].category = '  lectura en voz alta  ';
+
+      const parsed = parseAndAllowlistUntrustedProposal(rawOutput, table, {
+        requireProgression: true,
+        roomType: 'LACTANTES_A',
+      });
+
+      expect(parsed.days[0].activities[3].category).toBe('LECTURA EN VOZ ALTA');
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(parsed)).not.toThrow();
+    });
+
+    it('9. SR-MD-18-S — El prompt instruye lectura diaria real para Lactantes A con libros de tela, adaptaciones bimodales y duración flexible', () => {
+      const request = createRequest();
+      const policy = LACTANTES_A_AGE_POLICY;
+      const projection = projectPedagogicalGenerationPolicy(policy, request);
+      const input = buildPrivacyMinimizedAIInput(request, projection);
+      const payload = buildWeeklyPlanningAIPromptPayload(input, table);
+
+      // Daily Composition Mandate
+      expect(payload.systemPrompt).toContain(
+        'Daily Composition Mandate: Every single day of the five operational weekdays (Monday through Friday) MUST contain an authentic reading activity as an integral part of its daily pedagogical composition'
+      );
+
+      // Exact category
+      expect(payload.systemPrompt).toContain(
+        'Exact Category Requirement: The assigned category MUST strictly be "LECTURA EN VOZ ALTA"'
+      );
+
+      // Lactantes A reading forms (cloth books, narration, illustrations)
+      expect(payload.systemPrompt).toContain(
+        'Specifically for Lactantes A (43 days to 6 months), shared reading and read-aloud experiences may utilize authorized cloth books (libros de tela), brief oral storytelling / narration, and accompanied observation of illustrations or contrasting images with gentle adult voice mediation.'
+      );
+
+      // Mandatory bimodal adaptations in daily reading
+      expect(payload.systemPrompt).toContain(
+        'Mandatory Bimodal Adaptations Preserved (Lactantes A): In Lactantes A, the reading activity MUST preserve both explicit adaptations'
+      );
+      expect(payload.systemPrompt).toContain(
+        'DAILY READING IN LACTANTES A: The daily reading activity ("LECTURA EN VOZ ALTA") must also fully include both adaptations'
+      );
+
+      // Flexible duration (no fixed 15 min requirement)
+      expect(payload.systemPrompt).toContain(
+        'Do NOT enforce or require a fixed duration of 15 minutes; any positive duration appropriate for the child age is valid.'
+      );
     });
   });
 });

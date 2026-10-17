@@ -14,6 +14,7 @@ import type { EvaluationAIProvider } from './EvaluationAIProvider';
 import { adaptPlanningToSanitizedPayload } from './EvaluationAIContextAdapter';
 import type { Room } from '../../domain/planning/RoomCatalog';
 import type { InstitutionalRole } from '../../domain/identity/assignment/Assignment';
+import type { EvaluationAIRejectionDiagnostics } from '../../infrastructure/ai/OpenAIEvaluationAIProvider';
 
 // ============================================================================
 // TRUSTED CLOCK & OPERATIONAL TIMEZONE POLICY
@@ -97,11 +98,17 @@ export type GovernedEvaluationAIGatewayErrorCode =
 
 export class GovernedEvaluationAIGatewayError extends Error {
   public readonly code: GovernedEvaluationAIGatewayErrorCode;
+  public readonly diagnostics?: EvaluationAIRejectionDiagnostics | undefined;
 
-  constructor(message: string, code: GovernedEvaluationAIGatewayErrorCode) {
+  constructor(
+    message: string,
+    code: GovernedEvaluationAIGatewayErrorCode,
+    diagnostics?: EvaluationAIRejectionDiagnostics | undefined
+  ) {
     super(message);
     this.name = 'GovernedEvaluationAIGatewayError';
     this.code = code;
+    this.diagnostics = diagnostics;
     Object.setPrototypeOf(this, GovernedEvaluationAIGatewayError.prototype);
   }
 }
@@ -366,9 +373,39 @@ export class GovernedEvaluationAIGateway {
     try {
       providerResponse = await this.provider.assist(payload);
     } catch (error) {
+      if (error instanceof GovernedEvaluationAIGatewayError) {
+        throw error;
+      }
+      const errName = (error as Error)?.name;
+      const errCause = (error as any)?.cause;
+      const diagnostics = (error as any)?.diagnostics as EvaluationAIRejectionDiagnostics | undefined;
+
+      if (
+        diagnostics?.rejectionStage === 'PROHIBITED_LANGUAGE_VIOLATION' ||
+        (errCause instanceof GovernedEvaluationAIError && errCause.diagnosticCode === 'PROHIBITED_EVALUATION_LANGUAGE') ||
+        (error instanceof GovernedEvaluationAIError && error.diagnosticCode === 'PROHIBITED_EVALUATION_LANGUAGE')
+      ) {
+        throw new GovernedEvaluationAIGatewayError(
+          (error as Error).message,
+          'PROHIBITED_EVALUATION_LANGUAGE',
+          diagnostics
+        );
+      }
+      if (
+        errName === 'EvaluationAIProviderMalformedResponseError' ||
+        (errCause instanceof GovernedEvaluationAIError && errCause.diagnosticCode === 'INVALID_PROVIDER_RESPONSE') ||
+        (error instanceof GovernedEvaluationAIError && error.diagnosticCode === 'INVALID_PROVIDER_RESPONSE')
+      ) {
+        throw new GovernedEvaluationAIGatewayError(
+          (error as Error).message,
+          'INVALID_PROVIDER_RESPONSE',
+          diagnostics
+        );
+      }
       throw new GovernedEvaluationAIGatewayError(
         `Provider execution failed: ${(error as Error).message}`,
-        'PROVIDER_FAILURE'
+        'PROVIDER_FAILURE',
+        diagnostics
       );
     }
 
@@ -376,21 +413,44 @@ export class GovernedEvaluationAIGateway {
     try {
       validateAssistDailyEvaluationResponse(providerResponse);
     } catch (error) {
+      const trimmed = typeof providerResponse?.suggestedEvaluation === 'string'
+        ? providerResponse.suggestedEvaluation.trim()
+        : '';
+      const responseLengthChars = trimmed.length;
+
+      let stage: EvaluationAIRejectionDiagnostics['rejectionStage'] = 'SCHEMA_KEY_MISMATCH';
+      let limitChars: number | undefined;
+
       if (error instanceof GovernedEvaluationAIError) {
         if (error.diagnosticCode === 'PROHIBITED_EVALUATION_LANGUAGE') {
-          throw new GovernedEvaluationAIGatewayError(
-            error.message,
-            'PROHIBITED_EVALUATION_LANGUAGE'
-          );
+          stage = 'PROHIBITED_LANGUAGE_VIOLATION';
+        } else if (responseLengthChars < 30) {
+          stage = 'BELOW_MIN_LENGTH';
+          limitChars = 30;
+        } else if (responseLengthChars > 1000) {
+          stage = 'EXCEEDS_MAX_LENGTH';
+          limitChars = 1000;
         }
+      }
+
+      const diagnostics: EvaluationAIRejectionDiagnostics = {
+        rejectionStage: stage,
+        responseLengthChars,
+        limitChars,
+        hasValidStructure: typeof providerResponse?.suggestedEvaluation === 'string',
+      };
+
+      if (error instanceof GovernedEvaluationAIError && error.diagnosticCode === 'PROHIBITED_EVALUATION_LANGUAGE') {
         throw new GovernedEvaluationAIGatewayError(
           error.message,
-          'INVALID_PROVIDER_RESPONSE'
+          'PROHIBITED_EVALUATION_LANGUAGE',
+          diagnostics
         );
       }
       throw new GovernedEvaluationAIGatewayError(
         (error as Error).message,
-        'INVALID_PROVIDER_RESPONSE'
+        'INVALID_PROVIDER_RESPONSE',
+        diagnostics
       );
     }
 

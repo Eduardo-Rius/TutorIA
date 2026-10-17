@@ -18,6 +18,12 @@ export class RoomCatalog {
       name: 'Lactantes A',
       minAgeMonths: 0,
       maxAgeMonths: 6
+    },
+    {
+      roomId: 'room-lactantes-b',
+      name: 'Lactantes B',
+      minAgeMonths: 7,
+      maxAgeMonths: 12
     }
   ];
 

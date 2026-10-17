@@ -1544,4 +1544,127 @@ describe('H1R9-F.8.3.4 — Firebase Callable AI Gateway Skeleton', () => {
       expect(serialized).not.toContain('teacher-uid-test');
     });
   });
+
+  // ============================================================
+  // SR-MD-18-W — Longitud de Texto y Cota de 1,000 Caracteres
+  // ============================================================
+  describe('SR-MD-18-W — Restauración del Circuito IA Curricular / PDA (Cota 1,000 caracteres)', () => {
+    it('acepta campos de texto de exactamente 500 caracteres', () => {
+      const text500 = 'x'.repeat(500);
+      const payload = {
+        ...validPayload,
+        description: text500,
+        weeklyContext: {
+          observations: text500,
+          identifiedNeeds: text500,
+          specialSituations: text500,
+          availableMaterials: text500,
+        },
+      };
+      const validated = validateGatewayPayload(payload);
+      expect(validated.description).toBe(text500);
+      expect(validated.weeklyContext?.observations).toBe(text500);
+    });
+
+    it('acepta descripción de 583 caracteres (longitud real de actividad Lactantes A)', () => {
+      const text583 = 'a'.repeat(583);
+      const payload = { ...validPayload, description: text583 };
+      const validated = validateGatewayPayload(payload);
+      expect(validated.description?.length).toBe(583);
+    });
+
+    it('acepta campos de contexto de 733 caracteres (longitud real situaciones especiales)', () => {
+      const text733 = 's'.repeat(733);
+      const payload = {
+        ...validPayload,
+        weeklyContext: {
+          ...validPayload.weeklyContext,
+          specialSituations: text733,
+        },
+      };
+      const validated = validateGatewayPayload(payload);
+      expect(validated.weeklyContext?.specialSituations?.length).toBe(733);
+    });
+
+    it('acepta campos de exactamente 1,000 caracteres (nuevo límite canónico)', () => {
+      const text1000 = 'm'.repeat(1000);
+      const payload = {
+        ...validPayload,
+        description: text1000,
+        weeklyContext: {
+          observations: text1000,
+          identifiedNeeds: text1000,
+          specialSituations: text1000,
+          availableMaterials: text1000,
+        },
+      };
+      const validated = validateGatewayPayload(payload);
+      expect(validated.description?.length).toBe(1000);
+      expect(validated.weeklyContext?.observations?.length).toBe(1000);
+      expect(validated.weeklyContext?.specialSituations?.length).toBe(1000);
+    });
+
+    it('rechaza campos de 1,001 caracteres con error invalid-argument', () => {
+      const text1001 = 'e'.repeat(1001);
+      expect(() => {
+        validateGatewayPayload({ ...validPayload, description: text1001 });
+      }).toThrowError(/description exceeds maximum length of 1000 characters/);
+
+      expect(() => {
+        validateGatewayPayload({
+          ...validPayload,
+          weeklyContext: { ...validPayload.weeklyContext, observations: text1001 },
+        });
+      }).toThrowError(/weeklyContext\.observations exceeds 1000 characters/);
+    });
+
+    it('acepta el payload real de Lactantes A producido en LAB', () => {
+      const lactantesAPayload = {
+        activityId: 'act-monday-1-1791619231498',
+        activityTitle: 'Favorecer la atención a la voz humana y el seguimiento visual de estímulos.',
+        objective: 'Favorecer la atención a la voz humana y el seguimiento visual de estímulos.',
+        modality: 'DIRECT' as const,
+        room: {
+          roomId: 'room-lactantes-a',
+          name: 'Lactantes A',
+          minAgeMonths: 0,
+          maxAgeMonths: 6,
+        },
+        description: 'a'.repeat(583),
+        category: 'LECTURA EN VOZ ALTA',
+        materials: ['libros de tela lavables apropiados para menores de seis meses'],
+        durationMinutes: 15,
+        weeklyContext: {
+          observations: 'o'.repeat(688),
+          identifiedNeeds: 'n'.repeat(604),
+          specialSituations: 's'.repeat(733),
+          availableMaterials: 'm'.repeat(692),
+        },
+      };
+      const validated = validateGatewayPayload(lactantesAPayload);
+      expect(validated.activityId).toBe('act-monday-1-1791619231498');
+      expect(validated.description?.length).toBe(583);
+      expect(validated.weeklyContext?.specialSituations?.length).toBe(733);
+    });
+
+    it('continúa rechazando campos obligatorios faltantes o formatos inválidos', () => {
+      expect(() => validateGatewayPayload(null)).toThrowError();
+      expect(() => validateGatewayPayload({ ...validPayload, activityId: '' })).toThrowError();
+      expect(() => validateGatewayPayload({ ...validPayload, objective: '' })).toThrowError();
+      expect(() => validateGatewayPayload({ ...validPayload, modality: 'INDIRECT' as any })).toThrowError();
+      expect(() => validateGatewayPayload({ ...validPayload, durationMinutes: -5 })).toThrowError();
+    });
+
+    it('continúa rechazando usuario no autorizado en handleRecommendCurricularPDA', async () => {
+      const req = createCallableRequest(validPayload, { uid: 'unauthorized-user' });
+      const denyAuthorizer = async () => ({ authorized: false, reason: 'Docente no asignado a esta sala.' });
+
+      await expect(
+        handleRecommendCurricularPDA(req, { authorizer: denyAuthorizer })
+      ).rejects.toMatchObject({
+        code: 'permission-denied',
+        message: 'Docente no asignado a esta sala.',
+      });
+    });
+  });
 });

@@ -126,4 +126,51 @@ describe('FirestoreWeeklyPlanningRepository Serialization', () => {
     const result = await repo.findById('missing-id');
     expect(result).toBeNull();
   });
+
+  it('5. Omits undefined day-level optional fields and preserves defined review fields', () => {
+    const planning = WeeklyPlanning.create('p-opt-1', 'd1', 'r1', 't1', '2026-08-24', '2026-08-28');
+    const reviewDate = new Date('2026-08-24T10:00:00Z');
+    const days: PlanningDay[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].map((dayOfWeek, idx) => ({
+      date: `2026-08-${24 + idx}`,
+      dayOfWeek: dayOfWeek as PlanningDay['dayOfWeek'],
+      activities: [
+        {
+          activityId: `act-${dayOfWeek}-1`,
+          category: 'Juego',
+          objective: 'Obj',
+          description: 'Desc',
+          materials: ['Mat'],
+          durationMinutes: 20,
+          curricularTraceability: [{ pdaId: 'TUTORIA-PDA-0001', catalogRevision: 'TUTORIA-DIRECT-PDA-CATALOG-R1' }],
+        },
+      ],
+      complementaryActivities: [],
+      materials: ['Mat'],
+      teacherReviewedAt: undefined,
+      teacherReviewedBy: undefined,
+      prioritizedPractices: undefined,
+      evaluation: undefined,
+    }));
+
+    planning.editPedagogicalContent('Obs', 'Needs', 'Sit', 'Mat', [], days);
+    planning.markTeacherDayReviewed('MONDAY', 'teacher-anita-1', reviewDate);
+
+    const serialized = repo.serialize(planning);
+
+    // Monday: defined review fields preserved
+    expect(serialized.days[0].dayOfWeek).toBe('MONDAY');
+    expect(serialized.days[0].teacherReviewedBy).toBe('teacher-anita-1');
+    expect(serialized.days[0].teacherReviewedAt).toBeInstanceOf(Timestamp);
+
+    // Tuesday - Friday: undefined review fields omitted
+    for (let i = 1; i < 5; i++) {
+      expect('teacherReviewedAt' in serialized.days[i]).toBe(false);
+      expect('teacherReviewedBy' in serialized.days[i]).toBe(false);
+      expect('prioritizedPractices' in serialized.days[i]).toBe(false);
+      expect('evaluation' in serialized.days[i]).toBe(false);
+      for (const [, v] of Object.entries(serialized.days[i])) {
+        expect(v).not.toBeUndefined();
+      }
+    }
+  });
 });

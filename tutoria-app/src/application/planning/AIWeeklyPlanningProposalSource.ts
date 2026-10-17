@@ -65,6 +65,7 @@ export {
  * Domain enforcement logic and internal provenance remain server/domain-side.
  */
 export interface PedagogicalGenerationPolicyProjection {
+  readonly roomType?: string;
   readonly roomName: string;
   readonly minAgeMonths: number;
   readonly maxAgeMonths: number;
@@ -91,6 +92,7 @@ export function projectPedagogicalGenerationPolicy(
   );
 
   return Object.freeze({
+    roomType: policy.roomType,
     roomName: request.room.name,
     minAgeMonths: request.room.minAgeMonths,
     maxAgeMonths: request.room.maxAgeMonths,
@@ -230,7 +232,8 @@ export function createRequestScopedMaterialTable(
 export function buildWeeklyPlanningJsonSchema(
   table: RequestScopedMaterialTable,
   allowedCategories: readonly string[] = IMSS_CATEGORIES,
-  maxDurationMinutes = 60
+  maxDurationMinutes = 60,
+  roomType?: string
 ): Record<string, unknown> {
   const allowedRefs = table.entries.map((e) => e.refId);
   const refEnum = allowedRefs.length > 0 ? allowedRefs : ['SIN_MATERIAL'];
@@ -261,16 +264,20 @@ export function buildWeeklyPlanningJsonSchema(
                   category: {
                     type: 'string',
                     enum: [...allowedCategories],
+                    description:
+                      'Pedagogical category. Under TutorIA V1 product policy, every operational day MUST contain exactly one real read-aloud activity classified as "LECTURA EN VOZ ALTA" (e.g. lectura de cuentos, rimas, libros de tela o narración con ilustraciones). Complementary activities use other allowed categories.',
                   },
                   objective: {
                     type: 'string',
                     description:
-                      'Pedagogical/developmental objective in natural Spanish. Must be strictly material-agnostic.',
+                      'Pedagogical/developmental objective in natural Spanish. MUST be strictly material-agnostic: describe only the child developmental purpose or capability. NEVER name, mention, or include any physical materials, toys, or props in this field (e.g. use "Favorecer la prensión palmar y la estimulación táctil", NEVER "Favorecer la prensión con telas suaves").',
                   },
                   proceduralAction: {
                     type: 'string',
                     description:
-                      'Procedural interaction in Spanish. In material-bearing activities, use {material} for the resolved material.',
+                      roomType === 'LACTANTES_A'
+                        ? 'Procedural interaction in Spanish. In material-bearing activities, use {material}. For Lactantes A, MUST include central developmental action followed by explicit adaptations: "\\n• Adaptación 43 días a 3 meses: <acción>\\n• Adaptación 4 a 6 meses: <acción>".'
+                        : 'Procedural interaction in Spanish. In material-bearing activities, use {material} for the resolved material.',
                   },
                   materialRefs: {
                     type: 'array',
@@ -285,6 +292,8 @@ export function buildWeeklyPlanningJsonSchema(
                     type: 'integer',
                     minimum: 1,
                     maximum: maxDurationMinutes,
+                    description:
+                      'Activity duration in integer minutes between 1 and 60, developmentally appropriate for the age and pedagogical experience.',
                   },
                   progression: {
                     type: 'object',
@@ -527,13 +536,19 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '     * To foster developmental continuity and meaningful progression rather than five disconnected samples, experiences across Monday through Friday may flexibly progress through phases such as: EXPLORACIÓN (initial exploration, welcoming, curiosity, familiarization), REVISITA (purposefully revisiting an experience to deepen familiarity or comfort), VARIACIÓN (introducing meaningful variation in sensory emphasis, adult mediation, or interaction mode), PROFUNDIZACIÓN / ADAPTACIÓN (adapting according to observed responses or deepening interest), and OBSERVACIÓN / CONSOLIDACIÓN (observing child responses, consolidation, calm closing).',
     '     * PROVENANCE & FLEXIBILITY (TUTORIA GUIDANCE ONLY): This progression is flexible TutorIA pedagogical composition guidance, NOT a mandatory five-step institutional methodology or current IMSS normative requirement. Do NOT force a rigid linear progression, do NOT require exactly one phase per weekday, and do NOT output, expose, or persist phase labels or names in the activity JSON.',
     '5. DAILY READING ALOUD — TUTORIA V1 PRODUCT POLICY (NOT ESTABLISHED HERE AS A CURRENT IMSS NORMATIVE REQUIREMENT):',
-    '   - TutorIA V1 Policy: "Lectura en voz alta: 15 minutos diariamente" (TutorIA product policy; not established as a current IMSS normative requirement).',
+    '   - TutorIA V1 Policy: "Lectura en voz alta diariamente" (TutorIA product policy; not established as a current IMSS normative requirement).',
+    '   - Daily Composition Mandate: Every single day of the five operational weekdays (Monday through Friday) MUST contain an authentic reading activity as an integral part of its daily pedagogical composition (not added artificially or omitted).',
     '   - TutorIA V1 Representation: Every operational day (Monday through Friday) MUST contain EXACTLY ONE proposed activity with category "LECTURA EN VOZ ALTA".',
-    '   - The "durationMinutes" for this reading activity MUST be deterministically set to exactly 15.',
-    '   - In zero-material scenarios, reading aloud relies on oral storytelling, rhymes, songs, or caregiver vocal interaction. When materials are available, use authorized books or story props from the allowed set.',
+    '   - Exact Category Requirement: The assigned category MUST strictly be "LECTURA EN VOZ ALTA" (never reclassify it under complementary categories such as EXPERIENCIAS ARTÍSTICAS or AMBIENTES DE APRENDIZAJE).',
+    '   - Concrete Pedagogical Description: The reading activity must include a concrete, observable, and executable pedagogical description in its "proceduralAction".',
+    '   - Developmentally Appropriate for Age Group & Lactantes A: Reading experiences must be developmentally appropriate for the room age group. Specifically for Lactantes A (43 days to 6 months), shared reading and read-aloud experiences may utilize authorized cloth books (libros de tela), brief oral storytelling / narration, and accompanied observation of illustrations or contrasting images with gentle adult voice mediation.',
+    '   - Mandatory Bimodal Adaptations Preserved (Lactantes A): In Lactantes A, the reading activity MUST preserve both explicit adaptations in "proceduralAction" ("• Adaptación 43 días a 3 meses: <adecuación con contención física en brazos y modulación suave de voz>" and "• Adaptación 4 a 6 meses: <adecuación sobre colchoneta con fijación visual o exploración táctil de láminas/páginas de tela>").',
+    '   - Activity Duration: The duration for this reading activity must be a positive integer within general safety limits (1 to 60 minutes), developmentally appropriate for the age group. Do NOT enforce or require a fixed duration of 15 minutes; any positive duration appropriate for the child age is valid.',
+    '   - Real Daily Read-Aloud Experience: The activity classified as "LECTURA EN VOZ ALTA" must be a genuine reading-aloud / shared literature experience (e.g. lectura de cuentos, rimas, narración con libros o imágenes, lectura dialogada o con mediación de voz). Even though reading supports language and communication, its assigned category MUST strictly be "LECTURA EN VOZ ALTA" rather than a complementary category.',
+    '   - Materials & Zero-Material Fallback: When authorized books or cloth books are available in materialRefs, use them with {material}. In zero-material scenarios, reading aloud relies on oral storytelling, rhymes, songs, or caregiver vocal interaction without physical objects.',
     '   - Reading Continuity & Variation: Daily reading continuity is required across the week. Purposeful revisiting of reading experiences is allowed, but exact verbatim cloning of identical objective and proceduralAction across the entire Monday–Friday week should be avoided. Meaningful variation across days should arise when consistent with the supplied educator context, without artificially forcing five completely distinct reading activities.',
-    '6. NON-READING DURATION & CATEGORY FLEXIBILITY:',
-    '   - For all non-reading activities, duration is flexible and variable according to the pedagogical experience described.',
+    '6. DURATION & CATEGORY FLEXIBILITY:',
+    '   - Activity duration is flexible and variable according to the pedagogical experience described, within technical bounds (integer between 1 and 60 minutes).',
     '   - Indicative Duration: Suggested duration ("durationMinutes") is an indicative planning aid to assist educator organization, NOT a coercive or rigid time requirement. Children are never forced to continue an experience for the exact suggested duration regardless of response or fatigue.',
     '   - Technical data bounds: "durationMinutes" must be an integer between 1 and 60 minutes.',
     `   - Category distribution: Except for daily "LECTURA EN VOZ ALTA", complementary categories (${categoriesList}) may appear, repeat, or be absent on any given day.`,
@@ -559,6 +574,11 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '     * REVISIT: Intentionally returns to an earlier experience. Requires revisitsSlot (earlier slot), repetitionPurpose (REINFORCEMENT, FAMILIARIZATION, VARIATION, PROGRESSION, RESPONSE_OBSERVATION), and at least one variationDimensions.',
     '     * VARY: Intentionally modifies an earlier experience along one or more dimensions. Requires revisitsSlot (earlier slot) and at least one variationDimensions (PEDAGOGICAL_INTENT, INTERACTION_MODE, ADULT_MEDIATION, CHILD_AGENCY, GROUP_ORGANIZATION, SENSORY_EXPERIENCE, OBSERVATION_FOCUS).',
     '     * DEEPEN_OR_ADAPT & OBSERVE_OR_CONSOLIDATE: Pedagogical continuation, adaptation, or consolidation of an earlier experience. Requires revisitsSlot (earlier slot).',
+    '     * REGLAS ESTRICTAS DE RELACIÓN Y REVISITSSLOT:',
+    '       - Si revisitsSlot es null, el rol debe ser EXPLORE.',
+    '       - Si el rol indica variación, profundización, consolidación o cualquier relación con una actividad anterior, revisitsSlot debe contener un identificador válido de una actividad anterior de la misma semana.',
+    '       - Nunca inventar identificadores.',
+    '       - Si no existe una referencia válida, formular una experiencia autónoma con rol EXPLORE.',
     '   - Purposeful Variation vs Superficial Paraphrasing: Variation across weekdays must be pedagogical rather than merely lexical or cosmetic (changing synonyms, adjectives, or slightly rewording the same activity does NOT count as meaningful variation; for example, changing "explorar telas suaves" into "descubrir telas suaves" is NOT meaningful variation by itself). Meaningful variation may explore: pedagogical intent, interaction mode, adult mediation, child agency, group organization, sensory/experiential emphasis, or observation focus. Do NOT require every dimension to vary every day.',
     '   - Non-REVISIT roles must NOT be used to conceal unmotivated duplicates.',
     '   - Do NOT force artificial semantic novelty merely to make every activity completely different.',
@@ -590,7 +610,7 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '   - "materialRefs" is the ONLY authoritative physical material channel.',
     '   - Select materialRefs ONLY from the provided request-scoped allowed ref set (e.g. "MAT-01", "MAT-02").',
     '   - NEVER invent, require, introduce, or assume a physical material, toy, prop, instrument, or classroom object outside the allowed set.',
-    '   - Do NOT name physical materials in the "objective". The objective describes WHAT developmental capability or pedagogical purpose is intended and MUST be strictly material-agnostic.',
+    '   - STRICT MATERIAL-AGNOSTIC OBJECTIVE RULE: Do NOT name or mention physical materials or toys in the "objective". The objective describes WHAT developmental capability or pedagogical purpose is intended (e.g., "Favorecer el seguimiento visual y la atención compartida"), NEVER the physical object or materials (NEVER "Favorecer el seguimiento visual de la sonaja"). All physical materials belong EXCLUSIVELY in "materialRefs" and are projected into "proceduralAction".',
     '   - Do NOT smuggle unavailable physical objects into the "proceduralAction" or free text.',
     '   - If an activity would require an unavailable material, choose another activity that uses only allowed materials or no materials.',
     '   - An empty "materialRefs" array ([]) means the activity genuinely requires NO physical material (relies exclusively on vocal, body, movement, or caregiver-child interaction). Physical materials MUST be represented only through materialRefs; proceduralAction must remain material-agnostic and must not introduce physical props or toys. When no material is required, use materialRefs: [].',
@@ -598,11 +618,12 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '   - Each proposed activity MUST contain EXACTLY the following fields: "category", "objective", "proceduralAction", "materialRefs", "durationMinutes", "progression".',
     '   - Do NOT generate "experienceId" or technical IDs; experience identity is system-assigned.',
     '   - The "progression" object inside each activity declares: "role" (EXPLORE, REVISIT, VARY, DEEPEN_OR_ADAPT, OBSERVE_OR_CONSOLIDATE), "revisitsSlot", "repetitionPurpose", "variationDimensions", "observationTarget".',
+    '   - En "progression": Si revisitsSlot es null, el rol debe ser EXPLORE. Si el rol es VARY, DEEPEN_OR_ADAPT, OBSERVE_OR_CONSOLIDATE o REVISIT, revisitsSlot debe contener un identificador válido de una actividad anterior de la misma semana; nunca inventar identificadores; si no existe una referencia válida, formular una experiencia autónoma con rol EXPLORE.',
     `   - The "category" must strictly be one of the allowed canonical IMSS categories: ${categoriesList}.`,
-    '   - The "objective" describes the developmental capability or pedagogical purpose in natural Spanish. It MUST NOT name physical materials or toys.',
+    '   - The "objective" describes the developmental capability or pedagogical purpose in natural Spanish. It MUST NOT name physical materials or toys (strictly material-agnostic).',
     '   - The "proceduralAction" describes the pedagogical teacher action/interaction. In material-bearing activities, use the placeholder "{material}" where the material is used. In non-material activities, describe direct educator-child interactions without physical props.',
     '   - The "materialRefs" must be an array of ref IDs from the allowed set, or [] if no material is needed.',
-    '   - The "durationMinutes" must be an integer duration in minutes between 1 and 60 (and exactly 15 for "LECTURA EN VOZ ALTA").',
+    '   - The "durationMinutes" must be an integer duration in minutes between 1 and 60.',
   ];
 
   if (policy) {
@@ -615,6 +636,23 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
       '   - PROHIBITED/RISKY MATERIAL CONCEPTS:',
       ...policy.prohibitedMaterialConcepts.map((c) => `     * FORBIDDEN MATERIAL: ${c}`)
     );
+
+    if (policy.roomType === 'LACTANTES_A') {
+      lines.push(
+        '   - OBLIGATORY BIMODAL AGE ADAPTATIONS (LACTANTES A EXCLUSIVE POLICY):',
+        '     * 100% OF ACTIVITIES MANDATORY: EVERY SINGLE activity "proceduralAction" across ALL days without exception MUST include BOTH explicit adaptations. Omitting either adaptation from any single activity causes immediate proposal rejection.',
+        '     * Mandatory proceduralAction composition format:',
+        '       <Desarrollo central de la actividad con {material} o mediación docente humana>',
+        '       • Adaptación 43 días a 3 meses: <adecuación concreta, observable, segura y sensible con contención física en brazos o apoyo cercano, interacción 1 a 1, estímulos lentos/suaves>',
+        '       • Adaptación 4 a 6 meses: <adecuación concreta, observable y segura para colchoneta, exploración manual activa, seguimiento dinámico o rolado asistido>',
+        '     * Exact bullet headers: Use exactly "• Adaptación 43 días a 3 meses:" and "• Adaptación 4 a 6 meses:". Both adaptations MUST be embedded inside "proceduralAction". Do not invent separate JSON keys.',
+        '     * Specificity & Concrete Actions: Both adaptation sections MUST be non-empty and describe distinct, concrete, age-appropriate interactions. Superficial labels (e.g. "N/A", "no aplica", "sin cambios", or repeating only the age without an action) are strictly rejected.',
+        '     * Non-Coercive Framing: Adaptations describe sensitive invitations and accommodations, NOT mandatory milestone requirements. Do not treat developmental milestones as universal on-demand achievements.',
+        '     * Non-Clinical & Non-Operational: Do not generate clinical, medical, feeding, diapering, bathing, or sanitary instructions.',
+        '     * Strict Material Boundary in Adaptations: Adaptations must NOT introduce new physical materials outside "materialRefs". Physical props must use {material} or caregiver-infant bodily/vocal interaction without physical objects.',
+        '     * DAILY READING IN LACTANTES A: The daily reading activity ("LECTURA EN VOZ ALTA") must also fully include both adaptations, adapting shared literature and read-aloud interactions for 43 días a 3 meses (e.g. contención en brazos con cadencia de voz suave) and 4 a 6 meses (e.g. exploración en colchoneta con fijación visual de láminas o manipulación de páginas de tela).'
+      );
+    }
   }
 
   lines.push(
@@ -645,7 +683,9 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '           {',
     '             "category": "LECTURA EN VOZ ALTA",',
     '             "objective": "<objetivo específico coherente con el contexto proporcionado>",',
-    '             "proceduralAction": "<acción docente concreta sin materiales físicos coherente con el contexto proporcionado>",',
+    policy?.roomType === 'LACTANTES_A'
+      ? '             "proceduralAction": "<desarrollo central con {material} o mediación>\\n• Adaptación 43 días a 3 meses: <adecuación concreta en brazos con contención física>\\n• Adaptación 4 a 6 meses: <adecuación concreta sobre colchoneta con exploración activa>",'
+      : '             "proceduralAction": "<acción docente concreta sin materiales físicos coherente con el contexto proporcionado>",',
     '             "materialRefs": [],',
     '             "durationMinutes": 15,',
     '             "progression": {',
@@ -684,7 +724,8 @@ export function buildWeeklyPlanningAIUserPrompt(
     sections.push(
       '# REQUEST-SCOPED MATERIAL SYMBOL TABLE (AUTHORITATIVE ALLOWED REFS)',
       ...materialTable.entries.map((e) => `- ${e.refId}: ${e.displayName} (${e.source})`),
-      '- Boundary Instruction: "materialRefs" is the ONLY authoritative physical material channel. You MUST select materialRefs ONLY from the ref IDs listed above. Any other material, toy, or prop is strictly forbidden. If an activity requires no physical material, use [].'
+      '- Boundary Instruction: "materialRefs" is the ONLY authoritative physical material channel. You MUST select materialRefs ONLY from the ref IDs listed above. Any other material, toy, or prop is strictly forbidden. If an activity requires no physical material, use [].',
+      '- CRITICAL OBJECTIVE CONSTRAINT: The physical materials listed above must NEVER appear in any activity "objective" field. The "objective" must be strictly material-agnostic (developmental intent only). Physical materials may be referenced ONLY via "materialRefs" and "{material}" in "proceduralAction".'
     );
   } else if (input.generationPolicy) {
     sections.push(
@@ -733,7 +774,8 @@ export function buildWeeklyPlanningAIUserPrompt(
     `</educator_special_situations>`,
     `<educator_available_materials>`,
     input.currentContext.availableMaterials || '(None provided)',
-    `</educator_available_materials>`
+    `</educator_available_materials>`,
+    '- Reminder: Any physical materials mentioned in educator observations are historical observations only. Do NOT copy physical material names from observations into the "objective" field.'
   );
 
   return sections.join('\n');
@@ -750,7 +792,8 @@ export function buildWeeklyPlanningAIPromptPayload(
     ? buildWeeklyPlanningJsonSchema(
         materialTable,
         input.constraints?.allowedCategories,
-        input.constraints?.maxDurationMinutes ?? 60
+        input.constraints?.maxDurationMinutes ?? 60,
+        input.generationPolicy?.roomType
       )
     : undefined;
 
@@ -791,16 +834,28 @@ export function validateProceduralActionEnclosure(
   }
 
   // 2. Case A Golden Regression: Block unauthorized 'sonaja' / 'sonajas' / 'sonajas suaves'
-  // if not authorized in the request-scoped symbol table
-  const isSonajaAuthorized =
+  // if not authorized in the request-scoped symbol table OR if not declared in this activity's resolvedMaterials
+  const isSonajaAuthorizedInTable =
     table.displayNameMap.has('sonaja') ||
     table.displayNameMap.has('sonajas') ||
-    table.displayNameMap.has('sonajas suaves');
+    table.displayNameMap.has('sonajas suaves') ||
+    table.entries.some((e) => /\bsonajas?\b/i.test(e.displayName));
 
-  if (!isSonajaAuthorized && /\bsonajas?\b/i.test(proceduralAction)) {
-    throw new InvalidWeeklyPlanningProposalError(
-      `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction introduces unauthorized material 'sonaja(s)' not present in request-scoped authorized materials.`
-    );
+  const isSonajaDeclaredInActivity = resolvedMaterials.some((m) =>
+    /\bsonajas?\b/i.test(m)
+  );
+
+  if (/\bsonajas?\b/i.test(proceduralAction)) {
+    if (!isSonajaAuthorizedInTable) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction introduces unauthorized material 'sonaja(s)' not present in request-scoped authorized materials.`
+      );
+    }
+    if (!isSonajaDeclaredInActivity) {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction introduces unauthorized material 'sonaja(s)' without declaring it in materialRefs.`
+      );
+    }
   }
 
   // 3. Undeclared request-scoped materials check:
@@ -824,6 +879,108 @@ export function validateProceduralActionEnclosure(
         `Activity at day index ${dayIndex}, activity index ${actIndex} with empty materialRefs cannot reference {material} in proceduralAction: "${proceduralAction}"`
       );
     }
+  }
+}
+
+export const LACTANTES_A_EARLY_MARKER_REGEX =
+  /(?:(?:•|-|\*{1,2}|\d+[.)]|[a-zA-Z]\))\s*)?(?:\*{1,2}\s*)?(?:(?:adaptaci[oó]n|adecuaci[oó]n|variante|ajuste)(?:\s+(?:temprana|inicial|pedag[oó]gica))?\s*)?(?:(?:para|de|en|del)\s+)?(?:(?:lactantes|beb[eé]s|ni[nñ]os|grupo|subgrupo|rango|etapa)(?:\s+(?:menores|de))?\s*)?(?:[\(\[]\s*)?(?:(?:de\s+)?(?:43\s*d[ií]as|0(?:\s*meses)?)\s*(?:a|-)\s*3\s*meses?|43\s*d\s*(?:a|-)\s*3\s*m|hasta\s*(?:los\s*)?3\s*meses|menores\s+de\s*3\s*meses)(?:\s*de\s+edad)?[\)\]\s*]*(?:\*{1,2})?(?:\s*[:\-])(?:\s*\*{1,2})?\s*/i;
+
+export const LACTANTES_A_OLDER_MARKER_REGEX =
+  /(?:(?:•|-|\*{1,2}|\d+[.)]|[a-zA-Z]\))\s*)?(?:\*{1,2}\s*)?(?:(?:adaptaci[oó]n|adecuaci[oó]n|variante|ajuste)(?:\s+(?:posterior|avanzada|pedag[oó]gica))?\s*)?(?:(?:para|de|en|del)\s+)?(?:(?:lactantes|beb[eé]s|ni[nñ]os|grupo|subgrupo|rango|etapa)(?:\s+(?:mayores|de))?\s*)?(?:[\(\[]\s*)?(?:(?:de\s+)?4\s*(?:a|-)\s*6\s*meses?|4\s*a\s*6\s*m)(?:\s*de\s+edad)?[\)\]\s*]*(?:\*{1,2})?(?:\s*[:\-])(?:\s*\*{1,2})?\s*/i;
+
+export const LACTANTES_A_LATE_MARKER_REGEX = LACTANTES_A_OLDER_MARKER_REGEX;
+
+export const LACTANTES_A_SUPERFICIAL_NON_ACTION_REGEX =
+  /^(?:no\s+aplica(?:\s+.*)?|n\/?a|ninguna|sin\s+(?:adaptaci[oó]n|adecuaci[oó]n|cambios?|modificaci[oó]n(?:es)?)(?:\s+.*)?|misma\s+(?:actividad|acci[oó]n)(?:\s+.*)?|igual(?:\s+.*)?|mismo\s+desarrollo(?:\s+.*)?)[\.\s]*$/i;
+
+export const LACTANTES_A_AGE_ONLY_REPETITION_REGEX =
+  /^(?:(?:para|de|en|lactantes|beb[eé]s)\s+)*(?:(?:43\s*d[ií]as|0(?:\s*meses)?)\s*(?:a|-)\s*3\s*meses?|43\s*d\s*(?:a|-)\s*3\s*m|4\s*(?:a|-)\s*6\s*meses?|4\s*a\s*6\s*m)(?:\s*de\s+edad)?[\.\s]*$/i;
+
+/**
+ * Deterministically validates the bimodal adaptation structure of a procedural action for Lactantes A.
+ *
+ * Enforces that proceduralAction includes:
+ * 1. A non-empty central developmental action (before adaptations).
+ * 2. An explicit, non-empty adaptation for infants aged 43 days to 3 months.
+ * 3. An explicit, non-empty adaptation for infants aged 4 to 6 months.
+ *
+ * Superficial labels without substantive content are strictly rejected.
+ */
+export function validateLactantesAActivityAdaptations(
+  proceduralAction: string,
+  dayIndex: number,
+  actIndex: number
+): void {
+  const matchEarly = proceduralAction.match(LACTANTES_A_EARLY_MARKER_REGEX);
+  if (!matchEarly || matchEarly.index === undefined) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes A is missing required adaptation for 43 días a 3 meses.`,
+      'LACTANTES_A_EARLY_ADAPTATION_MISSING'
+    );
+  }
+
+  const matchOlder = proceduralAction.match(LACTANTES_A_OLDER_MARKER_REGEX);
+  if (!matchOlder || matchOlder.index === undefined) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes A is missing required adaptation for 4 a 6 meses.`,
+      'LACTANTES_A_OLDER_ADAPTATION_MISSING'
+    );
+  }
+
+  let centralRaw: string;
+  let earlyRaw: string;
+  let olderRaw: string;
+
+  if (matchEarly.index < matchOlder.index) {
+    centralRaw = proceduralAction.substring(0, matchEarly.index);
+    earlyRaw = proceduralAction.substring(
+      matchEarly.index + matchEarly[0].length,
+      matchOlder.index
+    );
+    olderRaw = proceduralAction.substring(matchOlder.index + matchOlder[0].length);
+  } else {
+    centralRaw = proceduralAction.substring(0, matchOlder.index);
+    olderRaw = proceduralAction.substring(
+      matchOlder.index + matchOlder[0].length,
+      matchEarly.index
+    );
+    earlyRaw = proceduralAction.substring(matchEarly.index + matchEarly[0].length);
+  }
+
+  const cleanSection = (text: string): string =>
+    text.replace(/^[:\-•*\s]+/, '').replace(/[\s\-•*:]+$/, '').trim();
+
+  const cleanCentral = cleanSection(centralRaw);
+  const cleanEarly = cleanSection(earlyRaw);
+  const cleanOlder = cleanSection(olderRaw);
+
+  if (cleanCentral.length < 15) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes A must contain a non-empty central developmental action before adaptations.`,
+      'LACTANTES_A_CENTRAL_ACTION_EMPTY'
+    );
+  }
+
+  if (
+    cleanEarly.length < 15 ||
+    LACTANTES_A_SUPERFICIAL_NON_ACTION_REGEX.test(cleanEarly) ||
+    LACTANTES_A_AGE_ONLY_REPETITION_REGEX.test(cleanEarly)
+  ) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes A must contain a non-empty adaptation for 43 días a 3 meses (found empty or superficial label).`,
+      'LACTANTES_A_EARLY_ADAPTATION_EMPTY'
+    );
+  }
+
+  if (
+    cleanOlder.length < 15 ||
+    LACTANTES_A_SUPERFICIAL_NON_ACTION_REGEX.test(cleanOlder) ||
+    LACTANTES_A_AGE_ONLY_REPETITION_REGEX.test(cleanOlder)
+  ) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes A must contain a non-empty adaptation for 4 a 6 meses (found empty or superficial label).`,
+      'LACTANTES_A_OLDER_ADAPTATION_EMPTY'
+    );
   }
 }
 
@@ -922,6 +1079,100 @@ export function resolveRevisitSlot(
 }
 
 /**
+ * Deterministically checks whether an activity contains explicit textual dependency
+ * on an earlier experience, session, or day that prevents it from being interpreted as an autonomous activity.
+ *
+ * Scans objective, proceduralAction, and observationTarget for explicit relational markers.
+ */
+export function isActivityDependentOnPriorExperience(
+  actObj: Record<string, unknown>,
+  expObj: Record<string, unknown>
+): boolean {
+  const textsToScan: string[] = [];
+
+  if (typeof actObj['objective'] === 'string') {
+    textsToScan.push(actObj['objective']);
+  }
+  if (typeof actObj['proceduralAction'] === 'string') {
+    textsToScan.push(actObj['proceduralAction']);
+  }
+  if (typeof expObj['observationTarget'] === 'string') {
+    textsToScan.push(expObj['observationTarget']);
+  }
+
+  const combinedText = textsToScan.join(' ');
+
+  // Patterns indicating explicit dependence on a prior experience/activity/session
+  const DEPENDENCY_PATTERNS = [
+    // Direct mentions of anterior / previous activity or session
+    /(?:actividad|experiencia|sesi[oó]n|ejercicio)\s+(?:anterior|previa|de\s+ayer|pasada)/i,
+    /(?:actividades|experiencias|sesiones)\s+(?:anteriores|previas)/i,
+    // Continuations or phased steps
+    /(?:continuaci[oó]n|segunda\s+parte|fase\s+(?:dos|2)|etapa\s+(?:dos|2)|segundo\s+momento)\s+de/i,
+    /(?:continuando|retomando|complementando|profundizando)\s+(?:con\s+|en\s+|la\s+|lo\s+)?(?:la\s+)?(?:actividad|experiencia|sesi[oó]n|lo\s+(?:trabajado|realizado|aprendido|visto))/i,
+    /(?:a\s+partir\s+de\s+lo\s+(?:trabajado|realizado|visto|aprendido))/i,
+    /(?:siguiendo\s+con\s+la\s+(?:actividad|sesi[oó]n|experiencia))/i,
+    // Comparative or cumulative references to prior activity
+    /(?:como\s+se\s+(?:hizo|realiz[oó]|vio|trabaj[oó]|practic[oó])\s+(?:en\s+la\s+|ayer|previamente|en\s+la\s+sesi[oó]n))/i,
+    /(?:al\s+igual\s+que\s+en\s+la\s+(?:actividad|sesi[oó]n|experiencia)\s+(?:anterior|previa))/i,
+    /(?:en\s+comparaci[oó]n\s+con|comparad[oa]\s+con)\s+la\s+(?:actividad|sesi[oó]n|experiencia)/i,
+    /(?:respecto\s+a\s+la|en\s+relaci[oó]n\s+con\s+la)\s+(?:actividad|sesi[oó]n|experiencia)\s+(?:anterior|previa)/i,
+    /(?:a\s+diferencia\s+de\s+la\s+(?:actividad|sesi[oó]n|experiencia)\s+(?:anterior|previa))/i,
+    // Explicit recognition or recall of earlier session in observation
+    /(?:reconocimiento|evocaci[oó]n|reiteraci[oó]n|repetici[oó]n)(?:\s+de)?/i,
+    // Explicit slot syntax in prose
+    /(?:actividad|sesi[oó]n|slot|revisita|contin[uú]a)\s+(?:SLOT_|EXP-)?D[1-5][-_\s]?A([1-9]|10)/i,
+  ];
+
+  return DEPENDENCY_PATTERNS.some((pattern) => pattern.test(combinedText));
+}
+
+/**
+ * Regular expression matching unequivocal read-aloud and shared reading markers.
+ *
+ * STRICT CRITERIA:
+ * - Matches unambiguous reading experiences: "lectura en voz alta", "lectura compartida",
+ *   "lectura de imágenes", "lectura de cuentos", "lectura de libros", "leer en voz alta",
+ *   "leer un cuento", "narración de cuentos", "hora del cuento", etc.
+ * - Does NOT match generic language stimulation, babbling, singing, rhymes without reading,
+ *   or general sensory/motor activities.
+ */
+export const UNEQUIVOCAL_READING_REGEX = new RegExp(
+  [
+    '\\blectura\\s+(?:en\\s+voz\\s+alta|compartida|guiada|interactiva|dialogada|dial[oó]gica)\\b',
+    '\\blectura\\s+de\\s+(?:im[aá]genes|cuentos?|libros?|textos?|historias?|relatos?|l[aá]minas?|pictogramas?|poemas?|rimas?|nanas?)\\b',
+    '\\blectura\\s+del\\s+(?:cuento|libro|relato|texto)\\b',
+    '\\bleer(?:les|le)?\\s+(?:en\\s+voz\\s+alta\\s+)?(?:un|el|los|las)?\\s*(?:cuento|libro|historia|relato|texto|poema|rima|nana)s?\\b',
+    '\\bleer\\s+en\\s+voz\\s+alta\\b',
+    '\\b(?:narraci[oó]n|relato)\\s+(?:en\\s+voz\\s+alta|oral)?\\s*de\\s+(?:un|el|los)?\\s*cuentos?\\b',
+    '\\bnarrar\\s+(?:un|el)?\\s*cuento(?:\\s+en\\s+voz\\s+alta)?\\b',
+    '\\b(?:hora|momento|experiencia)\\s+de\\s+(?:la\\s+)?lectura\\b',
+    '\\bhora\\s+del\\s+cuento\\b',
+    '\\bacercamiento\\s+a\\s+la\\s+lectura\\b',
+    '\\bfomento\\s+a\\s+la\\s+lectura\\b',
+  ].join('|'),
+  'i'
+);
+
+/**
+ * Checks whether an activity unequivocally describes a read-aloud / shared reading experience.
+ * Scans objective, proceduralAction, and description (if present).
+ */
+export function isUnequivocalReadingActivity(
+  act: Record<string, unknown>
+): boolean {
+  const objective = typeof act['objective'] === 'string' ? act['objective'] : '';
+  const proceduralAction =
+    typeof act['proceduralAction'] === 'string'
+      ? act['proceduralAction']
+      : typeof act['description'] === 'string'
+      ? act['description']
+      : '';
+  const combined = `${objective} ${proceduralAction}`;
+  return UNEQUIVOCAL_READING_REGEX.test(combined);
+}
+
+/**
  * Projects a raw activity object into a canonical ProposedActivity.
  * Enforces the provider-internal contract and projects resolved materials and canonical identity.
  */
@@ -929,7 +1180,8 @@ export function projectInternalActivityToCanonical(
   rawAct: Record<string, unknown>,
   table: RequestScopedMaterialTable,
   dayIndex = 0,
-  actIndex = 0
+  actIndex = 0,
+  roomType?: string
 ): ProposedActivity {
   // Reject provider attempt to inject canonical identity
   if ('experienceId' in rawAct || 'id' in rawAct) {
@@ -1014,6 +1266,11 @@ export function projectInternalActivityToCanonical(
   // Validate objective material-agnosticism
   validateObjectiveForMaterialAgnosticism(objective, table);
 
+  // Validate Lactantes A bimodal structural adaptations when roomType === 'LACTANTES_A'
+  if (roomType === 'LACTANTES_A') {
+    validateLactantesAActivityAdaptations(proceduralAction, dayIndex, actIndex);
+  }
+
   // Validate and resolve materialRefs
   const resolvedMaterials: string[] = [];
   for (const ref of rawMaterialRefs) {
@@ -1080,7 +1337,7 @@ export function projectInternalActivityToCanonical(
 export function parseAndAllowlistUntrustedProposal(
   rawOutput: unknown,
   materialTable?: RequestScopedMaterialTable,
-  options?: { requireProgression?: boolean }
+  options?: { requireProgression?: boolean; roomType?: string }
 ): WeeklyPlanningProposalResponse {
   if (rawOutput === null || rawOutput === undefined) {
     throw new InvalidWeeklyPlanningProposalError('AI proposal output cannot be null or undefined.');
@@ -1221,6 +1478,51 @@ export function parseAndAllowlistUntrustedProposal(
 
     const rawActivities = dayObj['activities'] as unknown[];
 
+    // Count how many activities on this day are already categorized as 'LECTURA EN VOZ ALTA'
+    const readingActivitiesCount = rawActivities.filter((rawAct) => {
+      if (!rawAct || typeof rawAct !== 'object' || Array.isArray(rawAct)) return false;
+      const cat = (rawAct as Record<string, unknown>)['category'];
+      return typeof cat === 'string' && cat.trim().toUpperCase() === 'LECTURA EN VOZ ALTA';
+    }).length;
+
+    // Normalize casing/trim if category is 'LECTURA EN VOZ ALTA' with differing case or whitespace
+    for (const rawAct of rawActivities) {
+      if (rawAct && typeof rawAct === 'object' && !Array.isArray(rawAct)) {
+        const actRecord = rawAct as Record<string, unknown>;
+        if (
+          typeof actRecord['category'] === 'string' &&
+          actRecord['category'].trim().toUpperCase() === 'LECTURA EN VOZ ALTA' &&
+          actRecord['category'] !== 'LECTURA EN VOZ ALTA'
+        ) {
+          actRecord['category'] = 'LECTURA EN VOZ ALTA';
+        }
+      }
+    }
+
+    // Deterministic category-only correction for unequivocal reading activities:
+    // If a day has 0 reading activities, but contains EXACTLY ONE unequivocal reading activity misclassified
+    // under another category (e.g. LENGUAJE Y COMUNICACIÓN), correct ONLY its category to 'LECTURA EN VOZ ALTA'.
+    // STRICT INVARIANTS:
+    // - Does NOT modify durationMinutes (duration is preserved as generated).
+    // - Does NOT invent missing activities (if 0 unequivocal reading activities, fails closed with MISSING_DAILY_READING).
+    // - Does NOT transform non-reading experiences into reading.
+    // - If ambiguous (>1 candidate reading activities), does NOT modify any category (fails closed).
+    if (readingActivitiesCount === 0) {
+      const unequivocalReadingIndices: number[] = [];
+      rawActivities.forEach((rawAct, actIdx) => {
+        if (rawAct && typeof rawAct === 'object' && !Array.isArray(rawAct)) {
+          if (isUnequivocalReadingActivity(rawAct as Record<string, unknown>)) {
+            unequivocalReadingIndices.push(actIdx);
+          }
+        }
+      });
+
+      if (unequivocalReadingIndices.length === 1) {
+        const targetAct = rawActivities[unequivocalReadingIndices[0]] as Record<string, unknown>;
+        targetAct['category'] = 'LECTURA EN VOZ ALTA';
+      }
+    }
+
     const sanitizedActivities = rawActivities.map((rawAct, actIndex) => {
       if (!rawAct || typeof rawAct !== 'object' || Array.isArray(rawAct)) {
         throw new InvalidWeeklyPlanningProposalError(
@@ -1250,7 +1552,8 @@ export function parseAndAllowlistUntrustedProposal(
         actObj,
         effectiveTable,
         dayIndex,
-        actIndex
+        actIndex,
+        options?.roomType
       );
 
       const canonicalExpId = `EXP-D${dayIndex + 1}-A${actIndex + 1}`;
@@ -1323,19 +1626,19 @@ export function parseAndAllowlistUntrustedProposal(
           );
         }
 
-        const role = expObj['role'] as ExperienceCompositionRole;
-        if (!EXPERIENCE_COMPOSITION_ROLES.includes(role)) {
+        const rawRole = expObj['role'] as ExperienceCompositionRole;
+        if (!EXPERIENCE_COMPOSITION_ROLES.includes(rawRole)) {
           throw new InvalidWeeklyPlanningProposalError(
-            `Unknown composition role '${String(role)}' at day index ${dayIndex}, activity index ${actIndex}. Must be one of: ${EXPERIENCE_COMPOSITION_ROLES.join(', ')}.`,
+            `Unknown composition role '${String(rawRole)}' at day index ${dayIndex}, activity index ${actIndex}. Must be one of: ${EXPERIENCE_COMPOSITION_ROLES.join(', ')}.`,
             'INVALID_PROGRESSION_ROLE'
           );
         }
 
-        // Resolve revisitsSlot if present or required
+        let role: ExperienceCompositionRole = rawRole;
         let canonicalRevisitsId: string | undefined;
         const rawSlot = expObj['revisitsSlot'];
 
-        if (role === 'EXPLORE') {
+        if (rawRole === 'EXPLORE') {
           if (rawSlot !== null && rawSlot !== undefined && String(rawSlot).trim() !== '') {
             throw new InvalidWeeklyPlanningProposalError(
               `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares revisitsSlot '${rawSlot}'. EXPLORE must be an independent introductory experience without prior reference.`,
@@ -1360,53 +1663,83 @@ export function parseAndAllowlistUntrustedProposal(
           }
         } else {
           // Relationship-bearing role (REVISIT, VARY, DEEPEN_OR_ADAPT, OBSERVE_OR_CONSOLIDATE)
-          if (rawSlot === null || rawSlot === undefined) {
-            const subtype =
-              role === 'REVISIT'
-                ? 'REVISIT_REFERENCE_MISSING'
-                : 'RELATIONSHIP_ROLE_MISSING_REFERENCE';
-            throw new InvalidWeeklyPlanningProposalError(
-              `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has relationship-bearing role '${role}' but missing required revisitsSlot reference.`,
-              subtype
-            );
+          let validPriorSlot: { targetDayIndex: number; targetActIndex: number } | null = null;
+          let slotResolutionError: InvalidWeeklyPlanningProposalError | null = null;
+
+          if (rawSlot !== null && rawSlot !== undefined && String(rawSlot).trim() !== '') {
+            try {
+              validPriorSlot = resolveRevisitSlot(rawSlot, dayIndex, actIndex, rawDays as any);
+            } catch (err) {
+              if (err instanceof InvalidWeeklyPlanningProposalError) {
+                slotResolutionError = err;
+              } else {
+                throw err;
+              }
+            }
           }
-          const { targetDayIndex, targetActIndex } = resolveRevisitSlot(rawSlot, dayIndex, actIndex, rawDays as any);
-          canonicalRevisitsId = `EXP-D${targetDayIndex + 1}-A${targetActIndex + 1}`;
 
-          if (role === 'REVISIT') {
-            // Repetition purpose check
-            const repPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
-            if (!repPurpose || !INTENTIONAL_REPETITION_PURPOSES.includes(repPurpose)) {
-              throw new InvalidWeeklyPlanningProposalError(
-                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${targetDayIndex + 1}_A${targetActIndex + 1} but lacks required repetitionPurpose. Must be one of: ${INTENTIONAL_REPETITION_PURPOSES.join(', ')}.`,
-                'REPETITION_PURPOSE_MISSING_OR_INVALID'
-              );
-            }
+          if (validPriorSlot !== null) {
+            // Case B: A valid earlier reference exists -> preserve without modification
+            canonicalRevisitsId = `EXP-D${validPriorSlot.targetDayIndex + 1}-A${validPriorSlot.targetActIndex + 1}`;
 
-            // Variation dimensions check
-            const varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
-            if (
-              !Array.isArray(varDims) ||
-              varDims.length === 0 ||
-              !varDims.every((dim) => PEDAGOGICAL_VARIATION_DIMENSIONS.includes(dim))
-            ) {
-              throw new InvalidWeeklyPlanningProposalError(
-                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${targetDayIndex + 1}_A${targetActIndex + 1} but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
-                'VARIATION_DIMENSIONS_MISSING_OR_INVALID'
-              );
+            if (role === 'REVISIT') {
+              // Repetition purpose check
+              const repPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
+              if (!repPurpose || !INTENTIONAL_REPETITION_PURPOSES.includes(repPurpose)) {
+                throw new InvalidWeeklyPlanningProposalError(
+                  `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${validPriorSlot.targetDayIndex + 1}_A${validPriorSlot.targetActIndex + 1} but lacks required repetitionPurpose. Must be one of: ${INTENTIONAL_REPETITION_PURPOSES.join(', ')}.`,
+                  'REPETITION_PURPOSE_MISSING_OR_INVALID'
+                );
+              }
+
+              // Variation dimensions check
+              const varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
+              if (
+                !Array.isArray(varDims) ||
+                varDims.length === 0 ||
+                !varDims.every((dim) => PEDAGOGICAL_VARIATION_DIMENSIONS.includes(dim))
+              ) {
+                throw new InvalidWeeklyPlanningProposalError(
+                  `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${validPriorSlot.targetDayIndex + 1}_A${validPriorSlot.targetActIndex + 1} but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
+                  'VARIATION_DIMENSIONS_MISSING_OR_INVALID'
+                );
+              }
+            } else if (role === 'VARY') {
+              // Variation dimensions check
+              const varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
+              if (
+                !Array.isArray(varDims) ||
+                varDims.length === 0 ||
+                !varDims.every((dim) => PEDAGOGICAL_VARIATION_DIMENSIONS.includes(dim))
+              ) {
+                throw new InvalidWeeklyPlanningProposalError(
+                  `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'VARY' but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
+                  'VARY_MISSING_VARIATION'
+                );
+              }
             }
-          } else if (role === 'VARY') {
-            // Variation dimensions check
-            const varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
-            if (
-              !Array.isArray(varDims) ||
-              varDims.length === 0 ||
-              !varDims.every((dim) => PEDAGOGICAL_VARIATION_DIMENSIONS.includes(dim))
-            ) {
+          } else {
+            // No valid earlier slot reference exists (rawSlot is null/missing/empty or invalid)
+            const isDependent = isActivityDependentOnPriorExperience(actObj, expObj);
+
+            if (isDependent) {
+              // Case C: Activity genuinely depends on prior experience and cannot be interpreted as autonomous
+              if (slotResolutionError) {
+                throw slotResolutionError;
+              }
+              const subtype =
+                role === 'REVISIT'
+                  ? 'REVISIT_REFERENCE_MISSING'
+                  : 'RELATIONSHIP_ROLE_MISSING_REFERENCE';
               throw new InvalidWeeklyPlanningProposalError(
-                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'VARY' but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
-                'VARY_MISSING_VARIATION'
+                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has relationship-bearing role '${role}' but missing required revisitsSlot reference.`,
+                subtype
               );
+            } else {
+              // Case A: Autonomous and coherent experience -> deterministic conservative normalization
+              // Normalizes to: role = EXPLORE, revisitsSlot = null
+              role = 'EXPLORE';
+              canonicalRevisitsId = undefined;
             }
           }
         }
@@ -1437,8 +1770,8 @@ export function parseAndAllowlistUntrustedProposal(
           experienceId: canonicalExpId,
           role,
           ...(canonicalRevisitsId ? { revisitsExperienceId: canonicalRevisitsId } : {}),
-          ...(expObj['repetitionPurpose'] ? { repetitionPurpose: expObj['repetitionPurpose'] as IntentionalRepetitionPurpose } : {}),
-          ...(expObj['variationDimensions'] ? { variationDimensions: expObj['variationDimensions'] as readonly PedagogicalVariationDimension[] } : {}),
+          ...(role !== 'EXPLORE' && expObj['repetitionPurpose'] ? { repetitionPurpose: expObj['repetitionPurpose'] as IntentionalRepetitionPurpose } : {}),
+          ...(role !== 'EXPLORE' && expObj['variationDimensions'] ? { variationDimensions: expObj['variationDimensions'] as readonly PedagogicalVariationDimension[] } : {}),
           ...(cleanTarget ? { observationTarget: cleanTarget } : {}),
         });
       }
@@ -1503,17 +1836,15 @@ export function validateWeeklyPlanningTechnicalBounds(
 
     for (let actIdx = 0; actIdx < day.activities.length; actIdx++) {
       const act = day.activities[actIdx];
-      if (act.category !== 'LECTURA EN VOZ ALTA') {
-        if (
-          typeof act.durationMinutes !== 'number' ||
-          !Number.isInteger(act.durationMinutes) ||
-          act.durationMinutes < 1 ||
-          act.durationMinutes > 60
-        ) {
-          throw new InvalidWeeklyPlanningProposalError(
-            `Proposed non-reading activity ${actIdx + 1} on ${day.dayOfWeek} has invalid duration ${act.durationMinutes} minutes. Must be an integer between 1 and 60 minutes.`
-          );
-        }
+      if (
+        typeof act.durationMinutes !== 'number' ||
+        !Number.isInteger(act.durationMinutes) ||
+        act.durationMinutes < 1 ||
+        act.durationMinutes > 60
+      ) {
+        throw new InvalidWeeklyPlanningProposalError(
+          `Proposed activity ${actIdx + 1} on ${day.dayOfWeek} has invalid duration ${act.durationMinutes} minutes. Must be an integer between 1 and 60 minutes.`
+        );
       }
     }
   }
@@ -1524,9 +1855,12 @@ export function validateWeeklyPlanningTechnicalBounds(
  *
  * PROVENANCE: TUTORIA V1 PRODUCT POLICY (not established as a current IMSS normative requirement).
  * TUTORIA V1 REPRESENTATION (Level 4): Exactly one canonical ProposedActivity per operational
- * weekday with category 'LECTURA EN VOZ ALTA' and durationMinutes = 15.
+ * weekday with category 'LECTURA EN VOZ ALTA'.
  *
- * Fails closed if missing, multiple, or duration != 15.
+ * Validates that reading duration is positive, developmentally appropriate,
+ * and within technical bounds (1 to 60 minutes).
+ *
+ * Fails closed if missing, multiple, or invalid duration.
  */
 export function validateWeeklyPlanningDailyReadingInvariant(
   response: WeeklyPlanningProposalResponse
@@ -1549,9 +1883,14 @@ export function validateWeeklyPlanningDailyReadingInvariant(
     }
 
     const readingActivity = readingActivities[0];
-    if (readingActivity.durationMinutes !== 15) {
+    if (
+      typeof readingActivity.durationMinutes !== 'number' ||
+      !Number.isInteger(readingActivity.durationMinutes) ||
+      readingActivity.durationMinutes < 1 ||
+      readingActivity.durationMinutes > 60
+    ) {
       throw new InvalidWeeklyPlanningProposalError(
-        `Proposed plan fails daily reading invariant: Day ${day.dayOfWeek} reading activity duration is ${readingActivity.durationMinutes} minutes; must be exactly 15 minutes.`
+        `Proposed plan fails daily reading invariant: Day ${day.dayOfWeek} reading activity duration is invalid (${readingActivity.durationMinutes} minutes). Must be an integer between 1 and 60 minutes.`
       );
     }
   }
@@ -1630,6 +1969,13 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       );
     }
 
+    // 2.1. Authoritative Institutional AI Generation Gate
+    if (!PedagogicalAgePolicyCatalog.isAiGenerationAuthorized(policy.roomType)) {
+      throw new UnsupportedPedagogicalPolicyError(
+        `AI proposal generation is not authorized for room profile: "${policy.label}". Awaiting institutional pedagogical policy approval.`
+      );
+    }
+
     // 3. Pre-Generation Policy Projection
     const generationPolicy = projectPedagogicalGenerationPolicy(policy, request);
 
@@ -1664,7 +2010,7 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
     const allowlistedResponse = parseAndAllowlistUntrustedProposal(
       rawOutput,
       materialTable,
-      { requireProgression: true }
+      { requireProgression: true, roomType: policy.roomType }
     );
 
     // 9. Canonical H1R11.1 contract validator ensuring zero domain leakage

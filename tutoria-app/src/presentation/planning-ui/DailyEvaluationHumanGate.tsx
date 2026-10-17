@@ -12,6 +12,13 @@ export type DailyEvaluationHumanGateState =
   | 'SUGGESTION_AVAILABLE'
   | 'ERROR';
 
+export interface HumanEvidenceInputs {
+  activitiesDevelopment: string;
+  groupResponse: string;
+  adaptations?: string;
+  continuity?: string;
+}
+
 export interface DailyEvaluationHumanGateProps {
   planningId: string;
   dayOfWeek: EvaluationWeekday;
@@ -21,6 +28,8 @@ export interface DailyEvaluationHumanGateProps {
   onEdit: (suggestedText: string) => void;
   onDiscard?: () => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  initialEvidence?: HumanEvidenceInputs;
+  onEvidenceChange?: (evidence: HumanEvidenceInputs) => void;
 }
 
 export const DailyEvaluationHumanGate: React.FC<DailyEvaluationHumanGateProps> = ({
@@ -32,14 +41,49 @@ export const DailyEvaluationHumanGate: React.FC<DailyEvaluationHumanGateProps> =
   onEdit,
   onDiscard,
   textareaRef,
+  initialEvidence,
+  onEvidenceChange,
 }) => {
   const [state, setState] = useState<DailyEvaluationHumanGateState>('IDLE');
-  const [activitiesDevelopment, setActivitiesDevelopment] = useState('');
-  const [groupResponse, setGroupResponse] = useState('');
-  const [adaptations, setAdaptations] = useState('');
-  const [continuity, setContinuity] = useState('');
+  const [activitiesDevelopment, setActivitiesDevelopment] = useState(
+    initialEvidence?.activitiesDevelopment || ''
+  );
+  const [groupResponse, setGroupResponse] = useState(
+    initialEvidence?.groupResponse || ''
+  );
+  const [adaptations, setAdaptations] = useState(
+    initialEvidence?.adaptations || ''
+  );
+  const [continuity, setContinuity] = useState(
+    initialEvidence?.continuity || ''
+  );
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (initialEvidence) {
+      setActivitiesDevelopment(initialEvidence.activitiesDevelopment || '');
+      setGroupResponse(initialEvidence.groupResponse || '');
+      setAdaptations(initialEvidence.adaptations || '');
+      setContinuity(initialEvidence.continuity || '');
+    }
+  }, [dayOfWeek, initialEvidence]);
+
+  const notifyEvidenceChange = (
+    dev: string,
+    resp: string,
+    adap: string,
+    cont: string
+  ) => {
+    if (onEvidenceChange) {
+      onEvidenceChange({
+        activitiesDevelopment: dev,
+        groupResponse: resp,
+        adaptations: adap,
+        continuity: cont,
+      });
+    }
+  };
 
   const recommendationSource = useMemo(
     () => source || new FirebaseEvaluationRecommendationSource(),
@@ -206,7 +250,11 @@ export const DailyEvaluationHumanGate: React.FC<DailyEvaluationHumanGateProps> =
                 aria-label="¿Cómo se desarrollaron las actividades de este día?"
                 disabled={state === 'REQUESTING'}
                 value={activitiesDevelopment}
-                onChange={(e) => setActivitiesDevelopment(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setActivitiesDevelopment(val);
+                  notifyEvidenceChange(val, groupResponse, adaptations, continuity);
+                }}
                 placeholder="Describe de forma objetiva cómo se llevaron a cabo las experiencias..."
                 className="w-full text-xs p-3 bg-white border border-teal-200 focus:border-brand-primary rounded-lg outline-none min-h-[72px] resize-y transition shadow-inner disabled:bg-gray-100"
               />
@@ -236,7 +284,11 @@ export const DailyEvaluationHumanGate: React.FC<DailyEvaluationHumanGateProps> =
                 aria-label="¿Qué observaste en la respuesta del grupo?"
                 disabled={state === 'REQUESTING'}
                 value={groupResponse}
-                onChange={(e) => setGroupResponse(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setGroupResponse(val);
+                  notifyEvidenceChange(activitiesDevelopment, val, adaptations, continuity);
+                }}
                 placeholder="Describe la respuesta, interés y participación del grupo..."
                 className="w-full text-xs p-3 bg-white border border-teal-200 focus:border-brand-primary rounded-lg outline-none min-h-[72px] resize-y transition shadow-inner disabled:bg-gray-100"
               />
@@ -264,7 +316,11 @@ export const DailyEvaluationHumanGate: React.FC<DailyEvaluationHumanGateProps> =
                 aria-label="¿Realizaste algún ajuste durante las actividades?"
                 disabled={state === 'REQUESTING'}
                 value={adaptations}
-                onChange={(e) => setAdaptations(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAdaptations(val);
+                  notifyEvidenceChange(activitiesDevelopment, groupResponse, val, continuity);
+                }}
                 placeholder="Ajustes realizados en mediación, ambiente o materiales..."
                 className="w-full text-xs p-3 bg-white border border-teal-200 focus:border-brand-primary rounded-lg outline-none min-h-[56px] resize-y transition shadow-inner disabled:bg-gray-100"
               />
@@ -292,7 +348,11 @@ export const DailyEvaluationHumanGate: React.FC<DailyEvaluationHumanGateProps> =
                 aria-label="¿Hay algo que consideres importante retomar o continuar?"
                 disabled={state === 'REQUESTING'}
                 value={continuity}
-                onChange={(e) => setContinuity(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setContinuity(val);
+                  notifyEvidenceChange(activitiesDevelopment, groupResponse, adaptations, val);
+                }}
                 placeholder="Aspectos a continuar o profundizar en próximas sesiones..."
                 className="w-full text-xs p-3 bg-white border border-teal-200 focus:border-brand-primary rounded-lg outline-none min-h-[56px] resize-y transition shadow-inner disabled:bg-gray-100"
               />

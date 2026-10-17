@@ -6,6 +6,7 @@ import {
   validateProceduralActionEnclosure,
   projectInternalActivityToCanonical,
   parseAndAllowlistUntrustedProposal,
+  validateWeeklyPlanningDailyReadingInvariant,
   AIWeeklyPlanningProposalSource,
   type WeeklyPlanningAIExecutor,
 } from '../AIWeeklyPlanningProposalSource';
@@ -981,4 +982,327 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
       }).toThrow(/with empty materialRefs cannot reference \{material\}/);
     });
   });
+
+  // ============================================================
+  // SR-MD-10 — WEEKLY PLANNING AI CONTRACT STABILIZATION MATRIX
+  // ============================================================
+
+  describe('SR-MD-10 — Weekly Planning AI Contract Stabilization Matrix', () => {
+    const tableWithVariants = createRequestScopedMaterialTable(
+      ['sonajas ligeras', 'pelotas suaves', 'música infantil'],
+      ['colchonetas']
+    );
+
+    // 1. Objetivo pedagógico válido
+    it('1. valid pedagogical objective passes material-agnostic validation', () => {
+      expect(() => {
+        validateObjectiveForMaterialAgnosticism(
+          'Favorecer el seguimiento visual y la atención compartida',
+          tableWithVariants
+        );
+      }).not.toThrow();
+    });
+
+    // 2. Objetivo con material prohibido (names physical material or ref)
+    it('2. objective naming authorized or physical material is rejected with OBJECTIVE_MATERIAL_LEAK condition', () => {
+      expect(() => {
+        validateObjectiveForMaterialAgnosticism(
+          'Favorecer el seguimiento visual con sonajas ligeras',
+          tableWithVariants
+        );
+      }).toThrow(/Activity objective must be material-agnostic and cannot name physical materials/);
+
+      expect(() => {
+        validateObjectiveForMaterialAgnosticism(
+          'Favorecer la prensión con MAT-01',
+          tableWithVariants
+        );
+      }).toThrow(/Activity objective must be material-agnostic and cannot contain material reference syntax/);
+    });
+
+    // 3. Procedimiento con material autorizado
+    it('3. procedural action with authorized material declared in materialRefs passes enclosure', () => {
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Mover suavemente {material} en el campo visual del lactante.',
+          ['sonajas ligeras'],
+          tableWithVariants,
+          0,
+          0
+        );
+      }).not.toThrow();
+
+      const canonical = projectInternalActivityToCanonical(
+        {
+          category: 'SOSTÉN',
+          objective: 'Favorecer el seguimiento visual',
+          proceduralAction: 'Mover suavemente {material} en el campo visual del lactante.',
+          materialRefs: ['MAT-01'], // sonajas ligeras
+          durationMinutes: 10,
+        },
+        tableWithVariants,
+        0,
+        0
+      );
+      expect(canonical.materials).toEqual(['sonajas ligeras']);
+      expect(canonical.description).toBe(
+        'Mover suavemente sonajas ligeras en el campo visual del lactante.'
+      );
+    });
+
+    // 4. Procedimiento con material no autorizado
+    it('4. procedural action with unauthorized material fails closed', () => {
+      // sonaja not in table:
+      const tableWithoutSonajas = createRequestScopedMaterialTable(['pelotas suaves'], ['colchonetas']);
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Hacer sonar una sonaja cerca del bebé.',
+          [],
+          tableWithoutSonajas,
+          0,
+          0
+        );
+      }).toThrow(/proceduralAction introduces unauthorized material 'sonaja\(s\)' not present in request-scoped authorized materials/);
+    });
+
+    // 5. Materiales vacíos (materialRefs: [])
+    it('5. empty materials activity passes when action is purely interactional without {material} placeholder', () => {
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Entonar canciones suaves y mantener contacto visual con el lactante.',
+          [],
+          tableWithVariants,
+          0,
+          0
+        );
+      }).not.toThrow();
+
+      const canonical = projectInternalActivityToCanonical(
+        {
+          category: 'SOSTÉN',
+          objective: 'Favorecer el vínculo afectivo y la audición temprana',
+          proceduralAction: 'Entonar canciones suaves y mantener contacto visual con el lactante.',
+          materialRefs: [],
+          durationMinutes: 10,
+        },
+        tableWithVariants,
+        0,
+        0
+      );
+      expect(canonical.materials).toEqual([]);
+      expect(canonical.description).toBe(
+        'Entonar canciones suaves y mantener contacto visual con el lactante.'
+      );
+    });
+
+    // 6. Variaciones de nombres y sinónimos
+    it('6. authorized qualified material ("sonajas ligeras") allows natural procedural mention ("sonaja"/"sonajas") if declared, but blocks if undeclared', () => {
+      // When MAT-01 ("sonajas ligeras") is declared in materialRefs, natural reference passes:
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Mover la sonaja frente al lactante invitando a su exploración.',
+          ['sonajas ligeras'],
+          tableWithVariants,
+          0,
+          0
+        );
+      }).not.toThrow();
+
+      // When sonaja variant is in the room table, but NOT declared in this activity's materialRefs:
+      expect(() => {
+        validateProceduralActionEnclosure(
+          'Mover la sonaja frente al lactante.',
+          [], // undeclared in this activity
+          tableWithVariants,
+          0,
+          0
+        );
+      }).toThrow(/proceduralAction introduces unauthorized material 'sonaja\(s\)' without declaring it in materialRefs/);
+    });
+
+    // 7. Respuesta IA inválida (unexpected fields, missing fields, or malformed)
+    it('7. invalid AI response fails closed deterministically', () => {
+      // Forbidden technical identity field:
+      expect(() => {
+        projectInternalActivityToCanonical(
+          {
+            category: 'SOSTÉN',
+            objective: 'Favorecer el desarrollo',
+            proceduralAction: 'Interacción vocal',
+            materialRefs: [],
+            durationMinutes: 10,
+            experienceId: 'FORBIDDEN-01',
+          },
+          tableWithVariants,
+          0,
+          0
+        );
+      }).toThrow(/contains unexpected or forbidden property 'experienceId'/);
+
+      // Missing required proceduralAction:
+      expect(() => {
+        projectInternalActivityToCanonical(
+          {
+            category: 'SOSTÉN',
+            objective: 'Favorecer el desarrollo',
+            materialRefs: [],
+            durationMinutes: 10,
+          } as any,
+          tableWithVariants,
+          0,
+          0
+        );
+      }).toThrow(/missing required property 'proceduralAction'/);
+    });
+
+    // 8. Propuesta semanal completa de cinco días
+    it('8. complete 5-day weekly proposal passes projection cleanly', () => {
+      const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+      const rawProposal = {
+        weeklyFocus: 'Exploración sensorial táctil y auditiva en lactantes',
+        days: days.map((dayOfWeek) => ({
+          dayOfWeek,
+          activities: [
+            {
+              category: 'SOSTÉN',
+              objective: 'Favorecer la atención visual compartida',
+              proceduralAction: 'Mover suavemente {material} en el campo visual',
+              materialRefs: ['MAT-01'], // sonajas ligeras
+              durationMinutes: 10,
+              progression: {
+                role: 'EXPLORE',
+                revisitsSlot: null,
+                repetitionPurpose: null,
+                variationDimensions: null,
+                observationTarget: 'Observar seguimiento ocular',
+              },
+            },
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Favorecer la musicalidad y la atención auditiva',
+              proceduralAction: 'Lectura compartida con entonación afectuosa y pausas breves',
+              materialRefs: [],
+              durationMinutes: 15, // exactly 15 for reading
+              progression: {
+                role: 'EXPLORE',
+                revisitsSlot: null,
+                repetitionPurpose: null,
+                variationDimensions: null,
+                observationTarget: 'Observar respuesta al tono de voz',
+              },
+            },
+          ],
+        })),
+      };
+
+      const projected = parseAndAllowlistUntrustedProposal(rawProposal, tableWithVariants);
+      expect(projected.days).toHaveLength(5);
+      expect(projected.progression?.weeklyFocus).toBe(
+        'Exploración sensorial táctil y auditiva en lactantes'
+      );
+      for (const day of projected.days) {
+        expect(day.activities).toHaveLength(2);
+        expect(day.activities[0]!.materials).toEqual(['sonajas ligeras']);
+        expect(day.activities[1]!.materials).toEqual([]);
+      }
+    });
+
+    // 9. Preservación de restricciones por edad
+    it('9. age and developmental policy restrictions are preserved (Lactantes duration invariants)', () => {
+      // LECTURA EN VOZ ALTA must be exactly 15 minutes:
+      const rawInvalidReading: WeeklyPlanningProposalResponse = {
+        days: [
+          {
+            dayOfWeek: 'MONDAY',
+            activities: [
+              {
+                category: 'LECTURA EN VOZ ALTA',
+                objective: 'Lectura de nanas',
+                description: 'Lectura afectuosa',
+                materials: [],
+                durationMinutes: 20, // invalid for reading
+              },
+            ],
+          },
+        ],
+      };
+
+      expect(() => {
+        validateWeeklyPlanningDailyReadingInvariant(rawInvalidReading);
+      }).toThrow(/Day MONDAY reading activity duration is 20 minutes; must be exactly 15 minutes/);
+    });
+
+    // 10. Ausencia de escrituras automáticas
+    it('10. proposal generation preserves zero automatic writes and immutability', async () => {
+      const sampleDays = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].map(
+        (dayOfWeek) => ({
+          dayOfWeek,
+          activities: [
+            {
+              category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+              objective: 'Favorecer el seguimiento visual',
+              proceduralAction: 'Mover {material} frente al lactante',
+              materialRefs: ['MAT-01'],
+              durationMinutes: 10,
+              progression: {
+                role: 'EXPLORE' as const,
+                revisitsSlot: null,
+                repetitionPurpose: null,
+                variationDimensions: null,
+                observationTarget: 'Observar mirada',
+              },
+            },
+            {
+              category: 'LECTURA EN VOZ ALTA' as const,
+              objective: 'Lectura rítmica',
+              proceduralAction: 'Narrar cuento breve con entonación afectuosa',
+              materialRefs: [],
+              durationMinutes: 15,
+              progression: {
+                role: 'EXPLORE' as const,
+                revisitsSlot: null,
+                repetitionPurpose: null,
+                variationDimensions: null,
+                observationTarget: 'Observar atención',
+              },
+            },
+          ],
+        })
+      );
+
+      const mockExecutor: WeeklyPlanningAIExecutor = {
+        execute: vi.fn().mockResolvedValue({
+          weeklyFocus: 'Estimulación sensorial temprana',
+          days: sampleDays,
+        }),
+      };
+
+      const source = new AIWeeklyPlanningProposalSource(mockExecutor);
+      const request: WeeklyPlanningProposalRequest = {
+        modality: 'DIRECT',
+        room: {
+          roomId: 'room-lactantes-1',
+          name: 'Lactantes A',
+          minAgeMonths: 0,
+          maxAgeMonths: 6,
+        },
+        weekStart: '2026-10-05',
+        weekEnd: '2026-10-09',
+        currentContext: {
+          availableMaterials: 'sonajas ligeras',
+        },
+      };
+
+      const response = await source.propose(request);
+
+      // Verify returned proposal is candidate data for educator review (pure query)
+      expect(response).toBeDefined();
+      expect(response.days).toHaveLength(5);
+      // Zero database mutations / zero state transitions
+      expect((response as any).status).toBeUndefined();
+      expect((response as any).id).toBeUndefined();
+      expect((response as any).approvedBy).toBeUndefined();
+    });
+  });
 });
+

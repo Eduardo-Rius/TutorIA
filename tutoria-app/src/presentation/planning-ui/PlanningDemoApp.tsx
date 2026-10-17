@@ -35,7 +35,7 @@ import type {
   WeeklyPlanningProposalResponse,
 } from '../../application/planning/WeeklyPlanningProposalSource';
 import { WeeklyPlanningProposalHumanGate } from './WeeklyPlanningProposalHumanGate';
-import { DailyEvaluationHumanGate } from './DailyEvaluationHumanGate';
+import { DailyEvaluationHumanGate, type HumanEvidenceInputs } from './DailyEvaluationHumanGate';
 import type { EvaluationRecommendationSource } from '../../infrastructure/ai/FirebaseEvaluationRecommendationSource';
 
 const MOCK_START = '2026-08-10';
@@ -47,6 +47,93 @@ const LOADING_MESSAGES = [
   "Estoy preparando la propuesta...",
   "Estoy organizando la semana..."
 ];
+
+export function getAssistantRoleLabel(roomId?: string): string {
+  if (!roomId) return 'Asistente Educativa';
+  if (roomId === 'room-lactantes-a' || roomId === 'lactantes-a') return 'Asistente Educativa LA';
+  if (roomId === 'room-lactantes-b' || roomId === 'lactantes-b') return 'Asistente Educativa LB';
+  if (roomId === 'room-lactantes-c' || roomId === 'lactantes-c') return 'Asistente Educativa LC';
+  if (roomId === 'room-maternal-a' || roomId === 'maternal-a') return 'Asistente Educativa MA';
+  if (roomId === 'room-maternal-b1' || roomId === 'maternal-b1') return 'Asistente Educativa MB1';
+  if (roomId === 'room-maternal-b2' || roomId === 'maternal-b2') return 'Asistente Educativa MB2';
+  if (roomId === 'room-maternal-c1' || roomId === 'maternal-c1') return 'Asistente Educativa MC1';
+  if (roomId === 'room-maternal-c2' || roomId === 'maternal-c2') return 'Asistente Educativa MC2';
+  return 'Asistente Educativa';
+}
+
+export function formatInstitutionalDate(val?: any): string {
+  if (!val) return '';
+  try {
+    let d: Date;
+    if (val instanceof Date) {
+      d = val;
+    } else if (typeof val?.toDate === 'function') {
+      d = val.toDate();
+    } else if (typeof val?.seconds === 'number') {
+      d = new Date(val.seconds * 1000);
+    } else if (typeof val?._seconds === 'number') {
+      d = new Date(val._seconds * 1000);
+    } else {
+      d = new Date(val);
+    }
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+}
+
+export function getInstitutionalActorLabel(actor: string | undefined | null, roomId?: string): string {
+  if (!actor || !actor.trim()) return 'Personal Educativo';
+  const a = actor.trim();
+  if (
+    a === 't1' ||
+    a === 'Anita' ||
+    a === FIRST_LIGHT_TEACHER_ID ||
+    a === FIRST_LIGHT_ANITA_EMAIL ||
+    a === 'TEACHER'
+  ) {
+    return getAssistantRoleLabel(roomId);
+  }
+  if (
+    a === 'd1' ||
+    a === 'Ceci' ||
+    a === 'DIRECTOR' ||
+    a === FIRST_LIGHT_DIRECTOR_ID ||
+    a === FIRST_LIGHT_CECI_EMAIL
+  ) {
+    return 'Educadora';
+  }
+  if (
+    a === 's1' ||
+    a === 'Tere' ||
+    a === 'SUPERVISOR' ||
+    a === FIRST_LIGHT_SUPERVISOR_ID ||
+    a === FIRST_LIGHT_TERE_EMAIL
+  ) {
+    return 'Directora';
+  }
+  return a;
+}
+
+export function formatPlanPeriod(plan: any): string {
+  if (plan?.weekStart && plan?.weekEnd) {
+    const s = String(plan.weekStart).split('-');
+    const e = String(plan.weekEnd).split('-');
+    if (s.length === 3 && e.length === 3) {
+      const sDay = parseInt(s[2], 10);
+      const eDay = parseInt(e[2], 10);
+      const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+      const monthName = months[parseInt(e[1], 10) - 1] || 'agosto';
+      return `${sDay} al ${eDay} de ${monthName} de ${e[0]}`;
+    }
+  }
+  return '24 al 28 de agosto de 2026';
+}
 
 const DAY_CONTEXT: Record<string, string> = {
   'MONDAY': 'Comenzamos despertando curiosidad.',
@@ -351,6 +438,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
 
   // CANONICAL ACTIVE ROOM: Single source of truth for presentation and generation
   const activeRoom = React.useMemo<Room>(() => {
+    if (roomOverride) return roomOverride;
     if (userSelectedRoomId) {
       const found = effectiveAuthorizedRooms.find(r => r.roomId === userSelectedRoomId) || RoomCatalog.getRoom(userSelectedRoomId);
       if (found) return found;
@@ -364,7 +452,6 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         return { roomId: 'lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 };
       }
     }
-    if (roomOverride) return roomOverride;
     if (firstLightGuard.isEligible) {
       return (
         RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) || {
@@ -406,6 +493,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   const [bootstrapRetryCount, setBootstrapRetryCount] = useState(0);
   const [canonicalPlanningAggregate, setCanonicalPlanningAggregate] = useState<WeeklyPlanning | null>(null);
   const navigationRequestIdRef = React.useRef<number>(0);
+
+  const isBootstrapLoading =
+    (firstLightGuard.isEligible && (bootstrapStatus === 'AUTH_PENDING' || bootstrapStatus === 'PLANNING_PENDING')) ||
+    (!firstLightGuard.isEligible && bootstrapStatus === 'PLANNING_PENDING');
 
   const effectiveCurricularSource = React.useMemo(() => {
     if (!firstLightGuard.isEligible) {
@@ -519,6 +610,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
             setBootstrapError('La planeación solicitada no pertenece a la docente autenticada.');
             return;
           }
+          if (plan.roomId) {
+            setUserSelectedRoomId(plan.roomId);
+          }
+          setCanonicalPlanningAggregate(plan);
           setSelectedPlanId(urlPlanId);
           setSessionKey(urlPlanId);
           setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
@@ -543,6 +638,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         .then((res) => {
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
           if (res.mode === 'ACTIVE_PLANNING' && res.selectedPlanId) {
+            const plan = res.activePlans[0];
+            if (plan?.roomId) {
+              setUserSelectedRoomId(plan.roomId);
+            }
+            if (plan) {
+              setCanonicalPlanningAggregate(plan);
+            }
             setSelectedPlanId(res.selectedPlanId);
             setSessionKey(res.selectedPlanId);
             setView('CREATE');
@@ -567,6 +669,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         .then((res) => {
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
           if (res.mode === 'ACTIVE_PLANNING' && res.selectedPlanId) {
+            const plan = res.pendingPlans?.find(p => p.planningId === res.selectedPlanId);
+            if (plan?.roomId) {
+              setUserSelectedRoomId(plan.roomId);
+            }
+            if (plan) {
+              setCanonicalPlanningAggregate(plan);
+            }
             setSelectedPlanId(res.selectedPlanId);
             setSessionKey(res.selectedPlanId);
             setView('REVIEW');
@@ -683,6 +792,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           }
 
           // Exact identity recovered!
+          if (requestedPlan.roomId) {
+            setUserSelectedRoomId(requestedPlan.roomId);
+          }
+          setCanonicalPlanningAggregate(requestedPlan);
           setSelectedPlanId(urlPlanId);
           setSessionKey(urlPlanId);
           setView(isDirector || isSupervisor ? 'REVIEW' : 'CREATE');
@@ -728,6 +841,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
 
           if (resolution.mode === 'ACTIVE_PLANNING' && resolution.selectedPlanId) {
+            const plan = resolution.pendingPlans?.find(p => p.planningId === resolution.selectedPlanId);
+            if (plan?.roomId) {
+              setUserSelectedRoomId(plan.roomId);
+            }
+            if (plan) {
+              setCanonicalPlanningAggregate(plan);
+            }
             setSelectedPlanId(resolution.selectedPlanId);
             setSessionKey(resolution.selectedPlanId);
             setView('REVIEW');
@@ -750,6 +870,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
 
           if (resolution.mode === 'ACTIVE_PLANNING' && resolution.selectedPlanId) {
+            const plan = resolution.activePlans[0];
+            if (plan?.roomId) {
+              setUserSelectedRoomId(plan.roomId);
+            }
+            if (plan) {
+              setCanonicalPlanningAggregate(plan);
+            }
             setSelectedPlanId(resolution.selectedPlanId);
             setSessionKey(resolution.selectedPlanId);
             setView('CREATE');
@@ -806,6 +933,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           const plan = await service.getPlanning(urlPlanId);
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
           if (plan) {
+            if (plan.roomId) {
+              setUserSelectedRoomId(plan.roomId);
+            }
+            setCanonicalPlanningAggregate(plan);
             setSelectedPlanId(urlPlanId);
             setSessionKey(urlPlanId);
             setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
@@ -867,14 +998,32 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     setBootstrapError(null);
   };
 
-  const handleSelectPlan = (id: string) => {
-    ++navigationRequestIdRef.current;
+  const handleSelectPlan = async (id: string) => {
+    const currentReqId = ++navigationRequestIdRef.current;
     updateUrlParams({ planId: id, action: null });
     setSelectedPlanId(id);
     setSessionKey(id);
-    setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
-    setBootstrapStatus('EXISTING_PLANNING_FOUND');
-    setBootstrapError(null);
+
+    try {
+      const plan = await service.getPlanning(id);
+      if (currentReqId !== navigationRequestIdRef.current) return;
+      if (!plan) {
+        setBootstrapStatus('BOOTSTRAP_ERROR');
+        setBootstrapError(`La planeación solicitada (${id}) no fue encontrada.`);
+        return;
+      }
+      if (plan.roomId) {
+        setUserSelectedRoomId(plan.roomId);
+        setCanonicalPlanningAggregate(plan);
+      }
+      setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
+      setBootstrapStatus('EXISTING_PLANNING_FOUND');
+      setBootstrapError(null);
+    } catch {
+      if (currentReqId !== navigationRequestIdRef.current) return;
+      setBootstrapStatus('BOOTSTRAP_ERROR');
+      setBootstrapError('No pudimos recuperar tu planeación. Intenta nuevamente.');
+    }
   };
 
   const handlePlanPersisted = (persistedId: string) => {
@@ -912,6 +1061,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           setRefreshKey(k => k + 1);
           return;
         } else {
+          if (plan?.roomId) {
+            setUserSelectedRoomId(plan.roomId);
+            setCanonicalPlanningAggregate(plan);
+          }
           setView(newRole === 'TEACHER' ? 'CREATE' : 'REVIEW');
           setRole(newRole);
           setRefreshKey(k => k + 1);
@@ -963,6 +1116,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>28 (V)</button>
         </div>
         <button
+          data-testid="role-btn-teacher"
           onClick={() => {
             if (!firstLightGuard.isEligible) {
               handleRoleChange('TEACHER');
@@ -975,10 +1129,12 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
           } ${firstLightGuard.isEligible && role !== 'TEACHER' ? 'opacity-40 cursor-not-allowed' : ''}`}
         >
-          <img src={personas.anita} alt="Anita" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-          Anita (Pedagoga)
+          <img src={personas.anita} alt="Asistente Educativa" className="w-6 h-6 rounded-full object-cover bg-white/20" />
+          <span>Asistente Educativa</span>
+          <span className="sr-only">Anita (Pedagoga)</span>
         </button>
         <button
+          data-testid="role-btn-director"
           onClick={() => {
             if (!firstLightGuard.isEligible) {
               handleRoleChange('DIRECTOR');
@@ -991,10 +1147,12 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
           } ${firstLightGuard.isEligible && role !== 'DIRECTOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
         >
-          <img src={personas.ceci} alt="Ceci" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-          Ceci (Directora)
+          <img src={personas.ceci} alt="Educadora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
+          <span>Educadora</span>
+          <span className="sr-only">Ceci (Directora)</span>
         </button>
         <button
+          data-testid="role-btn-supervisor"
           onClick={() => {
             if (!firstLightGuard.isEligible) {
               handleRoleChange('SUPERVISOR');
@@ -1007,8 +1165,9 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
               : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
           } ${firstLightGuard.isEligible && role !== 'SUPERVISOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
         >
-          <img src={personas.tere} alt="Tere" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-          Tere (Supervisora)
+          <img src={personas.tere} alt="Directora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
+          <span>Directora</span>
+          <span className="sr-only">Tere (Supervisora)</span>
         </button>
       </div>
 
@@ -1026,10 +1185,18 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           <div className="w-full md:w-1/3 flex justify-end">
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-semibold text-text-primary">{role === 'TEACHER' ? 'Anita' : role === 'DIRECTOR' ? 'Ceci' : 'Tere'}</p>
-                <p className="text-xs font-medium text-text-muted">{role === 'TEACHER' ? `Pedagoga · ${activeRoom.name}` : role === 'DIRECTOR' ? 'Directora' : 'Supervisora'}</p>
+                <p className="text-sm font-semibold text-text-primary">
+                  {isBootstrapLoading
+                    ? (role === 'TEACHER' ? 'Asistente Educativa' : role === 'DIRECTOR' ? 'Educadora' : 'Directora')
+                    : (role === 'TEACHER' ? getAssistantRoleLabel(activeRoom?.roomId) : role === 'DIRECTOR' ? 'Educadora' : 'Directora')}
+                </p>
+                <p className="text-xs font-medium text-text-muted">
+                  {isBootstrapLoading
+                    ? 'Cargando sala pedagógica...'
+                    : (role === 'TEACHER' ? `Asistente Educativa · ${activeRoom?.name || 'Sala'}` : role === 'DIRECTOR' ? 'Educadora' : 'Directora')}
+                </p>
               </div>
-              <img src={role === 'TEACHER' ? personas.anita : role === 'DIRECTOR' ? personas.ceci : personas.tere} alt="Perfil" className="w-[128px] h-[128px] object-contain" />
+              <img src={role === 'TEACHER' ? personas.anita : role === 'DIRECTOR' ? personas.ceci : personas.tere} alt={role === 'TEACHER' ? 'Asistente Educativa' : role === 'DIRECTOR' ? 'Educadora' : 'Directora'} className="w-[128px] h-[128px] object-contain" />
             </div>
           </div>
         </div>
@@ -1041,7 +1208,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
             <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin mb-6"></div>
             <h2 className="text-2xl font-bold text-brand-dark mb-2">Cargando tu planeación pedagógica...</h2>
             <p className="text-text-muted text-sm max-w-md">
-              Verificando las actividades y avances pedagógicos para {activeRoom.name}.
+              Verificando las actividades y avances pedagógicos...
             </p>
           </div>
         )}
@@ -1110,6 +1277,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 onSaved={triggerRefresh}
                 onViewOfficial={() => setView('PRINT')}
                 onPlanPersisted={handlePlanPersisted}
+                onRoomResolved={(roomId) => setUserSelectedRoomId(roomId)}
               />
             )}
           </>
@@ -1387,7 +1555,7 @@ const TeacherList = ({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in max-w-2xl mx-auto w-full">
-      <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola Anita 👋</h2>
+      <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola, {getAssistantRoleLabel(effectiveActiveRoomId)} 👋</h2>
       <p className="text-2xl text-text-muted mb-6 max-w-xl leading-relaxed">
         Vamos a preparar tu semana.<br/>
         Del 24 al 28 de agosto para <span className="font-bold text-text-primary">{effectiveRoomLabel}</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
@@ -1696,7 +1864,7 @@ const createDefaultWeekDays = (): PlanningDay[] =>
     materials: [],
   }));
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId, onPlanPersisted }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, effectiveWeeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string, onPlanPersisted?: (id: string) => void }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId, onPlanPersisted, onRoomResolved }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, effectiveWeeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string, onPlanPersisted?: (id: string) => void, onRoomResolved?: (roomId: string) => void }) => {
   const effectiveTeacher = teacherId || (isFirstLight ? FIRST_LIGHT_TEACHER_ID : 't1');
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
@@ -1731,7 +1899,9 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   const currentPlanId = planId || stableIdRef.current;
   const evaluationTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const effectiveRoom = activeRoom
+  const planRoomId = (planningObj as any)?.roomId || canonicalPlan?.roomId;
+  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined)))
+    || activeRoom
     || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
     || RoomCatalog.getRoom('lactantes-c')
     || {
@@ -1758,6 +1928,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   const [collapsedResolved, setCollapsedResolved] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState('');
   const [dailyEvaluations, setDailyEvaluations] = useState<Record<string, string>>({});
+  const [evaluationEvidenceByDay, setEvaluationEvidenceByDay] = useState<Record<string, HumanEvidenceInputs>>({});
+  const [evaluationDraftError, setEvaluationDraftError] = useState<string | null>(null);
 
   const ensurePlanningAggregateCreated = async () => {
     if (planningObj) return planningObj;
@@ -1789,6 +1961,9 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
       service.getPlanning(planId).then((p: any) => {
         if (p) {
           setPlanningObj(p);
+          if (onRoomResolved && p.roomId) {
+            onRoomResolved(p.roomId);
+          }
           setObs(p.observations || '');
           setNeeds(p.identifiedNeeds || '');
           setSpecialSituations(p.specialSituations || '');
@@ -1818,7 +1993,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
           if (p.days) {
             const evals: Record<string, string> = {};
             for (const d of p.days) {
-              if (d.evaluation) evals[d.dayOfWeek] = d.evaluation;
+              const text = d.evaluationDraft !== undefined ? d.evaluationDraft : (d.evaluation || '');
+              if (text) evals[d.dayOfWeek] = text;
             }
             setDailyEvaluations(evals);
           }
@@ -1905,7 +2081,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
     }
 
     // Legacy fallback path for existing tests without weeklyPlanningProposalSource
-    const recommended = await source.generateRecommendation(activeRoom || RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
+    const recommended = await source.generateRecommendation(effectiveRoom || activeRoom || RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
     const initialSnapshot = {
       observations: obs,
       identifiedNeeds: needs,
@@ -2205,8 +2381,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                 </div>
                 <span className="text-xs text-teal-800 font-medium text-center sm:text-right">
                   {days.filter(d => Boolean(d.teacherReviewedAt && d.teacherReviewedBy)).length === 5
-                    ? "✓ Todos los días revisados. Puedes enviar la planeación a Ceci."
-                    : "Revisa cada día antes de enviar la planeación a Ceci."}
+                    ? "✓ Todos los días revisados. Puedes enviar la planeación a la Educadora."
+                    : "Revisa cada día antes de enviar la planeación a la Educadora."}
                 </span>
               </div>
             )}
@@ -2412,7 +2588,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                           {Boolean(d.teacherReviewedAt && d.teacherReviewedBy) ? (
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-bold text-green-800 bg-green-50 px-4 py-2 rounded-full border border-green-200 flex items-center gap-2">
-                                <span>✓</span> Día revisado por Anita
+                                <span>✓</span> Día revisado por {getAssistantRoleLabel(effectiveRoom?.roomId)}
                               </span>
                             </div>
                           ) : (
@@ -2460,15 +2636,15 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                               <div className="flex items-center gap-2">
                                 {d.evaluationStatus === 'APPROVED' ? (
                                   <span className="text-xs font-bold bg-green-100 text-green-800 border border-green-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                    <span>✓</span> Aprobada por Ceci
+                                    <span>✓</span> Aprobada por Educadora
                                   </span>
                                 ) : d.evaluationStatus === 'CHANGES_REQUESTED' ? (
                                   <span className="text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                    <span>⚠</span> Cambio solicitado por Ceci
+                                    <span>⚠</span> Cambio solicitado por Educadora
                                   </span>
                                 ) : d.evaluationStatus === 'IN_REVIEW' ? (
                                   <span className="text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                    <span>⏳</span> En revisión por Ceci
+                                    <span>⏳</span> En revisión por Educadora
                                   </span>
                                 ) : !isEligible ? (
                                   <span className="text-xs font-bold bg-gray-100 text-gray-600 border border-gray-300 px-3 py-1 rounded-full flex items-center gap-1.5">
@@ -2486,17 +2662,17 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                               <div className="bg-green-50/50 border border-green-200 rounded-lg p-6">
                                 <div className="flex items-center justify-between mb-3 border-b border-green-100 pb-2">
                                   <span className="text-xs font-bold text-green-900 uppercase tracking-wider">
-                                    Evaluación aprobada por Dirección
+                                    Evaluación aprobada por la Educadora
                                   </span>
                                   <span className="text-[11px] font-medium text-green-700">
-                                    {d.evaluationReviewedAt ? new Date(d.evaluationReviewedAt).toLocaleDateString() : 'Aprobada'}
+                                    {d.evaluationReviewedAt ? formatInstitutionalDate(d.evaluationReviewedAt) : 'Aprobada'}
                                   </span>
                                 </div>
                                 <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-green-100 shadow-inner min-h-[100px]">
                                   {dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
                                 </div>
                                 <p className="text-xs text-green-800 mt-3 font-semibold flex items-center gap-1.5">
-                                  <span>✓</span> Aprobada por {d.evaluationReviewedBy === FIRST_LIGHT_DIRECTOR_ID || d.evaluationReviewedBy === 'Ceci' ? 'Ceci' : (d.evaluationReviewedBy || 'Ceci')}.
+                                  <span>✓</span> Aprobada por {getInstitutionalActorLabel(d.evaluationReviewedBy, effectiveRoom?.roomId)}.
                                 </p>
                               </div>
                             ) : !isEligible ? (
@@ -2535,18 +2711,18 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                               <div className="bg-orange-50/50 border border-orange-200 rounded-lg p-6">
                                 <div className="flex items-center justify-between mb-3 border-b border-orange-100 pb-2">
                                   <span className="text-xs font-bold text-orange-900 uppercase tracking-wider">
-                                    Cambio solicitado por Dirección
+                                    Cambio solicitado por la Educadora
                                   </span>
                                   <span className="text-[11px] font-medium text-orange-700">
-                                    {d.evaluationReviewedAt ? new Date(d.evaluationReviewedAt).toLocaleDateString() : 'Revisada'}
+                                    {d.evaluationReviewedAt ? formatInstitutionalDate(d.evaluationReviewedAt) : 'Revisada'}
                                   </span>
                                 </div>
                                 <div className="mt-2 mb-4 p-4 bg-orange-100/70 border border-orange-200 rounded-lg text-sm text-orange-900">
-                                  <span className="font-bold block mb-1">Observación de Ceci:</span>
+                                  <span className="font-bold block mb-1">Observación de la Educadora:</span>
                                   <p>{d.evaluationDirectorComment}</p>
                                 </div>
                                 <p className="text-sm text-orange-900 font-semibold mb-3">
-                                  ✏️ Edición habilitada por solicitud de Ceci. Corrige tu evaluación y reenvíala a Dirección:
+                                  ✏️ Edición habilitada por solicitud de la Educadora. Corrige tu evaluación y reenvíala a la Educadora:
                                 </p>
                                 <DailyEvaluationHumanGate
                                   planningId={currentPlanId}
@@ -2558,6 +2734,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                   }
                                   {...(evaluationRecommendationSource ? { source: evaluationRecommendationSource } : {})}
                                   textareaRef={evaluationTextareaRef}
+                                  initialEvidence={evaluationEvidenceByDay[d.dayOfWeek]}
+                                  onEvidenceChange={(ev) => setEvaluationEvidenceByDay(prev => ({ ...prev, [d.dayOfWeek]: ev }))}
                                   onAccept={(suggestedText) => {
                                     setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: suggestedText }));
                                   }}
@@ -2568,7 +2746,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                 />
                                 <textarea
                                   ref={evaluationTextareaRef}
-                                  value={dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')}
+                                  value={dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluationDraft !== undefined ? d.evaluationDraft : (d.evaluation || ''))}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: val }));
@@ -2577,20 +2755,36 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                   className="w-full text-base p-4 bg-white border border-orange-300 focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
                                 />
 
+                                {evaluationDraftError && (
+                                  <div role="alert" className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-center gap-2">
+                                    <span>⚠️</span>
+                                    <span>{evaluationDraftError}</span>
+                                  </div>
+                                )}
+
                                 <div className="mt-4 flex flex-wrap justify-between items-center gap-3">
                                   <button
                                     onClick={async () => {
-                                      const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
-                                      if (!currentDate) return;
-                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, effectiveTeacher);
-                                      const updatedPlan = await service.getPlanning(currentPlanId);
-                                      if (updatedPlan) {
-                                        setPlanningObj(updatedPlan);
-                                        setDays(updatedPlan.days);
+                                      const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluationDraft !== undefined ? d.evaluationDraft : (d.evaluation || ''))).trim();
+                                      if (!evalText) {
+                                        setEvaluationDraftError('⚠️ Escribe o incorpora una evaluación antes de guardar el borrador.');
+                                        setTimeout(() => setEvaluationDraftError(null), 4000);
+                                        return;
                                       }
-                                      setToastMessage('✓ Borrador de corrección guardado.');
-                                      setTimeout(() => setToastMessage(''), 2000);
-                                      onSaved();
+                                      if (!currentDate) return;
+                                      try {
+                                        setEvaluationDraftError(null);
+                                        await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, effectiveTeacher);
+                                        const updatedPlan = await service.getPlanning(currentPlanId);
+                                        if (updatedPlan) {
+                                          setPlanningObj(updatedPlan);
+                                          setDays(updatedPlan.days);
+                                        }
+                                        setToastMessage('✓ Borrador de corrección guardado.');
+                                        setTimeout(() => setToastMessage(''), 2000);
+                                      } catch (err: any) {
+                                        setEvaluationDraftError('⚠️ Error al guardar borrador: ' + (err?.message || 'Error de persistencia'));
+                                      }
                                     }}
                                     className="bg-surface-ivory hover:bg-orange-50 border border-orange-300 text-orange-900 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm"
                                   >
@@ -2600,7 +2794,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                   <button
                                     disabled={!hasVisibleContent}
                                     onClick={async () => {
-                                      const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
+                                      const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluationDraft !== undefined ? d.evaluationDraft : (d.evaluation || ''))).trim();
                                       if (!currentDate || !evalText) return;
                                       await service.confirmAndResubmitDailyEvaluation(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, effectiveTeacher);
                                       const updatedPlan = await service.getPlanning(currentPlanId);
@@ -2608,13 +2802,13 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                         setPlanningObj(updatedPlan);
                                         setDays(updatedPlan.days);
                                       }
-                                      setToastMessage('✓ Evaluación reenviada a Ceci.');
+                                      setToastMessage('✓ Evaluación reenviada a la Educadora.');
                                       setTimeout(() => setToastMessage(''), 2000);
                                       onSaved();
                                     }}
                                     className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                   >
-                                    🚀 Reenviar evaluación a Ceci
+                                    🚀 Reenviar evaluación a la Educadora
                                   </button>
                                 </div>
                               </div>
@@ -2622,10 +2816,10 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                               <div className="bg-blue-50/50 border border-blue-200 rounded-lg p-6">
                                 <div className="flex items-center justify-between mb-3 border-b border-blue-100 pb-2">
                                   <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">
-                                    Evaluación enviada a Dirección
+                                    Evaluación enviada a la Educadora
                                   </span>
                                   <span className="text-[11px] font-medium text-blue-700">
-                                    {d.evaluationSubmittedAt ? new Date(d.evaluationSubmittedAt).toLocaleDateString() : 'Enviada'}
+                                    {d.evaluationSubmittedAt ? formatInstitutionalDate(d.evaluationSubmittedAt) : 'Enviada'}
                                   </span>
                                 </div>
                                 <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-blue-100 shadow-inner min-h-[100px]">
@@ -2633,11 +2827,11 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                 </div>
                                 <div className="flex items-center justify-between mt-3 text-xs">
                                   <p className="text-blue-800 font-semibold flex items-center gap-1.5">
-                                    <span>🔒</span> Evaluación registrada y en revisión por Ceci. No se permiten modificaciones.
+                                    <span>🔒</span> Evaluación registrada y en revisión por Educadora. No se permiten modificaciones.
                                   </p>
                                   {d.evaluationSubmittedBy && (
                                     <span className="text-teal-700 font-medium bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-                                      ✓ Enviada por {d.evaluationSubmittedBy === 't1' || d.evaluationSubmittedBy === FIRST_LIGHT_TEACHER_ID ? 'Anita' : d.evaluationSubmittedBy}
+                                      ✓ Enviada por {getInstitutionalActorLabel(d.evaluationSubmittedBy, effectiveRoom?.roomId)}
                                     </span>
                                   )}
                                 </div>
@@ -2658,6 +2852,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                   }
                                   {...(evaluationRecommendationSource ? { source: evaluationRecommendationSource } : {})}
                                   textareaRef={evaluationTextareaRef}
+                                  initialEvidence={evaluationEvidenceByDay[d.dayOfWeek]}
+                                  onEvidenceChange={(ev) => setEvaluationEvidenceByDay(prev => ({ ...prev, [d.dayOfWeek]: ev }))}
                                   onAccept={(suggestedText) => {
                                     setDailyEvaluations(prev => ({ ...prev, [d.dayOfWeek]: suggestedText }));
                                   }}
@@ -2677,20 +2873,36 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                   className="w-full text-base p-4 bg-white border border-border-default focus:border-brand-primary rounded-lg outline-none min-h-[120px] resize-y transition shadow-inner"
                                 />
 
+                                {evaluationDraftError && (
+                                  <div role="alert" className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-center gap-2">
+                                    <span>⚠️</span>
+                                    <span>{evaluationDraftError}</span>
+                                  </div>
+                                )}
+
                                 <div className="mt-4 flex flex-wrap justify-between items-center gap-3">
                                   <button
                                     onClick={async () => {
-                                      const evalText = dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '');
-                                      if (!currentDate) return;
-                                      await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText || "", "TEACHER", currentDate, effectiveTeacher);
-                                      const updatedPlan = await service.getPlanning(currentPlanId);
-                                      if (updatedPlan) {
-                                        setPlanningObj(updatedPlan);
-                                        setDays(updatedPlan.days);
+                                      const evalText = (dailyEvaluations[d.dayOfWeek] !== undefined ? dailyEvaluations[d.dayOfWeek] : (d.evaluation || '')).trim();
+                                      if (!evalText) {
+                                        setEvaluationDraftError('⚠️ Escribe o incorpora una evaluación antes de guardar el borrador.');
+                                        setTimeout(() => setEvaluationDraftError(null), 4000);
+                                        return;
                                       }
-                                      setToastMessage('✓ Borrador de evaluación guardado.');
-                                      setTimeout(() => setToastMessage(''), 2000);
-                                      onSaved();
+                                      if (!currentDate) return;
+                                      try {
+                                        setEvaluationDraftError(null);
+                                        await service.saveDailyEvaluationDraft(currentPlanId, d.dayOfWeek, evalText, "TEACHER", currentDate, effectiveTeacher);
+                                        const updatedPlan = await service.getPlanning(currentPlanId);
+                                        if (updatedPlan) {
+                                          setPlanningObj(updatedPlan);
+                                          setDays(updatedPlan.days);
+                                        }
+                                        setToastMessage('✓ Borrador de evaluación guardado.');
+                                        setTimeout(() => setToastMessage(''), 2000);
+                                      } catch (err: any) {
+                                        setEvaluationDraftError('⚠️ Error al guardar borrador: ' + (err?.message || 'Error de persistencia'));
+                                      }
                                     }}
                                     className="bg-surface-ivory hover:bg-teal-50 border border-teal-300 text-teal-800 font-bold px-5 py-2.5 rounded-full shadow-sm transition flex items-center gap-2 text-sm"
                                   >
@@ -2708,13 +2920,13 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                         setPlanningObj(updatedPlan);
                                         setDays(updatedPlan.days);
                                       }
-                                      setToastMessage('✓ Evaluación enviada a Ceci.');
+                                      setToastMessage('✓ Evaluación enviada a la Educadora.');
                                       setTimeout(() => setToastMessage(''), 2000);
                                       onSaved();
                                     }}
                                     className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-6 py-2.5 rounded-full shadow-md transition flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                   >
-                                    🚀 Enviar evaluación a Ceci
+                                    🚀 Enviar evaluación a Educadora
                                   </button>
                                 </div>
                               </div>
@@ -2727,7 +2939,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                         <div className="mt-8">
                           <div className="bg-teal-50 p-4 rounded-lg mb-6 border border-teal-100 text-center">
                             <p className="text-teal-900 font-medium text-sm">
-                              Revisa y ajusta los días de la semana. Cuando la planeación esté lista, envíala a Ceci para revisión.
+                              Revisa y ajusta los días de la semana. Cuando la planeación esté lista, envíala a la Educadora para revisión.
                             </p>
                           </div>
                           <div className="text-center flex justify-center">
@@ -2742,7 +2954,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                   disabled={isSubmitDisabled}
                                   className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-8 py-4 rounded-full transition shadow-sm disabled:opacity-50"
                                 >
-                                  {status === 'REJECTED' ? 'Enviar correcciones a la Directora' : 'Enviar a Revisión'}
+                                  {status === 'REJECTED' ? 'Enviar correcciones a la Educadora' : 'Enviar a Revisión'}
                                 </button>
                               );
                             })()}
@@ -2835,7 +3047,7 @@ const DirectorList = ({
           return (
             <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border-2 border-border-soft hover:border-brand-primary p-8 rounded-xl shadow-sm text-left transition w-full outline-none">
               <div className="flex justify-between items-center mb-3">
-                <span className="font-bold text-text-primary text-2xl">Anita</span>
+                <span className="font-bold text-text-primary text-2xl">{getAssistantRoleLabel((p as any).roomId || activeRoom?.roomId)}</span>
                 <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-status-review/20 text-status-review">{badgeLabel}</span>
               </div>
               <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
@@ -2940,25 +3152,100 @@ const DirectorReview = ({
         setDirectorReviewedDays(initialReviewed);
       }
     });
+
+    // SR-MD-21 Phase 2: Restore private draft observations from institutional persistence
+    if (typeof service.listDirectorDraftObservations === 'function') {
+      let directorId = 'Ceci';
+      try {
+        directorId = getEffectiveDirectorId();
+      } catch {
+        // fallback
+      }
+      service.listDirectorDraftObservations(planId, directorId, 'DIRECTOR')
+        .then(drafts => {
+          if (drafts && drafts.length > 0) {
+            const restored: Record<string, string> = {};
+            for (const d of drafts) {
+              restored[d.activityId] = d.observation;
+            }
+            setPreparedObservations(prev => ({
+              ...restored,
+              ...prev,
+            }));
+          }
+        })
+        .catch(err => {
+          console.error("Error al recuperar borradores de observación:", err);
+        });
+    }
   }, [planId, service]);
   if (!plan) return <p className="p-8 text-center text-xl">Leyendo la propuesta...</p>;
 
-  // P0-2: "GUARDAR OBSERVACIÓN" MEANS ONLY SAVE LOCALLY
-  const handleSavePrepared = (activityId: string) => {
+  // SR-MD-21 Phase 2: PERSIST DRAFT OBSERVATIONS TO INSTITUTIONAL REPOSITORY
+  const handleSavePrepared = async (activityId: string) => {
     const obsText = newGranularObs[activityId];
     if (!obsText || !obsText.trim()) return;
 
-    setPreparedObservations(prev => ({
-      ...prev,
-      [activityId]: obsText.trim()
-    }));
-    setNewGranularObs(prev => { const n = {...prev}; delete n[activityId]; return n; });
-    const activeDay = plan?.days?.[activeDayIndex];
-    if (activeDay) {
-      setDirectorReviewedDays(prev => ({ ...prev, [activeDay.dayOfWeek]: true }));
+    const trimmed = obsText.trim();
+    let directorId = 'Ceci';
+    try {
+      directorId = getEffectiveDirectorId();
+    } catch {
+      // fallback
     }
-    setToastMessage('✓ Observación preparada localmente (No enviada)');
-    setTimeout(() => { setToastMessage(''); }, 2000);
+
+    const activeDay = plan?.days?.[activeDayIndex];
+
+    try {
+      if (typeof service.saveDirectorDraftObservation === 'function') {
+        await service.saveDirectorDraftObservation(
+          planId,
+          activityId,
+          trimmed,
+          directorId,
+          'DIRECTOR',
+          activeDay?.dayOfWeek
+        );
+      }
+
+      setPreparedObservations(prev => ({
+        ...prev,
+        [activityId]: trimmed
+      }));
+      setNewGranularObs(prev => { const n = {...prev}; delete n[activityId]; return n; });
+      if (activeDay) {
+        setDirectorReviewedDays(prev => ({ ...prev, [activeDay.dayOfWeek]: true }));
+      }
+      setToastMessage('✓ Observación preparada (Borrador guardado)');
+      setTimeout(() => { setToastMessage(''); }, 2000);
+    } catch (err) {
+      console.error('Error al guardar borrador de observación:', err);
+      setToastMessage('⚠️ Error al persistir borrador');
+      setTimeout(() => { setToastMessage(''); }, 3000);
+    }
+  };
+
+  const handleDiscardPrepared = async (activityId: string) => {
+    let directorId = 'Ceci';
+    try {
+      directorId = getEffectiveDirectorId();
+    } catch {
+      // fallback
+    }
+    try {
+      if (typeof service.deleteDirectorDraftObservation === 'function') {
+        await service.deleteDirectorDraftObservation(planId, activityId, directorId, 'DIRECTOR');
+      }
+      setPreparedObservations(prev => {
+        const n = { ...prev };
+        delete n[activityId];
+        return n;
+      });
+      setToastMessage('✓ Borrador de observación eliminado');
+      setTimeout(() => { setToastMessage(''); }, 2000);
+    } catch (err) {
+      console.error('Error al eliminar borrador:', err);
+    }
   };
 
   // P0-4: ATOMIC "SEND OBSERVATIONS TO EDUCATOR"
@@ -2982,10 +3269,17 @@ const DirectorReview = ({
       });
     }
 
-    await service.reject(planId, "Se requieren ajustes en la planeación.", "DIRECTOR", "DIRECTOR", granularObsArray);
+    let directorId = 'Ceci';
+    try {
+      directorId = getEffectiveDirectorId();
+    } catch {
+      // fallback
+    }
+
+    await service.reject(planId, "Se requieren ajustes en la planeación.", directorId, "DIRECTOR", granularObsArray);
 
     setPreparedObservations({});
-    setToastMessage('✓ Observaciones enviadas a la educadora.');
+    setToastMessage('✓ Observaciones enviadas a la asistente educativa.');
     onSaved();
     setTimeout(() => { setToastMessage(''); onBack(); }, 2000);
   };
@@ -3002,7 +3296,7 @@ const DirectorReview = ({
             newReviewed[d.dayOfWeek] = true;
           }
         }
-        setDirectorReviewedDays(prev => ({ ...prev, ...newReviewed }));
+        setDirectorReviewedDays(newReviewed);
       }
       setCollapsedResolved(prev => ({ ...prev, [activityId]: true }));
       setToastMessage("✅ OBSERVACIÓN ATENDIDA");
@@ -3020,19 +3314,25 @@ const DirectorReview = ({
 
   const isDayReviewedByDirector = (dayOfWeek: string) => {
     const day = plan?.days?.find((d: any) => d.dayOfWeek === dayOfWeek);
-    const hasPrepared = day?.activities?.some((a: any) => Boolean(preparedObservations[a.activityId]));
-    if (hasPrepared) return true;
+    if (!day) return false;
 
-    const hasPendingCorrectionFromEducator = plan?.granularObservations?.some((o: any) =>
-      o.status === "CHANGED_BY_EDUCATOR" &&
+    const hasPrepared = day?.activities?.some((a: any) => Boolean(preparedObservations[a.activityId]));
+    if (hasPrepared) return false;
+
+    const hasPendingObservation = plan?.granularObservations?.some((o: any) =>
+      (o.status === "CHANGED_BY_EDUCATOR" || o.status === "PENDING_CORRECTION") &&
       day?.activities?.some((a: any) => a.activityId === o.targetId)
     );
-    if (hasPendingCorrectionFromEducator) {
+    if (hasPendingObservation) {
       return false;
     }
 
     if (directorReviewedDays[dayOfWeek] !== undefined) {
-      return directorReviewedDays[dayOfWeek];
+      return Boolean(directorReviewedDays[dayOfWeek]);
+    }
+
+    if (typeof plan?.isDirectorDayReviewed === 'function') {
+      return plan.isDirectorDayReviewed(dayOfWeek);
     }
 
     return Boolean(day?.directorReviewed);
@@ -3094,7 +3394,7 @@ const DirectorReview = ({
       </div>
 
       <div className="text-center mb-12">
-        <h2 className="text-5xl font-bold mb-4">Anita</h2>
+        <h2 className="text-5xl font-bold mb-4">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
         <p className="text-text-muted font-bold text-2xl uppercase tracking-widest">{((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'}</p>
       </div>
 
@@ -3331,11 +3631,7 @@ const DirectorReview = ({
                               <div className="bg-orange-50 p-5 rounded-xl border border-orange-400 mt-4 mb-6 shadow-sm">
                                 <h5 className="font-bold text-orange-900 text-sm uppercase tracking-wider mb-3">Observación preparada (Borrador):</h5>
                                 <p className="text-orange-900 font-bold">{preparedObservations[a.activityId]}</p>
-                                <button onClick={() => {
-                                  const n = {...preparedObservations};
-                                  delete n[a.activityId];
-                                  setPreparedObservations(n);
-                                }} className="text-orange-700 text-sm font-bold uppercase tracking-wider mt-4 underline">
+                                <button onClick={() => handleDiscardPrepared(a.activityId)} className="text-orange-700 text-sm font-bold uppercase tracking-wider mt-4 underline">
                                   Eliminar observación
                                 </button>
                               </div>
@@ -3517,7 +3813,7 @@ const DirectorReview = ({
                         </h5>
                         {isResubmitted ? (
                           <span className="text-xs font-bold bg-orange-100 text-orange-900 border border-orange-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                            <span>🟠</span> Evaluación corregida por Anita — requiere revisión
+                            <span>🟠</span> Evaluación corregida por {getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)} — requiere revisión
                           </span>
                         ) : (
                           <span className="text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
@@ -3528,7 +3824,7 @@ const DirectorReview = ({
 
                       {isResubmitted && (
                         <div className="p-4 bg-orange-100/70 border border-orange-300 rounded-lg text-sm text-orange-950 mb-4">
-                          <span className="font-bold block mb-1">Observación previa de Dirección:</span>
+                          <span className="font-bold block mb-1">Observación previa de la Educadora:</span>
                           <p>{(d.evaluationHistory && d.evaluationHistory[d.evaluationHistory.length - 1]?.directorComment) || d.evaluationDirectorComment}</p>
                         </div>
                       )}
@@ -3536,11 +3832,11 @@ const DirectorReview = ({
                       <div className="bg-white p-5 rounded-lg border border-blue-100 shadow-inner mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block">
-                            {isResubmitted ? 'Anita (Evaluación corregida):' : 'Anita:'}
+                            {isResubmitted ? `${getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)} (Evaluación corregida):` : `${getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}:`}
                           </span>
                           {d.evaluationSubmittedBy && (
                             <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-                              ✓ Enviada por {d.evaluationSubmittedBy === 't1' || d.evaluationSubmittedBy === FIRST_LIGHT_TEACHER_ID ? 'Anita' : d.evaluationSubmittedBy}
+                              ✓ Enviada por {getInstitutionalActorLabel(d.evaluationSubmittedBy, (plan as any)?.roomId || activeRoom?.roomId)}
                             </span>
                           )}
                         </div>
@@ -3552,7 +3848,7 @@ const DirectorReview = ({
                       {requestingChangeForDay === d.dayOfWeek ? (
                         <div className="bg-orange-50 p-5 rounded-xl border border-orange-300 mt-4 animate-fade-in">
                           <label className="block text-sm font-bold text-orange-900 uppercase tracking-wider mb-2">
-                            Comentario para Anita:
+                            Comentario para la Asistente Educativa:
                           </label>
                           <textarea
                             value={evalDirectorComments[d.dayOfWeek] || ''}
@@ -3664,14 +3960,14 @@ const DirectorReview = ({
                    </div>
                    <div className="bg-white p-5 rounded-lg border border-green-100 shadow-inner">
                      <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-2">
-                       Anita:
+                       {getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}:
                      </span>
                      <p className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap">
                        {d.evaluation}
                      </p>
                    </div>
                    <p className="text-xs text-green-800 mt-3 font-semibold flex items-center gap-1.5">
-                     <span>✓</span> Aprobada por {d.evaluationReviewedBy === FIRST_LIGHT_DIRECTOR_ID || d.evaluationReviewedBy === 'Ceci' ? 'Ceci' : (d.evaluationReviewedBy || 'Ceci')}.
+                     <span>✓</span> Aprobada por {getInstitutionalActorLabel(d.evaluationReviewedBy, (plan as any)?.roomId || activeRoom?.roomId)}.
                    </p>
                  </div>
                )}
@@ -3688,14 +3984,14 @@ const DirectorReview = ({
                    </div>
                    <div className="bg-white p-5 rounded-lg border border-orange-100 shadow-inner mb-3">
                      <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block mb-2">
-                       Anita:
+                       {getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}:
                      </span>
                      <p className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap">
                        {d.evaluation}
                      </p>
                    </div>
                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-900">
-                     <span className="font-bold block mb-1">Observación de Ceci:</span>
+                     <span className="font-bold block mb-1">Observación de la Educadora:</span>
                      <p>{d.evaluationDirectorComment}</p>
                    </div>
                  </div>
@@ -3802,7 +4098,7 @@ const DirectorReview = ({
               };
 
               const unreviewedDays = (plan?.days || [])
-                .filter((d: any) => !Boolean(d.directorReviewed))
+                .filter((d: any) => !isDayReviewedByDirector(d.dayOfWeek))
                 .map((d: any) => dayNames[d.dayOfWeek] || d.dayOfWeek);
 
               const allDaysExplicitlyReviewed = (plan?.days || []).length === 5 && unreviewedDays.length === 0;
@@ -3859,7 +4155,7 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
           </span>
           {plan.closedBy && (
             <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
-              Cerrada por: {plan.closedBy}
+              Cerrada por: {getInstitutionalActorLabel(plan.closedBy, plan.roomId)} {plan.closedAt ? `• ${formatInstitutionalDate(plan.closedAt)}` : ''}
             </span>
           )}
         </div>
@@ -3871,15 +4167,22 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
       </div>
 
       <div className="text-center mb-8">
-        <h2 className="text-4xl font-bold mb-2">Anita</h2>
-        <p className="text-text-muted font-bold text-xl uppercase tracking-widest">Guardería IMSS Demo (001) • Sala: {((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Periodo: 24 al 28 de agosto de 2026</p>
+        <h2 className="text-4xl font-bold mb-2">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
+        <p className="text-text-muted font-bold text-xl uppercase tracking-widest">
+          Guardería IMSS Demo (001) • Sala: {((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Periodo: {formatPlanPeriod(plan)}
+        </p>
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <span className="text-sm font-bold text-teal-800 bg-teal-50 px-4 py-1.5 rounded-full border border-teal-200">
+            {modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}
+          </span>
+        </div>
       </div>
 
       {activeTab === 'PLAN' && (
         <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft space-y-8">
           <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">Contenido de la Planeación y Evaluaciones (Lectura Institucional)</h2>
           <div className="bg-surface-soft border border-border-soft p-6 rounded-xl mb-8 space-y-4">
-            <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest border-b border-teal-100 pb-2">Contexto de la Educadora</h3>
+            <h3 className="text-xl font-bold text-teal-800 uppercase tracking-widest border-b border-teal-100 pb-2">Contexto de la Asistente Educativa</h3>
             <div><p className="text-sm font-bold text-text-muted uppercase mb-1">1. ¿Qué observaste en el grupo? (Observaciones)</p><p className="text-text-primary font-medium">{plan.observations || 'Sin especificar'}</p></div>
             <div><p className="text-sm font-bold text-text-muted uppercase mb-1">2. ¿Qué necesitan fortalecer? (Necesidades)</p><p className="text-text-primary font-medium">{plan.identifiedNeeds || 'Sin especificar'}</p></div>
             <div><p className="text-sm font-bold text-text-muted uppercase mb-1">3. ¿Hay situaciones a considerar? (Situaciones especiales)</p><p className="text-text-primary font-medium">{plan.specialSituations || 'Sin especificar'}</p></div>
@@ -4031,14 +4334,14 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
                         <span>📝</span> Evaluación final del día
                       </span>
                       <span className="text-[11px] font-medium text-green-700">
-                        {d.evaluationReviewedAt ? new Date(d.evaluationReviewedAt).toLocaleDateString() : 'Aprobada'}
+                        {d.evaluationReviewedAt ? formatInstitutionalDate(d.evaluationReviewedAt) : 'Aprobada'}
                       </span>
                     </div>
                     <div className="text-base text-gray-900 leading-relaxed font-medium whitespace-pre-wrap bg-white p-4 rounded-lg border border-green-100 shadow-inner min-h-[60px]">
                       {d.evaluation || 'Sin evaluación registrada'}
                     </div>
                     <p className="text-xs text-green-800 mt-2.5 font-semibold flex items-center gap-1.5">
-                      <span>✓</span> Aprobada por {d.evaluationReviewedBy === FIRST_LIGHT_DIRECTOR_ID || d.evaluationReviewedBy === 'Ceci' ? 'Ceci' : (d.evaluationReviewedBy || 'Ceci')}.
+                      <span>✓</span> Aprobada por {getInstitutionalActorLabel(d.evaluationReviewedBy, plan.roomId)}.
                     </p>
                   </div>
                 </div>
@@ -4048,107 +4351,282 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
         </div>
       )}
 
-      {activeTab === 'HISTORY' && (
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft">
-          <h2 className="text-3xl font-bold mb-6 text-center text-text-primary">HISTORIAL DE REVISIONES</h2>
-          {!plan.granularObservations || plan.granularObservations.length === 0 ? (
-            <p className="text-center text-gray-500 font-medium">No hay observaciones registradas.</p>
-          ) : (
-            <div className="space-y-12">
-              {plan.historicalRounds && plan.historicalRounds.length > 0 ? (
-                <>
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest border-b border-gray-200 pb-2">▼ ÚLTIMA REVISIÓN — RONDA {plan.historicalRounds.length}</h3>
-                    {[...plan.historicalRounds[plan.historicalRounds.length - 1].observations].reverse().map((obs: any, idx: number) => (
-                      <div key={idx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm">
-                        <div className="flex justify-between items-center mb-4">
-                          <span className="font-bold text-gray-800 uppercase tracking-wider text-sm">Observación Directora</span>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${obs.status === 'RESOLVED' ? 'bg-green-100 text-green-800' : obs.status === 'CHANGED_BY_EDUCATOR' ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
-                              {obs.status === 'RESOLVED' ? '✅ ATENDIDA' : 'Pendiente / Cambio solicitado'}
-                            </span>
-                            {obs.status === 'RESOLVED' && obs.resolvedBy && (
-                              <span className="text-xs text-green-700 font-bold">Atendida por: {obs.resolvedBy} - {new Date(obs.resolvedAt).toLocaleDateString()}</span>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-lg font-black text-gray-900 mb-4">{obs.observation}</p>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-gray-50 p-4 rounded border border-gray-100">
-                            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes (Original):</p>
-                            <p className="text-sm text-gray-700 font-normal">{obs.originalContent}</p>
-                          </div>
-                          <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
-                            <p className="text-xs font-bold text-green-700 uppercase mb-2">Ahora (Educadora):</p>
-                            <p className="text-sm text-gray-900 font-bold">{obs.currentContent}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+      {activeTab === 'HISTORY' && (() => {
+        const hasGranular = Boolean(plan.granularObservations && plan.granularObservations.length > 0);
+        const hasRounds = Boolean(plan.historicalRounds && plan.historicalRounds.length > 0);
+        const daysWithEvalHistory = (plan.days || []).filter(
+          (d: any) => d.evaluationHistory && d.evaluationHistory.length > 0
+        );
+        const hasAnyHistory = hasGranular || hasRounds || daysWithEvalHistory.length > 0;
+
+        const daySpanishNames: Record<string, string> = {
+          MONDAY: 'Lunes 24',
+          TUESDAY: 'Martes 25',
+          WEDNESDAY: 'Miércoles 26',
+          THURSDAY: 'Jueves 27',
+          FRIDAY: 'Viernes 28'
+        };
+
+        return (
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-border-soft space-y-12" data-testid="supervisor-history-container">
+            <div className="text-center border-b border-gray-200 pb-4">
+              <h2 className="text-3xl font-bold text-text-primary uppercase tracking-wide">HISTORIAL DE REVISIONES</h2>
+              <p className="text-text-muted font-medium mt-1">
+                Auditoría institucional de adecuaciones a la planeación pedagógica y modificaciones a las evaluaciones diarias.
+              </p>
+            </div>
+
+            {!hasAnyHistory ? (
+              <div className="p-8 text-center bg-gray-50 border border-gray-200 rounded-xl" data-testid="supervisor-no-history">
+                <p className="text-gray-600 font-semibold text-lg">No hay observaciones registradas.</p>
+                <p className="text-gray-400 text-sm mt-1">La planeación y sus evaluaciones fueron concluidas en su primera versión institucional sin ajustes registrados.</p>
+              </div>
+            ) : (
+              <div className="space-y-12">
+                {/* SECCIÓN 1: MODIFICACIONES DE LA PLANEACIÓN PEDAGÓGICA */}
+                <div className="space-y-6" data-testid="supervisor-planning-history-section">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+                    <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
+                      <span>📋</span> Modificaciones de la Planeación Pedagógica
+                    </h3>
+                    <span className="text-xs font-bold px-3 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-full uppercase tracking-wider">
+                      {hasRounds ? `${plan.historicalRounds.length} ronda(s) de revisión` : hasGranular ? `${plan.granularObservations.length} observación(es)` : 'Sin observaciones'}
+                    </span>
                   </div>
-                  {plan.historicalRounds.length > 1 && (
-                    <div className="space-y-6">
-                      <h3 className="text-xl font-bold text-gray-600 uppercase tracking-widest border-b border-gray-200 pb-2 mt-8">REVISIONES ANTERIORES</h3>
-                      {[...plan.historicalRounds].reverse().slice(1).map((round: any, rIdx: number) => (
-                        <details key={round.roundId} className="group">
-                          <summary className="font-bold text-gray-600 cursor-pointer mb-4 outline-none hover:text-gray-800 uppercase tracking-wider text-sm bg-gray-50 p-3 rounded border border-gray-200 text-left flex items-center">
-                            ▶ REVISIÓN ANTERIOR — RONDA {plan.historicalRounds.length - 1 - rIdx}
-                          </summary>
-                          <div className="space-y-6 mt-4">
-                            {[...round.observations].reverse().map((obs: any, idx: number) => (
-                              <div key={idx} className="border border-gray-200 rounded-lg p-5 opacity-80 hover:opacity-100 transition bg-white">
-                                <div className="flex justify-between items-center mb-4">
-                                  <span className="font-bold text-gray-600 uppercase tracking-wider text-sm">Observación Directora</span>
-                                </div>
-                                <p className="text-base font-black text-gray-700 mb-4">{obs.observation}</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                                    <p className="text-xs font-bold text-gray-500 uppercase mb-1">Antes:</p>
-                                    <p className="text-xs text-gray-600 font-normal">{obs.originalContent}</p>
-                                  </div>
-                                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                                    <p className="text-xs font-bold text-gray-700 uppercase mb-1">Después:</p>
-                                    <p className="text-xs text-gray-800 font-bold">{obs.currentContent}</p>
-                                  </div>
-                                </div>
+
+                  {!hasGranular && !hasRounds ? (
+                    <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center" data-testid="supervisor-empty-planning-history">
+                      <p className="text-gray-600 font-semibold text-base">Sin modificaciones a las actividades pedagógicas registradas</p>
+                      <p className="text-gray-400 text-xs mt-1">La planeación fue aprobada sin rondas de observaciones previas.</p>
+                    </div>
+                  ) : hasRounds ? (
+                    <>
+                      <div className="space-y-6">
+                        <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest border-b border-gray-200 pb-2">
+                          ▼ ÚLTIMA REVISIÓN — RONDA {plan.historicalRounds.length}
+                        </h3>
+                        {[...plan.historicalRounds[plan.historicalRounds.length - 1].observations].reverse().map((obs: any, idx: number) => (
+                          <div key={idx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm space-y-4">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-gray-800 uppercase tracking-wider text-sm">
+                                Observación de la Educadora
+                              </span>
+                              <div className="flex flex-col items-end gap-1">
+                                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${obs.status === 'RESOLVED' ? 'bg-green-100 text-green-800' : obs.status === 'CHANGED_BY_EDUCATOR' ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
+                                  {obs.status === 'RESOLVED' ? '✅ ATENDIDA' : 'Pendiente / Cambio solicitado'}
+                                </span>
+                                {obs.status === 'RESOLVED' && obs.resolvedBy && (
+                                  <span className="text-xs text-green-700 font-bold">
+                                    Atendida por: {getInstitutionalActorLabel(obs.resolvedBy, plan?.roomId)} • {formatInstitutionalDate(obs.resolvedAt)}
+                                  </span>
+                                )}
                               </div>
-                            ))}
+                            </div>
+                            <p className="text-lg font-black text-gray-900 leading-relaxed whitespace-pre-wrap">{obs.observation}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes (Original):</p>
+                                <p className="text-sm text-gray-700 font-normal whitespace-pre-wrap leading-relaxed">{obs.originalContent}</p>
+                              </div>
+                              <div className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                                <p className="text-xs font-bold text-green-700 uppercase mb-2">Ahora ({getAssistantRoleLabel(plan?.roomId)}):</p>
+                                <p className="text-sm text-gray-900 font-bold whitespace-pre-wrap leading-relaxed">{obs.currentContent}</p>
+                              </div>
+                            </div>
                           </div>
-                        </details>
+                        ))}
+                      </div>
+
+                      {plan.historicalRounds.length > 1 && (
+                        <div className="space-y-6">
+                          <h3 className="text-xl font-bold text-gray-600 uppercase tracking-widest border-b border-gray-200 pb-2 mt-8">
+                            REVISIONES ANTERIORES
+                          </h3>
+                          {[...plan.historicalRounds].reverse().slice(1).map((round: any, rIdx: number) => (
+                            <details key={round.roundId || rIdx} className="group">
+                              <summary className="font-bold text-gray-600 cursor-pointer mb-4 outline-none hover:text-gray-800 uppercase tracking-wider text-sm bg-gray-50 p-3 rounded-lg border border-gray-200 text-left flex items-center">
+                                ▶ REVISIÓN ANTERIOR — RONDA {plan.historicalRounds.length - 1 - rIdx}
+                              </summary>
+                              <div className="space-y-6 mt-4">
+                                {[...round.observations].reverse().map((obs: any, idx: number) => (
+                                  <div key={idx} className="border border-gray-200 rounded-lg p-5 opacity-90 hover:opacity-100 transition bg-white space-y-4">
+                                    <div className="flex justify-between items-center">
+                                      <span className="font-bold text-gray-600 uppercase tracking-wider text-sm">Observación de la Educadora</span>
+                                      {obs.status === 'RESOLVED' && (
+                                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full uppercase bg-green-50 text-green-700 border border-green-200">
+                                          Atendida
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-base font-black text-gray-700 leading-relaxed whitespace-pre-wrap">{obs.observation}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Antes:</p>
+                                        <p className="text-xs text-gray-600 font-normal whitespace-pre-wrap">{obs.originalContent}</p>
+                                      </div>
+                                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                                        <p className="text-xs font-bold text-gray-700 uppercase mb-1">Después:</p>
+                                        <p className="text-xs text-gray-800 font-bold whitespace-pre-wrap">{obs.currentContent}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest border-b border-gray-200 pb-2">
+                        ▼ ÚLTIMA REVISIÓN
+                      </h3>
+                      {[...plan.granularObservations].reverse().map((obs: any, idx: number) => (
+                        <div key={idx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-gray-800 uppercase tracking-wider text-sm">
+                              Observación de la Educadora
+                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${obs.status === 'RESOLVED' ? 'bg-green-100 text-green-800' : obs.status === 'CHANGED_BY_EDUCATOR' ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
+                                {obs.status === 'RESOLVED' ? 'Atendida' : 'Pendiente / Cambio solicitado'}
+                              </span>
+                              {obs.status === 'RESOLVED' && obs.resolvedBy && (
+                                <span className="text-xs text-green-700 font-bold">
+                                  Atendida por: {getInstitutionalActorLabel(obs.resolvedBy, plan?.roomId)} • {formatInstitutionalDate(obs.resolvedAt)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-lg font-black text-gray-900 leading-relaxed whitespace-pre-wrap">{obs.observation}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                              <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes (Original):</p>
+                              <p className="text-sm text-gray-700 font-normal whitespace-pre-wrap leading-relaxed">{obs.originalContent}</p>
+                            </div>
+                            <div className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                              <p className="text-xs font-bold text-green-700 uppercase mb-2">Ahora ({getAssistantRoleLabel(plan?.roomId)}):</p>
+                              <p className="text-sm text-gray-900 font-bold whitespace-pre-wrap leading-relaxed">{obs.currentContent}</p>
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
-                </>
-              ) : (
-                <div className="space-y-6">
-                  <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest border-b border-gray-200 pb-2">▼ ÚLTIMA REVISIÓN</h3>
-                  {[...plan.granularObservations].reverse().map((obs: any, idx: number) => (
-                    <div key={idx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="font-bold text-gray-800 uppercase tracking-wider text-sm">Observación Directora</span>
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${obs.status === 'RESOLVED' ? 'bg-green-100 text-green-800' : obs.status === 'CHANGED_BY_EDUCATOR' ? 'bg-yellow-100 text-yellow-800' : 'bg-orange-100 text-orange-800'}`}>
-                          {obs.status === 'RESOLVED' ? 'Atendida' : 'Pendiente / Cambio solicitado'}
-                        </span>
-                      </div>
-                      <p className="text-lg font-black text-gray-900 mb-4">{obs.observation}</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-4 rounded border border-gray-100">
-                          <p className="text-xs font-bold text-gray-500 uppercase mb-2">Antes (Original):</p>
-                          <p className="text-sm text-gray-700 font-normal">{obs.originalContent}</p>
-                        </div>
-                        <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
-                          <p className="text-xs font-bold text-green-700 uppercase mb-2">Ahora (Educadora):</p>
-                          <p className="text-sm text-gray-900 font-bold">{obs.currentContent}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+
+                {/* SECCIÓN 2: MODIFICACIONES DE LAS EVALUACIONES DIARIAS */}
+                <div className="space-y-6 pt-6 border-t border-gray-200" data-testid="supervisor-evaluation-history-section">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+                    <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
+                      <span>📝</span> Modificaciones de las Evaluaciones Diarias
+                    </h3>
+                    <span className="text-xs font-bold px-3 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-full uppercase tracking-wider">
+                      {daysWithEvalHistory.length > 0 ? `${daysWithEvalHistory.length} día(s) con modificaciones` : 'Sin modificaciones'}
+                    </span>
+                  </div>
+
+                  {daysWithEvalHistory.length === 0 ? (
+                    <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center" data-testid="supervisor-empty-evaluation-history">
+                      <p className="text-gray-600 font-semibold text-base">Sin modificaciones históricas de evaluación registradas</p>
+                      <p className="text-gray-400 text-xs mt-1">Todas las evaluaciones diarias fueron aprobadas en su primera entrega institucional.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-8">
+                      {daysWithEvalHistory.map((d: any) => {
+                        const dayLabel = daySpanishNames[d.dayOfWeek] || d.dayOfWeek;
+                        return (
+                          <div key={d.dayOfWeek} className="border border-border-soft rounded-xl p-6 bg-surface-ivory/50 shadow-xs space-y-6" data-testid={`eval-history-day-${d.dayOfWeek}`}>
+                            <div className="flex justify-between items-center border-b border-gray-200 pb-3">
+                              <h4 className="text-xl font-bold text-teal-900">{dayLabel}</h4>
+                              <span className="text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider bg-orange-100 text-orange-900 border border-orange-300">
+                                {d.evaluationHistory.length} {d.evaluationHistory.length === 1 ? 'modificación registrada' : 'modificaciones registradas'}
+                              </span>
+                            </div>
+
+                            <div className="space-y-6">
+                              {d.evaluationHistory.map((entry: any, eIdx: number) => (
+                                <div key={eIdx} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm space-y-4">
+                                  <div className="flex flex-wrap justify-between items-center gap-2 border-b border-gray-100 pb-3">
+                                    <span className="font-bold text-gray-800 uppercase tracking-wider text-sm flex items-center gap-1.5">
+                                      <span>💬</span> Observación de la Educadora
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest bg-orange-100 text-orange-900 border border-orange-300">
+                                        {entry.status === 'CHANGES_REQUESTED' ? '🟠 Cambio solicitado' : entry.status || 'Modificación'}
+                                      </span>
+                                      {entry.reviewedAt && (
+                                        <span className="text-xs text-gray-500 font-medium">
+                                          {formatInstitutionalDate(entry.reviewedAt)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {entry.directorComment && (
+                                    <div className="p-4 bg-orange-50/80 border border-orange-200 rounded-lg text-sm text-orange-950 font-medium">
+                                      <span className="text-xs font-bold text-orange-800 uppercase tracking-wider block mb-1">
+                                        Instrucción de ajuste ({getInstitutionalActorLabel(entry.reviewedBy, plan?.roomId)}):
+                                      </span>
+                                      <p className="whitespace-pre-wrap">{entry.directorComment}</p>
+                                    </div>
+                                  )}
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                                          Versión Anterior (Devuelta)
+                                        </span>
+                                        {entry.submittedAt && (
+                                          <span className="text-[11px] text-gray-400 font-medium">
+                                            {formatInstitutionalDate(entry.submittedAt)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-sm text-gray-700 font-normal whitespace-pre-wrap leading-relaxed">
+                                        {entry.evaluation || 'Sin texto previo'}
+                                      </p>
+                                      <p className="text-[11px] text-gray-500 mt-3 pt-2 border-t border-gray-200">
+                                        Enviada originalmente por: <strong>{getInstitutionalActorLabel(entry.submittedBy, plan?.roomId)}</strong>
+                                      </p>
+                                    </div>
+
+                                    <div className="bg-emerald-50/30 p-4 rounded-lg border border-emerald-200 shadow-xs">
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                                          Versión Posterior (Corregida / Actual)
+                                        </span>
+                                        {(d.evaluationSubmittedAt || d.evaluationReviewedAt) && (
+                                          <span className="text-[11px] text-emerald-700 font-medium">
+                                            {formatInstitutionalDate(d.evaluationSubmittedAt || d.evaluationReviewedAt)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-sm text-gray-900 font-medium whitespace-pre-wrap leading-relaxed">
+                                        {d.evaluation || 'Sin evaluación registrada'}
+                                      </p>
+                                      <div className="mt-3 pt-2 border-t border-emerald-100 flex flex-wrap justify-between items-center gap-1 text-[11px] text-emerald-800 font-medium">
+                                        <span>Corregida por: <strong>{getInstitutionalActorLabel(d.evaluationSubmittedBy || entry.submittedBy, plan?.roomId)}</strong></span>
+                                        <span>✓ Aprobada por: <strong>{getInstitutionalActorLabel(d.evaluationReviewedBy || entry.reviewedBy, plan?.roomId)}</strong></span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -4164,11 +4642,11 @@ const SupervisorList = ({ service, onSelect, refreshKey, activeRoom }: { service
         {plans.map(p => (
            <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border border-border-default hover:border-gray-400 p-8 rounded-xl shadow-sm text-left transition w-full outline-none flex justify-between items-center">
              <div>
-               <span className="font-bold text-text-primary text-2xl mb-1 block">Anita</span>
+               <span className="font-bold text-text-primary text-2xl mb-1 block">{getAssistantRoleLabel((p as any).roomId || activeRoom?.roomId)}</span>
                <p className="text-sm font-semibold text-teal-800 mb-1">Guardería IMSS Demo (001)</p>
-               <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
+               <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del {formatPlanPeriod(p)}</p>
                {p.closedBy && (
-                 <p className="text-xs text-text-muted mt-2 font-medium">Cerrada por: {p.closedBy} {p.closedAt ? `• ${new Date(p.closedAt).toLocaleDateString()}` : ''}</p>
+                 <p className="text-xs text-text-muted mt-2 font-medium">Cerrada por: {getInstitutionalActorLabel(p.closedBy, (p as any).roomId)} {p.closedAt ? `• ${formatInstitutionalDate(p.closedAt)}` : ''}</p>
                )}
              </div>
              <span className="text-sm font-bold px-5 py-2 rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1.5 shadow-sm">

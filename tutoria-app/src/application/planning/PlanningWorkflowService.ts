@@ -1,4 +1,4 @@
-import { WeeklyPlanning, PlanningDay, WeeklyContextSnapshot, ComplementaryProgramActivity, PrioritizedPractice } from '../../domain/planning/WeeklyPlanning';
+import { WeeklyPlanning, PlanningDay, WeeklyContextSnapshot, ComplementaryProgramActivity, PrioritizedPractice, DirectorDraftObservation } from '../../domain/planning/WeeklyPlanning';
 import { WeeklyPlanningRepository } from '../ports/WeeklyPlanningRepository';
 import { RoomCatalog } from '../../domain/planning/RoomCatalog';
 
@@ -109,8 +109,116 @@ export class PlanningWorkflowService {
     const planning = await this.repository.findById(planningId);
     if (!planning) throw new Error('Planning not found');
 
+    if (planning.status !== 'IN_REVIEW') {
+      throw new Error(`Cannot reject planning in status: ${planning.status}`);
+    }
+
+    if (granularObs && Array.isArray(granularObs)) {
+      for (const obs of granularObs) {
+        const targetId = obs.targetId;
+        if (!targetId) {
+          throw new Error('Observation targetId is required');
+        }
+        const activityExists = planning.days?.some(d =>
+          (d.activities || []).some(a => a.activityId === targetId)
+        );
+        if (!activityExists) {
+          throw new Error(`Activity '${targetId}' does not belong to planning '${planningId}'`);
+        }
+      }
+    }
+
     planning.reject(reason, rejectedBy, granularObs);
-    await this.repository.save(planning);
+
+    if (this.repository.savePlanningAndClearDrafts) {
+      await this.repository.savePlanningAndClearDrafts(planning);
+    } else {
+      await this.repository.save(planning);
+      if (this.repository.clearDraftObservations) {
+        await this.repository.clearDraftObservations(planningId);
+      }
+    }
+  }
+
+  // SR-MD-21 Phase 2: Private Director Draft Observations
+  public async saveDirectorDraftObservation(
+    planningId: string,
+    activityId: string,
+    observation: string,
+    directorId: string,
+    role: PlanningActorRole,
+    dayOfWeek?: string
+  ): Promise<void> {
+    if (role !== 'DIRECTOR') throw new Error('Only Director can save draft observations');
+    if (!observation || !observation.trim()) throw new Error('Observation text cannot be empty');
+
+    const planning = await this.repository.findById(planningId);
+    if (!planning) throw new Error(`WeeklyPlanning not found: ${planningId}`);
+
+    if (planning.status !== 'IN_REVIEW') {
+      throw new Error(`Cannot save draft observations when planning is in status: ${planning.status}`);
+    }
+
+    const activityExists = planning.days?.some(d =>
+      (d.activities || []).some(a => a.activityId === activityId)
+    );
+    if (!activityExists) {
+      throw new Error(`Activity '${activityId}' does not belong to planning '${planningId}'`);
+    }
+
+    if (dayOfWeek) {
+      const targetDay = planning.days?.find(d => d.dayOfWeek === dayOfWeek || d.date === dayOfWeek);
+      if (targetDay && !(targetDay.activities || []).some(a => a.activityId === activityId)) {
+        throw new Error(`Activity '${activityId}' does not belong to day '${dayOfWeek}' in planning '${planningId}'`);
+      }
+    }
+
+    const draft: DirectorDraftObservation = {
+      activityId,
+      observation: observation.trim(),
+      dayOfWeek,
+      createdBy: directorId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (this.repository.saveDraftObservation) {
+      await this.repository.saveDraftObservation(planningId, draft);
+    }
+  }
+
+  public async listDirectorDraftObservations(
+    planningId: string,
+    directorId: string,
+    role: PlanningActorRole
+  ): Promise<DirectorDraftObservation[]> {
+    if (role !== 'DIRECTOR') throw new Error('Only Director can list draft observations');
+    if (this.repository.listDraftObservations) {
+      return this.repository.listDraftObservations(planningId, directorId);
+    }
+    return [];
+  }
+
+  public async deleteDirectorDraftObservation(
+    planningId: string,
+    activityId: string,
+    directorId: string,
+    role: PlanningActorRole
+  ): Promise<void> {
+    if (role !== 'DIRECTOR') throw new Error('Only Director can delete draft observations');
+    if (this.repository.deleteDraftObservation) {
+      await this.repository.deleteDraftObservation(planningId, activityId);
+    }
+  }
+
+  public async clearDirectorDraftObservations(
+    planningId: string,
+    role: PlanningActorRole
+  ): Promise<void> {
+    if (role !== 'DIRECTOR') throw new Error('Only Director can clear draft observations');
+    if (this.repository.clearDraftObservations) {
+      await this.repository.clearDraftObservations(planningId);
+    }
   }
 
   public async resubmit(
@@ -203,23 +311,23 @@ export class PlanningWorkflowService {
     return this.repository.findById(planningId);
   }
 
-  public async listTeacherPlanning(teacherId: string): Promise<WeeklyPlanning[]> {
-    return this.repository.listByTeacher(teacherId);
+  public async listTeacherPlanning(teacherId: string, daycareId?: string): Promise<WeeklyPlanning[]> {
+    return this.repository.listByTeacher(teacherId, daycareId);
   }
 
-  public async listDirectorReviewQueue(role: PlanningActorRole): Promise<WeeklyPlanning[]> {
+  public async listDirectorReviewQueue(role: PlanningActorRole, daycareId?: string): Promise<WeeklyPlanning[]> {
     if (role !== 'DIRECTOR') throw new Error('Unauthorized');
-    return this.repository.listInReview();
+    return this.repository.listInReview(daycareId);
   }
 
-  public async listSupervisorApprovedPlanning(role: PlanningActorRole): Promise<WeeklyPlanning[]> {
+  public async listSupervisorApprovedPlanning(role: PlanningActorRole, daycareId?: string): Promise<WeeklyPlanning[]> {
     if (role !== 'SUPERVISOR' && role !== 'DIRECTOR') throw new Error('Unauthorized');
-    return this.repository.listApproved();
+    return this.repository.listApproved(daycareId);
   }
 
-  public async listSupervisorClosedPlanning(role: PlanningActorRole): Promise<WeeklyPlanning[]> {
+  public async listSupervisorClosedPlanning(role: PlanningActorRole, daycareId?: string): Promise<WeeklyPlanning[]> {
     if (role !== 'SUPERVISOR') throw new Error('Unauthorized');
-    return this.repository.listClosed();
+    return this.repository.listClosed(daycareId);
   }
   public async confirmDailyEvaluation(
     planningId: string,

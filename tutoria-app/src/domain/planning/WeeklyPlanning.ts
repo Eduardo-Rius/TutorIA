@@ -47,6 +47,15 @@ export interface ReviewRound {
   observations: GranularObservation[];
 }
 
+export interface DirectorDraftObservation {
+  activityId: string;
+  observation: string;
+  dayOfWeek?: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface RejectionRecord {
   reason: string;
   rejectedBy: string;
@@ -85,6 +94,7 @@ export interface PlanningDay {
   prioritizedPractices?: PrioritizedPractice[];
   materials: string[];
   evaluation?: string;
+  evaluationDraft?: string;
   executionNotes?: string;
   directorReviewed?: boolean;
   evaluationStatus?: DailyEvaluationStatus;
@@ -515,18 +525,6 @@ export class WeeklyPlanning {
       obs.resolvedBy = resolvedBy;
       obs.resolvedAt = new Date();
     }
-    for (const d of this.days) {
-      if (d.activities.some(a => a.activityId === targetId)) {
-        const hasPending = this.granularObservations.some(o =>
-          (o.status === "PENDING_CORRECTION" || o.status === "CHANGED_BY_EDUCATOR") &&
-          d.activities.some(a => a.activityId === o.targetId)
-        );
-        if (!hasPending) {
-          d.directorReviewed = true;
-        }
-        break;
-      }
-    }
   }
   public setOriginalContext(snapshot: WeeklyContextSnapshot): void {
     if (!this.originalContext) {
@@ -664,26 +662,17 @@ export class WeeklyPlanning {
     }
   }
 
-      public isDirectorDayReviewed(dayOfWeek: PlanningDay["dayOfWeek"]): boolean {
+  public isDirectorDayReviewed(dayOfWeek: PlanningDay["dayOfWeek"]): boolean {
     const day = this.days.find(d => d.dayOfWeek === dayOfWeek);
     if (!day) return false;
 
-    // Days with educator corrections waiting for director re-review are NOT reviewed
+    // Days with educator corrections waiting for director re-review or pending observations are NOT reviewed
     const hasUnresolvedCorrection = this.granularObservations.some(o =>
-      o.status === "CHANGED_BY_EDUCATOR" &&
+      (o.status === "CHANGED_BY_EDUCATOR" || o.status === "PENDING_CORRECTION") &&
       day.activities.some(a => a.activityId === o.targetId)
     );
     if (hasUnresolvedCorrection) {
       return false;
-    }
-
-    // Days with pending or resolved observations that were reviewed by director
-    const hasObs = this.granularObservations.some(o =>
-      day.activities.some(a => a.activityId === o.targetId)
-    );
-    if (hasObs && this.status === "IN_REVIEW") {
-      // In review round, if not CHANGED_BY_EDUCATOR, it is reviewed with observation
-      return true;
     }
 
     return Boolean(day.directorReviewed);
@@ -882,7 +871,8 @@ export class WeeklyPlanning {
       }
     }
 
-    if (!targetDay.evaluation || !targetDay.evaluation.trim()) {
+    const effectiveEvaluation = targetDay.evaluationDraft !== undefined ? targetDay.evaluationDraft : targetDay.evaluation;
+    if (!effectiveEvaluation || !effectiveEvaluation.trim()) {
       throw new Error("Cannot confirm empty daily evaluation");
     }
 
@@ -949,9 +939,12 @@ export class WeeklyPlanning {
       delete targetDay.evaluationConfirmedBy;
     }
 
-    targetDay.evaluation = evaluation;
-    if (targetDay.evaluationStatus !== "CHANGES_REQUESTED") {
+    if (targetDay.evaluationStatus === "CHANGES_REQUESTED") {
+      targetDay.evaluationDraft = evaluation;
+    } else {
+      targetDay.evaluation = evaluation;
       targetDay.evaluationStatus = "DRAFT";
+      delete targetDay.evaluationDraft;
     }
     targetDay.date = effectiveDayDate || targetDay.date;
   }
@@ -997,7 +990,8 @@ export class WeeklyPlanning {
       throw new Error("Daily evaluation must be explicitly confirmed before submission");
     }
 
-    if (!targetDay.evaluation || evaluation.trim() !== targetDay.evaluation.trim()) {
+    const effectiveEval = targetDay.evaluationDraft !== undefined ? targetDay.evaluationDraft : targetDay.evaluation;
+    if (!effectiveEval || evaluation.trim() !== effectiveEval.trim()) {
       delete targetDay.evaluationConfirmedAt;
       delete targetDay.evaluationConfirmedBy;
       throw new Error("Daily evaluation must be explicitly confirmed before submission");
@@ -1006,17 +1000,24 @@ export class WeeklyPlanning {
     if (!targetDay.evaluationHistory) {
       targetDay.evaluationHistory = [];
     }
-    targetDay.evaluationHistory.push({
-      evaluation: targetDay.evaluation || "",
-      submittedAt: targetDay.evaluationSubmittedAt || new Date(),
-      submittedBy: targetDay.evaluationSubmittedBy || teacherId || "Anita",
-      directorComment: targetDay.evaluationDirectorComment,
-      reviewedAt: targetDay.evaluationReviewedAt,
-      reviewedBy: targetDay.evaluationReviewedBy,
-      status: "CHANGES_REQUESTED"
-    });
+
+    // SR-MD-21: Safety preservation fallback in case requestDailyEvaluationChange did not record an entry
+    const lastEntry = targetDay.evaluationHistory[targetDay.evaluationHistory.length - 1];
+    const isAlreadyArchived = lastEntry && lastEntry.status === "CHANGES_REQUESTED" && lastEntry.directorComment === targetDay.evaluationDirectorComment;
+    if (!isAlreadyArchived && targetDay.evaluation) {
+      targetDay.evaluationHistory.push(Object.freeze({
+        evaluation: String(targetDay.evaluation || ""),
+        submittedAt: targetDay.evaluationSubmittedAt ? new Date(targetDay.evaluationSubmittedAt) : new Date(),
+        submittedBy: String(targetDay.evaluationSubmittedBy || teacherId || "Anita"),
+        directorComment: targetDay.evaluationDirectorComment,
+        reviewedAt: targetDay.evaluationReviewedAt ? new Date(targetDay.evaluationReviewedAt) : new Date(),
+        reviewedBy: targetDay.evaluationReviewedBy,
+        status: "CHANGES_REQUESTED"
+      }));
+    }
 
     targetDay.evaluation = evaluation.trim();
+    delete targetDay.evaluationDraft;
     targetDay.evaluationStatus = "IN_REVIEW";
     targetDay.evaluationResubmitted = true;
     targetDay.evaluationSubmittedAt = new Date();
@@ -1137,17 +1138,24 @@ export class WeeklyPlanning {
     if (!targetDay.evaluationHistory) {
       targetDay.evaluationHistory = [];
     }
-    targetDay.evaluationHistory.push({
-      evaluation: targetDay.evaluation || "",
-      submittedAt: targetDay.evaluationSubmittedAt || new Date(),
-      submittedBy: targetDay.evaluationSubmittedBy || trimmedEducator,
-      directorComment: targetDay.evaluationDirectorComment,
-      reviewedAt: targetDay.evaluationReviewedAt,
-      reviewedBy: targetDay.evaluationReviewedBy,
-      status: "CHANGES_REQUESTED"
-    });
+
+    // SR-MD-21: Safety preservation fallback in case requestDailyEvaluationChange did not record an entry
+    const lastEntry = targetDay.evaluationHistory[targetDay.evaluationHistory.length - 1];
+    const isAlreadyArchived = lastEntry && lastEntry.status === "CHANGES_REQUESTED" && lastEntry.directorComment === targetDay.evaluationDirectorComment;
+    if (!isAlreadyArchived && targetDay.evaluation) {
+      targetDay.evaluationHistory.push(Object.freeze({
+        evaluation: String(targetDay.evaluation || ""),
+        submittedAt: targetDay.evaluationSubmittedAt ? new Date(targetDay.evaluationSubmittedAt) : new Date(),
+        submittedBy: String(targetDay.evaluationSubmittedBy || trimmedEducator),
+        directorComment: targetDay.evaluationDirectorComment,
+        reviewedAt: targetDay.evaluationReviewedAt ? new Date(targetDay.evaluationReviewedAt) : new Date(),
+        reviewedBy: targetDay.evaluationReviewedBy,
+        status: "CHANGES_REQUESTED"
+      }));
+    }
 
     targetDay.evaluation = trimmedEval;
+    delete targetDay.evaluationDraft;
     targetDay.evaluationConfirmedBy = trimmedEducator;
     targetDay.evaluationConfirmedAt = effectiveConfirmedAt;
     targetDay.evaluationStatus = "IN_REVIEW";
@@ -1260,11 +1268,28 @@ export class WeeklyPlanning {
       throw new Error("Director comment is required when requesting changes to daily evaluation");
     }
 
+    const reviewDate = new Date();
+    const trimmedComment = comment.trim();
+
+    // SR-MD-21: Inmutable historical preservation of the evaluated submission before any drafting or changes occur
+    if (!targetDay.evaluationHistory) {
+      targetDay.evaluationHistory = [];
+    }
+    targetDay.evaluationHistory.push(Object.freeze({
+      evaluation: String(targetDay.evaluation || ""),
+      submittedAt: targetDay.evaluationSubmittedAt ? new Date(targetDay.evaluationSubmittedAt) : new Date(),
+      submittedBy: String(targetDay.evaluationSubmittedBy || "Anita"),
+      directorComment: trimmedComment,
+      reviewedAt: reviewDate,
+      reviewedBy: String(directorId || "Ceci"),
+      status: "CHANGES_REQUESTED"
+    }));
+
     targetDay.evaluationStatus = "CHANGES_REQUESTED";
     targetDay.evaluationResubmitted = false;
-    targetDay.evaluationDirectorComment = comment.trim();
+    targetDay.evaluationDirectorComment = trimmedComment;
     targetDay.evaluationReviewedBy = directorId;
-    targetDay.evaluationReviewedAt = new Date();
+    targetDay.evaluationReviewedAt = reviewDate;
 
     // Clear prior confirmation when changes are requested
     delete targetDay.evaluationConfirmedAt;

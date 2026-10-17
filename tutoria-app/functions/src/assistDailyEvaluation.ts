@@ -97,6 +97,11 @@ export interface AssistDailyEvaluationLogEntry {
   readonly completionTokens?: number | null;
   readonly totalTokens?: number | null;
   readonly safeErrorCode?: string;
+  readonly rejectionStage?: string;
+  readonly responseLengthChars?: number | null;
+  readonly limitChars?: number | null;
+  readonly finishReason?: string | null;
+  readonly hasValidStructure?: boolean;
 }
 
 export interface AssistDailyEvaluationLogger {
@@ -342,10 +347,21 @@ export async function handleAssistDailyEvaluation(
 
   // 6. Setup request-scoped repository, provider, and gateway
   const repository = options.repository ?? new FirestoreWeeklyPlanningAdminRepository();
+  let providerUsage: { promptTokens?: number | null; completionTokens?: number | null; totalTokens?: number | null } | null = null;
+
   const provider =
     options.provider ??
     new OpenAIEvaluationAIProvider({
       apiKey: resolveServerOpenAIApiKey(),
+      onTelemetry: (t) => {
+        if (t.usage) {
+          providerUsage = {
+            promptTokens: t.usage.promptTokens,
+            completionTokens: t.usage.completionTokens,
+            totalTokens: t.usage.totalTokens,
+          };
+        }
+      },
     });
 
   const gateway = new GovernedEvaluationAIGateway({
@@ -369,6 +385,7 @@ export async function handleAssistDailyEvaluation(
       event: 'assist_daily_evaluation.completed',
       model: 'gpt-4o-mini',
       latencyMs,
+      ...(providerUsage ? providerUsage : {}),
     });
 
     // 8. Return transient suggestedEvaluation only
@@ -384,6 +401,11 @@ export async function handleAssistDailyEvaluation(
         ? rawError.code
         : safeError.code;
 
+    const diagnostics =
+      rawError instanceof GovernedEvaluationAIGatewayError
+        ? rawError.diagnostics
+        : undefined;
+
     logger.write({
       severity: 'ERROR',
       correlationId,
@@ -391,6 +413,11 @@ export async function handleAssistDailyEvaluation(
       model: 'gpt-4o-mini',
       latencyMs,
       safeErrorCode: errorCode,
+      ...(diagnostics?.rejectionStage ? { rejectionStage: diagnostics.rejectionStage } : {}),
+      ...(diagnostics?.finishReason !== undefined ? { finishReason: diagnostics.finishReason } : {}),
+      ...(diagnostics?.responseLengthChars !== undefined ? { responseLengthChars: diagnostics.responseLengthChars } : {}),
+      ...(diagnostics?.limitChars !== undefined ? { limitChars: diagnostics.limitChars } : {}),
+      ...(diagnostics?.hasValidStructure !== undefined ? { hasValidStructure: diagnostics.hasValidStructure } : {}),
     });
 
     throw safeError;

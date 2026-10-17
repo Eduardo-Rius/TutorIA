@@ -15,7 +15,10 @@ import {
   FIRST_LIGHT_LAB_PROJECT_ID,
   FIRST_LIGHT_DAYCARE_ID,
   FIRST_LIGHT_ROOM_ID,
+  FIRST_LIGHT_TEACHER_ID,
 } from '../firstLightLabHarness';
+import { AuthenticationProvider } from '../../../application/ports/AuthenticationProvider';
+import { RoomCatalog } from '../../../domain/planning/RoomCatalog';
 
 // Sample 5-day proposal fixture
 const sampleProposal: WeeklyPlanningProposalResponse = {
@@ -96,19 +99,33 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
   let service: PlanningWorkflowService;
   let pedSource: DeterministicPedagogicalRecommendationSource;
 
+  let mockAuth: AuthenticationProvider;
+
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({}, '', '/');
+    }
     vi.restoreAllMocks();
     repo = new InMemoryWeeklyPlanningRepository();
     service = new PlanningWorkflowService(repo);
     pedSource = new DeterministicPedagogicalRecommendationSource();
+    mockAuth = {
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+      restoreSession: vi.fn().mockResolvedValue(FIRST_LIGHT_TEACHER_ID),
+      getCurrentUser: vi.fn().mockReturnValue(FIRST_LIGHT_TEACHER_ID),
+    };
   });
 
   afterEach(() => {
     cleanup();
     localStorage.clear();
     sessionStorage.clear();
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({}, '', '/');
+    }
   });
 
   const eligibleEnv = {
@@ -122,12 +139,13 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
   };
 
   const navigateToWizard = async () => {
-    const startBtn = screen.getByText(/Comenzar nuestra semana/i);
-    await act(async () => {
-      fireEvent.click(startBtn);
-    });
-
-    const obsInput = screen.getByPlaceholderText(/Ej: Los niños muestran interés en los sonidos/i);
+    const startBtn = screen.queryByText(/Comenzar nuestra semana/i);
+    if (startBtn) {
+      await act(async () => {
+        fireEvent.click(startBtn);
+      });
+    }
+    const obsInput = await screen.findByPlaceholderText(/Ej: Los niños muestran interés en los sonidos/i);
     await act(async () => {
       fireEvent.change(obsInput, { target: { value: 'Interés en exploración sensorial y movimiento' } });
     });
@@ -182,6 +200,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         weeklyPlanningProposalSource={explicitSource}
         firstLightWeeklyPlanningSource={firstLightSource}
       />
@@ -207,6 +227,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={injectedSource}
       />
     );
@@ -230,6 +252,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -259,6 +283,7 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -275,6 +300,7 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -296,6 +322,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -319,6 +347,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -345,6 +375,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -370,6 +402,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -400,6 +434,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -429,6 +465,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
@@ -454,12 +492,14 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         service={service}
         source={pedSource}
         firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
         firstLightWeeklyPlanningSource={mockSource}
       />
     );
 
     // Switch modality select to INDIRECT
-    const modalitySelect = screen.getByRole('combobox');
+    const modalitySelect = screen.getByDisplayValue(/Prestación Directa/i);
     await act(async () => {
       fireEvent.change(modalitySelect, { target: { value: 'INDIRECT' } });
     });
@@ -492,5 +532,57 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
   // Proof R, S, T, U, V, W: Zero external effects in tests
   it('R, S, T, U, V, W. Zero real OpenAI, zero callable, zero Firebase mutation, zero network, zero PROD in tests', () => {
     expect(true).toBe(true);
+  });
+
+  // Proof X: Lactantes A uses effectiveWeeklyPlanningProposalSource via button Ayúdame con TutorIA
+  it('X. SR-MD-18-C: Lactantes A uses effectiveWeeklyPlanningProposalSource via button Ayúdame con TutorIA', async () => {
+    const mockProposalSource = createMockProposalSource();
+
+    render(
+      <PlanningDemoApp
+        service={service}
+        source={pedSource}
+        firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
+        effectiveWeeklyPlanningProposalSource={mockProposalSource}
+      />
+    );
+
+    await navigateToWizard();
+
+    const generateBtn = screen.getByText(/Ayúdame con TutorIA/i);
+    await act(async () => {
+      fireEvent.click(generateBtn);
+    });
+
+    expect(mockProposalSource.propose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Revisar propuesta de TutorIA')).toBeDefined();
+  });
+
+  // Proof Y: Lactantes B remains un-authorized for AI and uses legacy fallback
+  it('Y. SR-MD-18-C: Lactantes B remains without AI authorization and executes legacy fallback', async () => {
+    const generateSpy = vi.spyOn(pedSource, 'generateRecommendation');
+
+    render(
+      <PlanningDemoApp
+        service={service}
+        source={pedSource}
+        firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        initialAction="new"
+        roomOverride={RoomCatalog.getRoom('room-lactantes-b')}
+      />
+    );
+
+    await navigateToWizard();
+
+    const generateBtn = screen.getByText(/Ayúdame con TutorIA/i);
+    await act(async () => {
+      fireEvent.click(generateBtn);
+    });
+
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Revisar propuesta de TutorIA')).toBeNull();
   });
 });

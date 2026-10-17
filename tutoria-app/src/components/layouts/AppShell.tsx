@@ -36,8 +36,16 @@ export function AppShell({
             {topbar}
           </div>
         )}
-        <main className="flex-1 overflow-y-auto outline-none" tabIndex={-1}>
+        <main className="flex-1 overflow-y-auto outline-none flex flex-col" tabIndex={-1}>
           {children}
+          <footer
+            data-testid="ai-disclaimer-footer"
+            className="w-full py-4 px-4 text-center border-t border-gray-200/50 mt-auto print:hidden"
+          >
+            <p className="text-[11px] sm:text-xs text-gray-500 max-w-2xl mx-auto leading-relaxed">
+              La IA puede cometer errores. Toda propuesta requiere revisión y validación del personal educativo responsable.
+            </p>
+          </footer>
         </main>
       </div>
     </div>

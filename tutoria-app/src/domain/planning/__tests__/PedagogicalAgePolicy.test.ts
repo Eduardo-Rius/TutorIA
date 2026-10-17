@@ -502,6 +502,90 @@ describe('H1R11.10A — Master ARB Policy Correction & Evidence Reconciliation',
       expect(classViolation).toBeDefined();
       expect(classViolation?.severity).toBe('DEVELOPMENTAL_MISMATCH');
     });
+
+    it('REGRESSION 5 (SR-MD-15): Rejects forced limb traction / pulled limbs / forced flexion as BLOCKING_SAFETY', () => {
+      const dangerousExpressions = [
+        'Jalar al bebé de los brazos para incorporarlo.',
+        'Tirar de sus manos para sentarlo en la colchoneta.',
+        'Traccionar sus extremidades superiores.',
+        'Traccion de extremidades para levantarlo.',
+        'Incorporarlo tomándolo de los pulgares repetidas veces.',
+        'Levantarlo tirando de las muñecas suavemente.',
+        'Forzar la flexión de las piernas hacia el abdomen.',
+        'Dar tirones para incorporarlo del suelo.',
+        'Jalar suavemente de los brazos para levantarlo.',
+        'Traccionar sus extremidades suavemente para estirarlo.'
+      ];
+
+      for (const expr of dangerousExpressions) {
+        const plan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Actividad con movimiento',
+                  description: expr,
+                  durationMinutes: 10,
+                  materials: ['música infantil'],
+                },
+              ],
+            },
+          ],
+        };
+
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          plan,
+          LACTANTES_A_AGE_POLICY,
+          sampleAvailableMaterials
+        );
+
+        expect(result.isPedagogicallySafe).toBe(false);
+        const tractionViolation = result.blockingViolations.find(
+          (v) => v.ruleId === 'safe-lactantes-a-forced-limb-traction'
+        );
+        expect(tractionViolation, `Expected violation for: "${expr}"`).toBeDefined();
+        expect(tractionViolation?.severity).toBe('BLOCKING_SAFETY');
+      }
+    });
+
+    it('SR-MD-15: Non-coercive gentle care movements do NOT trigger traction safety block', () => {
+      const gentleExpressions = [
+        'Sostener al bebé en brazos para brindarle contención y seguridad.',
+        'Acompañar movimientos espontáneos de pataleo sobre la colchoneta acolchada.',
+        'Ofrecer juguetes visuales para motivar el seguimiento ocular.',
+        'Respetar su postura natural de descanso boca arriba sobre la colchoneta.'
+      ];
+
+      for (const expr of gentleExpressions) {
+        const plan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Cuidado afectivo y atención respetuosa',
+                  description: expr,
+                  durationMinutes: 10,
+                  materials: ['música infantil'],
+                },
+              ],
+            },
+          ],
+        };
+
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          plan,
+          LACTANTES_A_AGE_POLICY,
+          sampleAvailableMaterials
+        );
+
+        const tractionViolation = result.blockingViolations.find(
+          (v) => v.ruleId === 'safe-lactantes-a-forced-limb-traction'
+        );
+        expect(tractionViolation, `Unexpected false positive for: "${expr}"`).toBeUndefined();
+      }
+    });
   });
 
   // ==========================================================================

@@ -1,13 +1,35 @@
 import type { EvaluationAIProvider } from '../../application/planning/EvaluationAIProvider';
 import {
   validateAssistDailyEvaluationResponse,
+  GovernedEvaluationAIError,
+  SUGGESTED_EVALUATION_MIN_LENGTH,
+  SUGGESTED_EVALUATION_MAX_LENGTH,
   type SanitizedEvaluationAIPayload,
   type AssistDailyEvaluationResponse,
 } from '../../application/planning/GovernedEvaluationAIContract';
 
 // ============================================================================
-// PROVIDER ERROR MODEL
+// PROVIDER ERROR MODEL & DIAGNOSTICS
 // ============================================================================
+
+export type EvaluationAIRejectionStage =
+  | 'HTTP_PAYLOAD_PARSE_ERROR'
+  | 'MODEL_REFUSAL'
+  | 'TOKEN_LIMIT_TRUNCATION'
+  | 'EMPTY_COMPLETION'
+  | 'JSON_SYNTAX_ERROR'
+  | 'SCHEMA_KEY_MISMATCH'
+  | 'BELOW_MIN_LENGTH'
+  | 'EXCEEDS_MAX_LENGTH'
+  | 'PROHIBITED_LANGUAGE_VIOLATION';
+
+export interface EvaluationAIRejectionDiagnostics {
+  readonly rejectionStage: EvaluationAIRejectionStage;
+  readonly finishReason?: string | null;
+  readonly responseLengthChars?: number | null;
+  readonly limitChars?: number | null;
+  readonly hasValidStructure?: boolean;
+}
 
 export class EvaluationAIProviderError extends Error {
   constructor(message: string) {
@@ -46,9 +68,18 @@ export class EvaluationAIProviderNetworkError extends EvaluationAIProviderError 
 }
 
 export class EvaluationAIProviderMalformedResponseError extends EvaluationAIProviderError {
-  constructor(message: string) {
+  public readonly cause?: unknown;
+  public readonly diagnostics?: EvaluationAIRejectionDiagnostics | undefined;
+
+  constructor(
+    message: string,
+    cause?: unknown,
+    diagnostics?: EvaluationAIRejectionDiagnostics | undefined
+  ) {
     super(message);
     this.name = 'EvaluationAIProviderMalformedResponseError';
+    this.cause = cause;
+    this.diagnostics = diagnostics;
     Object.setPrototypeOf(this, EvaluationAIProviderMalformedResponseError.prototype);
   }
 }
@@ -97,6 +128,37 @@ export const DEFAULT_EVALUATION_AI_BASE_URL = 'https://api.openai.com/v1';
 export const DEFAULT_EVALUATION_AI_TIMEOUT_MS = 30000;
 export const DEFAULT_EVALUATION_AI_MAX_TOKENS = 800;
 
+/**
+ * Canonical JSON schema for daily evaluation structured outputs.
+ * Enforces strict: true, additionalProperties: false, and mandatory suggestedEvaluation string.
+ */
+export const DAILY_EVALUATION_AI_RESPONSE_SCHEMA = Object.freeze({
+  type: 'object',
+  properties: {
+    suggestedEvaluation: {
+      type: 'string',
+      description:
+        'Borrador cualitativo descriptivo de la evaluación pedagógica diaria basado estrictamente en las evidencias humanas observadas.',
+    },
+  },
+  required: ['suggestedEvaluation'],
+  additionalProperties: false,
+} as const);
+
+/**
+ * Builds the canonical response format object for OpenAI Structured Outputs API.
+ */
+export function buildCanonicalDailyEvaluationResponseFormat() {
+  return {
+    type: 'json_schema' as const,
+    json_schema: {
+      name: 'daily_evaluation_suggestion',
+      strict: true,
+      schema: DAILY_EVALUATION_AI_RESPONSE_SCHEMA,
+    },
+  };
+}
+
 export interface OpenAIEvaluationAIProviderConfig {
   readonly apiKey?: string | undefined;
   readonly model?: string | undefined;
@@ -130,10 +192,15 @@ export const EVALUATION_AI_SYSTEM_INSTRUCTION = [
   '   - Never invent child behaviors, reactions, or responses not described in human evidence.',
   '   - Never invent activity execution, adaptations, or continuity not described in human evidence.',
   '   - Never invent or mention individual children names or personal identifiers.',
-  '7. TONE & STRUCTURE:',
+  '7. TONE, STRUCTURE & LENGTH DIRECTIVES:',
   '   - Descriptive, qualitative, objective, group-level narrative in natural, professional Spanish (español).',
   '   - Respect educator autonomy: "ANITA OBSERVES. AI HELPS WRITE. ANITA DECIDES."',
-  '   - The narrative must be concise and suitable for institutional review by Director/Pedagogue Ceci.',
+  '   - Redacta una evaluación pedagógica integrada, objetiva y coherente, preferentemente entre 600 y 800 caracteres y nunca superior a 1,000 caracteres, incluyendo espacios y signos de puntuación.',
+  '   - Sintetiza la información proporcionada por la educadora; no concatenes ni reproduzcas literalmente los cuatro campos.',
+  '   - Prioriza los hechos observados, las diferencias relevantes entre subgrupos, los ajustes realizados y los aspectos de continuidad.',
+  '   - Evita introducciones redundantes, repeticiones y conclusiones no sustentadas.',
+  '   - No inventes observaciones ni afirmes logros no documentados.',
+  '   - STRICT LENGTH INVARIANT: "suggestedEvaluation" MUST NOT exceed 1,000 characters total (ideal range: 600 to 800 characters).',
   '8. OUTPUT FORMAT:',
   '   - Output strictly a valid JSON object with exactly one key: "suggestedEvaluation".',
   '   - Format: { "suggestedEvaluation": "..." }',
@@ -267,7 +334,7 @@ export class OpenAIEvaluationAIProvider implements EvaluationAIProvider {
             { role: 'user', content: userPrompt },
           ],
           temperature: 0.2,
-          response_format: { type: 'json_object' },
+          response_format: buildCanonicalDailyEvaluationResponseFormat(),
           max_completion_tokens: this.maxCompletionTokens,
         }),
         signal: controller.signal,
@@ -336,9 +403,15 @@ export class OpenAIEvaluationAIProvider implements EvaluationAIProvider {
     let json: any;
     try {
       json = await response.json();
-    } catch {
+    } catch (parseErr) {
       throw new EvaluationAIProviderMalformedResponseError(
-        'Evaluation AI provider response could not be parsed as JSON.'
+        'Evaluation AI provider response could not be parsed as JSON.',
+        parseErr,
+        {
+          rejectionStage: 'HTTP_PAYLOAD_PARSE_ERROR',
+          finishReason: null,
+          hasValidStructure: false,
+        }
       );
     }
 
@@ -365,40 +438,144 @@ export class OpenAIEvaluationAIProvider implements EvaluationAIProvider {
       }
     }
 
-    const rawContent = json?.choices?.[0]?.message?.content;
+    const choices = json?.choices;
+    if (!Array.isArray(choices) || choices.length === 0) {
+      throw new EvaluationAIProviderMalformedResponseError(
+        'Evaluation AI provider returned empty choices array.',
+        undefined,
+        {
+          rejectionStage: 'EMPTY_COMPLETION',
+          finishReason: null,
+          responseLengthChars: 0,
+          hasValidStructure: false,
+        }
+      );
+    }
+
+    const choice = choices[0];
+    if (choice?.message?.refusal) {
+      throw new EvaluationAIProviderMalformedResponseError(
+        `Evaluation AI provider refused generation: ${String(choice.message.refusal)}.`,
+        undefined,
+        {
+          rejectionStage: 'MODEL_REFUSAL',
+          finishReason: typeof choice.finish_reason === 'string' ? choice.finish_reason : 'refusal',
+          hasValidStructure: false,
+        }
+      );
+    }
+
+    if (choice?.finish_reason === 'length') {
+      throw new EvaluationAIProviderMalformedResponseError(
+        'Evaluation AI provider response was truncated due to token limit.',
+        undefined,
+        {
+          rejectionStage: 'TOKEN_LIMIT_TRUNCATION',
+          finishReason: 'length',
+          hasValidStructure: false,
+        }
+      );
+    }
+
+    const rawContent = choice?.message?.content;
     if (typeof rawContent !== 'string' || !rawContent.trim()) {
       throw new EvaluationAIProviderMalformedResponseError(
-        'Evaluation AI provider returned empty completion content.'
+        'Evaluation AI provider returned empty completion content.',
+        undefined,
+        {
+          rejectionStage: 'EMPTY_COMPLETION',
+          finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+          responseLengthChars: 0,
+          hasValidStructure: false,
+        }
       );
     }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(rawContent);
-    } catch {
+    } catch (syntaxErr) {
       throw new EvaluationAIProviderMalformedResponseError(
-        'Evaluation AI provider completion content is not valid JSON.'
+        'Evaluation AI provider completion content is not valid JSON.',
+        syntaxErr,
+        {
+          rejectionStage: 'JSON_SYNTAX_ERROR',
+          finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+          responseLengthChars: rawContent.length,
+          hasValidStructure: false,
+        }
       );
     }
 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new EvaluationAIProviderMalformedResponseError(
-        'Evaluation AI provider completion is not a JSON object.'
+        'Evaluation AI provider completion is not a JSON object.',
+        undefined,
+        {
+          rejectionStage: 'SCHEMA_KEY_MISMATCH',
+          finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+          hasValidStructure: false,
+        }
       );
     }
 
     const keys = Object.keys(parsed);
     if (keys.length !== 1 || keys[0] !== 'suggestedEvaluation') {
       throw new EvaluationAIProviderMalformedResponseError(
-        `Evaluation AI provider returned unexpected keys: ${keys.join(', ')}.`
+        `Evaluation AI provider returned unexpected keys: ${keys.join(', ')}.`,
+        undefined,
+        {
+          rejectionStage: 'SCHEMA_KEY_MISMATCH',
+          finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+          hasValidStructure: false,
+        }
       );
     }
+
+    if (typeof (parsed as Record<string, unknown>).suggestedEvaluation !== 'string') {
+      throw new EvaluationAIProviderMalformedResponseError(
+        'Evaluation AI provider suggestedEvaluation is not a string.',
+        undefined,
+        {
+          rejectionStage: 'SCHEMA_KEY_MISMATCH',
+          finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+          hasValidStructure: false,
+        }
+      );
+    }
+
+    const rawSuggested = (parsed as { suggestedEvaluation: string }).suggestedEvaluation;
+    const trimmed = rawSuggested.trim();
+    const responseLengthChars = trimmed.length;
 
     try {
       validateAssistDailyEvaluationResponse(parsed);
     } catch (contractErr) {
+      let stage: EvaluationAIRejectionStage = 'SCHEMA_KEY_MISMATCH';
+      let limitChars: number | undefined;
+
+      if (contractErr instanceof GovernedEvaluationAIError) {
+        if (contractErr.diagnosticCode === 'PROHIBITED_EVALUATION_LANGUAGE') {
+          stage = 'PROHIBITED_LANGUAGE_VIOLATION';
+        } else if (responseLengthChars < SUGGESTED_EVALUATION_MIN_LENGTH) {
+          stage = 'BELOW_MIN_LENGTH';
+          limitChars = SUGGESTED_EVALUATION_MIN_LENGTH;
+        } else if (responseLengthChars > SUGGESTED_EVALUATION_MAX_LENGTH) {
+          stage = 'EXCEEDS_MAX_LENGTH';
+          limitChars = SUGGESTED_EVALUATION_MAX_LENGTH;
+        }
+      }
+
       throw new EvaluationAIProviderMalformedResponseError(
-        `Evaluation AI provider output failed contract validation: ${(contractErr as Error).message}`
+        `Evaluation AI provider output failed contract validation: ${(contractErr as Error).message}`,
+        contractErr,
+        {
+          rejectionStage: stage,
+          finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+          responseLengthChars,
+          limitChars,
+          hasValidStructure: true,
+        }
       );
     }
 

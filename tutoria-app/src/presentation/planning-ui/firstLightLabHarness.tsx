@@ -6,6 +6,8 @@ export const FIRST_LIGHT_ANITA_EMAIL = "anita@lab.tutoria.invalid";
 export const FIRST_LIGHT_TEACHER_ID = "lab-teacher-anita";
 export const FIRST_LIGHT_CECI_EMAIL = "ceci@lab.tutoria.invalid";
 export const FIRST_LIGHT_DIRECTOR_ID = "lab-director-ceci";
+export const FIRST_LIGHT_TERE_EMAIL = "tere@lab.tutoria.invalid";
+export const FIRST_LIGHT_SUPERVISOR_ID = "lab-supervisor-tere";
 export const FIRST_LIGHT_DAYCARE_ID = "00000000-0000-4000-8000-000000000001";
 export const FIRST_LIGHT_ROOM_ID = "room-lactantes-a";
 export const FIRST_LIGHT_PLANNING_ID = "f1000000-0000-4000-8000-000000000001";
@@ -70,7 +72,7 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
   loginError = null,
 }) => {
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"TEACHER" | "DIRECTOR">("TEACHER");
+  const [selectedRole, setSelectedRole] = useState<"TEACHER" | "DIRECTOR" | "SUPERVISOR">("TEACHER");
 
   if (guardError) {
     return (
@@ -95,10 +97,16 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
     if (!password || isLoggingIn) return;
     const currentPassword = password;
     setPassword(""); // Immediately clear password from component state
-    const targetEmail = selectedRole === "DIRECTOR" ? FIRST_LIGHT_CECI_EMAIL : FIRST_LIGHT_ANITA_EMAIL;
+    const targetEmail =
+      selectedRole === "SUPERVISOR"
+        ? FIRST_LIGHT_TERE_EMAIL
+        : selectedRole === "DIRECTOR"
+        ? FIRST_LIGHT_CECI_EMAIL
+        : FIRST_LIGHT_ANITA_EMAIL;
     await onLogin(currentPassword, targetEmail);
   };
 
+  const isTere = authenticatedEmail === FIRST_LIGHT_TERE_EMAIL;
   const isCeci = authenticatedEmail === FIRST_LIGHT_CECI_EMAIL;
   const isAnita = authenticatedEmail === FIRST_LIGHT_ANITA_EMAIL;
 
@@ -120,7 +128,7 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
         {authenticatedEmail ? (
           <div className="flex items-center gap-2" data-testid="first-light-auth-status">
             <span className="text-emerald-700 font-bold flex items-center gap-1">
-              <span>✅</span> {isCeci ? `Ceci (${FIRST_LIGHT_CECI_EMAIL})` : isAnita ? `Anita (${FIRST_LIGHT_ANITA_EMAIL})` : authenticatedEmail}
+              <span>✅</span> {isTere ? `Directora (${FIRST_LIGHT_TERE_EMAIL})` : isCeci ? `Educadora (${FIRST_LIGHT_CECI_EMAIL})` : isAnita ? `Asistente Educativa (${FIRST_LIGHT_ANITA_EMAIL})` : authenticatedEmail}
             </span>
             <button
               type="button"
@@ -141,19 +149,26 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 id="first-light-identity-select"
                 data-testid="first-light-identity-select"
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as "TEACHER" | "DIRECTOR")}
+                onChange={(e) => setSelectedRole(e.target.value as "TEACHER" | "DIRECTOR" | "SUPERVISOR")}
                 disabled={isLoggingIn}
                 className="text-xs bg-white border border-amber-300 rounded px-1.5 py-0.5 font-semibold text-amber-900 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
               >
-                <option value="TEACHER">Anita (Educadora)</option>
-                <option value="DIRECTOR">Ceci (Directora)</option>
+                <option value="TEACHER">Asistente Educativa</option>
+                <option value="DIRECTOR">Educadora</option>
+                <option value="SUPERVISOR">Directora</option>
               </select>
             </div>
             <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
               <input
                 type="password"
                 data-testid="first-light-password-input"
-                placeholder={selectedRole === "DIRECTOR" ? "Contraseña de Ceci LAB" : "Contraseña de Anita LAB"}
+                placeholder={
+                  selectedRole === "SUPERVISOR"
+                    ? "Contraseña de Directora LAB"
+                    : selectedRole === "DIRECTOR"
+                    ? "Contraseña de Educadora LAB"
+                    : "Contraseña de Asistente Educativa LAB"
+                }
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoggingIn}

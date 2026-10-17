@@ -85,11 +85,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ roomName }) => {
       <div className="p-6 mt-auto border-t border-white/5 pt-8">
         <button className="w-full flex flex-col items-center justify-center gap-4 p-5 rounded-2xl hover:bg-white/5 transition-all duration-300 group border border-transparent hover:border-white/10 shadow-sm">
           <div className="w-[104px] h-[104px] shrink-0 flex items-center justify-center relative group-hover:scale-105 transition-transform duration-300">
-            <img src={personas.anita} alt="Anita" className="w-full h-full object-contain" />
+            <img src={personas.anita} alt="Asistente Educativa" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col items-center text-center">
-            <p className="text-lg font-bold text-white font-poppins tracking-tight leading-tight mb-1">Anita</p>
-            <p className="text-sm text-brandPrimary font-inter font-medium leading-tight mb-1">Pedagoga</p>
+            <p className="text-lg font-bold text-white font-poppins tracking-tight leading-tight mb-1">Asistente Educativa</p>
+            <p className="text-sm text-brandPrimary font-inter font-medium leading-tight mb-1">Pedagogía</p>
             <p className="text-xs text-textLight font-inter font-medium leading-tight">{effectiveRoomName}</p>
           </div>
         </button>

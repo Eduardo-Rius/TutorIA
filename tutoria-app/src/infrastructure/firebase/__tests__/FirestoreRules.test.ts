@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeTestEnvironment, RulesTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { describe, it, beforeAll, afterAll, beforeEach, expect } from 'vitest';
-import { setDoc, doc, getDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { setDoc, doc, getDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 
 function createRealistic5Days() {
   return ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'].map((dayOfWeek, idx) => ({
@@ -1505,6 +1505,385 @@ describe('Firestore Security Rules', () => {
     it('30. existing non-evaluation security-rule tests remain green', async () => {
       // Confirmed by the full suite running alongside these tests
       expect(true).toBe(true);
+    });
+  });
+
+  describe('SR-MD-21 Phase 2: Private Director Draft Observations Subcollection', () => {
+    it('1. director1 can create a draft observation on plan in her daycare', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertSucceeds(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Borrador privado de observación',
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('2. director1 can read her own draft observation', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador existente',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertSucceeds(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+    });
+
+    it('3. director1 can update her own draft observation', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador existente',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertSucceeds(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        observation: 'Borrador actualizado',
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('4. director1 can delete her own draft observation', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador para borrar',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertSucceeds(deleteDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+    });
+
+    it('5. teacherA (Asistente Educativa) CANNOT read private draft observation', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador privado confidencial',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+    });
+
+    it('6. teacherA CANNOT create, update, or delete private draft observation', async () => {
+      const db = testEnv.authenticatedContext('teacherA').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento de creación por docente',
+        createdBy: 'teacherA',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('7. supervisor1 (Directora) CANNOT read private draft observation', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador interno no publicado',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const db = testEnv.authenticatedContext('supervisor1').firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+    });
+
+    it('8. director2 from another daycare CANNOT read or write draft observations', async () => {
+      const db = testEnv.authenticatedContext('director2').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento cross-tenant',
+        createdBy: 'director2',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('9. unauthenticated user CANNOT read or write draft observations', async () => {
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(getDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento no autenticado',
+        createdBy: 'anon',
+      }));
+    });
+
+    // -------------------------------------------------------------------------
+    // Phase 2B Hardening & Failure Boundary Tests
+    // -------------------------------------------------------------------------
+    it('10. director1 CANNOT create draft observation if parent plan is in DRAFT status', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-draft', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento en plan DRAFT',
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('11. director1 CANNOT create draft observation if parent plan is in APPROVED status', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-approved', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento en plan APPROVED',
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('12. director1 CANNOT create draft observation with unauthorized keys (payload hardening)', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento con payload adulterado',
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        unauthorizedField: 'malicious-data',
+      }));
+    });
+
+    it('13. director1 CANNOT create draft observation with mismatched draftId and activityId', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'spoofed-draft-id'), {
+        activityId: 'act-MONDAY-1',
+        observation: 'Intento de spoofing de ID',
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('14. director1 CANNOT create draft observation with empty observation text', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: '',
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('15. director1 CANNOT create draft observation exceeding 2000 characters limit', async () => {
+      const db = testEnv.authenticatedContext('director1').firestore();
+      const oversizedText = 'A'.repeat(2001);
+      await assertFails(setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-1',
+        observation: oversizedText,
+        dayOfWeek: 'MONDAY',
+        createdBy: 'director1',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('16. director1 CANNOT update draft observation to mutate activityId (immutability)', async () => {
+      const createdTimestamp = Timestamp.now();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador original',
+          dayOfWeek: 'MONDAY',
+          createdBy: 'director1',
+          createdAt: createdTimestamp,
+          updatedAt: createdTimestamp,
+        });
+      });
+
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        activityId: 'act-MONDAY-TAMPERED',
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('17. director1 CANNOT update draft observation to mutate createdBy or createdAt (immutability)', async () => {
+      const createdTimestamp = Timestamp.now();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador original',
+          dayOfWeek: 'MONDAY',
+          createdBy: 'director1',
+          createdAt: createdTimestamp,
+          updatedAt: createdTimestamp,
+        });
+      });
+
+      const db = testEnv.authenticatedContext('director1').firestore();
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        createdBy: 'director-other',
+        updatedAt: Timestamp.now(),
+      }));
+
+      await assertFails(updateDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }));
+    });
+
+    it('18. peer director in same daycare CANNOT read or delete director1 private drafts (strict author isolation)', async () => {
+      // Provision peer director in same daycare-1
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'authorizationContexts', 'director1B'), {
+          institutionalRole: 'DIRECTOR',
+          authorizedDaycareIds: ['daycare-1'],
+          active: true,
+        });
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador exclusivo de director1',
+          dayOfWeek: 'MONDAY',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const peerDb = testEnv.authenticatedContext('director1B').firestore();
+      // Peer cannot read director1's draft
+      await assertFails(getDoc(doc(peerDb, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+      // Peer cannot delete director1's draft
+      await assertFails(deleteDoc(doc(peerDb, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1')));
+    });
+
+    it('19. Querying draft observations: authorized query with createdBy filter succeeds, unbounded query fails', async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador de director1',
+          dayOfWeek: 'MONDAY',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      const db = testEnv.authenticatedContext('director1').firestore();
+      
+      // Query with createdBy filter matching authenticated director succeeds
+      const authorizedQuery = query(
+        collection(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations'),
+        where('createdBy', '==', 'director1')
+      );
+      await assertSucceeds(getDocs(authorizedQuery));
+
+      // Query without createdBy constraint fails rule validation
+      const unboundedQuery = query(
+        collection(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations')
+      );
+      await assertFails(getDocs(unboundedQuery));
+    });
+
+    it('20. integration writeBatch: committing plan update (IN_REVIEW -> REJECTED) and draft deletion succeeds atomically', async () => {
+      // 1. Seed draft observation via admin context
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await setDoc(doc(adminDb, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'), {
+          activityId: 'act-MONDAY-1',
+          observation: 'Borrador privado a limpiar en el batch',
+          dayOfWeek: 'MONDAY',
+          createdBy: 'director1',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+      });
+
+      // 2. Perform writeBatch using authenticated director1 context
+      const db = testEnv.authenticatedContext('director1').firestore();
+      const batch = writeBatch(db);
+
+      const planRef = doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review');
+      const draftRef = doc(db, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1');
+
+      batch.update(planRef, {
+        status: 'REJECTED',
+        version: 2,
+        reviewHistory: [{
+          reason: 'Ajustes solicitados en actividades del lunes',
+          rejectedBy: 'director1',
+          rejectedAt: Timestamp.now(),
+        }],
+        granularObservations: [{
+          targetId: 'act-MONDAY-1',
+          observation: 'Ajustar materiales para lactantes',
+          originalContent: 'Descripción original',
+          currentContent: 'Descripción original',
+          status: 'PENDING_CORRECTION',
+          reviewer: 'director1',
+        }],
+        historicalRounds: [{
+          roundNumber: 1,
+          rejectedAt: Timestamp.now(),
+          rejectedBy: 'director1',
+          reason: 'Ajustes solicitados en actividades del lunes',
+          observations: [{
+            targetId: 'act-MONDAY-1',
+            observation: 'Ajustar materiales para lactantes',
+            originalContent: 'Descripción original',
+            currentContent: 'Descripción original',
+            status: 'PENDING_CORRECTION',
+            reviewer: 'director1',
+          }],
+        }],
+      });
+
+      batch.delete(draftRef);
+
+      // 3. Confirm rules permit the entire atomic batch commit
+      await assertSucceeds(batch.commit());
+
+      // 4. Verify post-commit state via admin context
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        const planSnap = await getDoc(doc(adminDb, 'weeklyPlannings', 'plan-teacher-a-d1-review'));
+        expect(planSnap.exists()).toBe(true);
+        expect(planSnap.data()?.status).toBe('REJECTED');
+        expect(planSnap.data()?.granularObservations).toHaveLength(1);
+
+        const draftSnap = await getDoc(doc(adminDb, 'weeklyPlannings', 'plan-teacher-a-d1-review', 'directorDraftObservations', 'act-MONDAY-1'));
+        expect(draftSnap.exists()).toBe(false);
+      });
     });
   });
 });

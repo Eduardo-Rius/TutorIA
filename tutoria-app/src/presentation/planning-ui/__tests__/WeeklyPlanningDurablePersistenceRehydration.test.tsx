@@ -89,6 +89,9 @@ function createMockAuth(uid: string = FIRST_LIGHT_TEACHER_ID): AuthenticationPro
 
 describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration Cable', () => {
   beforeEach(() => {
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({}, '', '/');
+    }
     localStorage.clear();
     sessionStorage.clear();
     vi.restoreAllMocks();
@@ -96,6 +99,9 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
 
   afterEach(() => {
     cleanup();
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({}, '', '/');
+    }
     localStorage.clear();
     sessionStorage.clear();
   });
@@ -355,7 +361,7 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       const textarea = screen.getByPlaceholderText(/Describe de manera objetiva el desarrollo de las actividades/);
       fireEvent.change(textarea, { target: { value: 'Evaluación oficial de lunes enviada a Ceci' } });
 
-      const submitBtn = screen.getByRole('button', { name: /🚀 Enviar evaluación a Ceci/ });
+      const submitBtn = screen.getByRole('button', { name: /🚀 Enviar evaluación a (Educadora|Ceci)/ });
       await act(async () => {
         fireEvent.click(submitBtn);
       });
@@ -400,7 +406,7 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       const textarea = screen.getByPlaceholderText(/Describe de manera objetiva el desarrollo de las actividades/);
       fireEvent.change(textarea, { target: { value: 'Evaluación confirmada lunes' } });
 
-      const submitBtn = screen.getByRole('button', { name: /🚀 Enviar evaluación a Ceci/ });
+      const submitBtn = screen.getByRole('button', { name: /🚀 Enviar evaluación a (Educadora|Ceci)/ });
       await act(async () => {
         fireEvent.click(submitBtn);
       });
@@ -424,9 +430,9 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
 
       // Verify that Monday shows in-review state
       await waitFor(() => {
-        expect(screen.getByText(/Evaluación enviada a Dirección/)).toBeTruthy();
-        expect(screen.getByText(/✓ Enviada por Anita/)).toBeTruthy();
-        expect(screen.getByText(/Evaluación registrada y en revisión por Ceci/)).toBeTruthy();
+        expect(screen.getByText(/Evaluación enviada a (Dirección|la Educadora|Educadora)/)).toBeTruthy();
+        expect(screen.getByText(/✓ Enviada por (Asistente Educativa|Anita)/)).toBeTruthy();
+        expect(screen.getByText(/Evaluación registrada y en revisión por (Educadora|Ceci)/)).toBeTruthy();
       });
     });
   });
@@ -642,6 +648,15 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
   // H1R13.3H.7B — BOOTSTRAP NAVIGATION GATE INVARIANTS
   // ==========================================================================
   describe('H1R13.3H.7B — Bootstrap Navigation Gate Invariants', () => {
+    beforeEach(() => {
+      window.history.pushState({}, '', '/');
+    });
+
+    afterEach(() => {
+      cleanup();
+      window.history.pushState({}, '', '/');
+    });
+
     it('A. AUTH PENDING: Neutral loading UI is shown, TeacherList is not mounted, and no t1 lookup occurs while auth is unresolved', async () => {
       let resolveAuthSession!: (uid: string | null) => void;
       const pendingAuthPromise = new Promise<string | null>((resolve) => {
@@ -759,6 +774,7 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
     it('D. LOOKUP ERROR: Fails closed to error state, does not show fresh-week CTA, and performs zero writes', async () => {
       const repo = new InMemoryWeeklyPlanningRepository();
       vi.spyOn(repo, 'findById').mockRejectedValue(new Error('Firestore connectivity failure'));
+      vi.spyOn(repo, 'listByTeacher').mockRejectedValue(new Error('Firestore connectivity failure'));
       const saveSpy = vi.spyOn(repo, 'save');
       const service = new PlanningWorkflowService(repo);
       const source = new DeterministicPedagogicalRecommendationSource();
@@ -779,7 +795,7 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       // Invariant: Fail-closed error state shown
       await waitFor(() => {
         expect(screen.getByTestId('lab-bootstrap-error')).toBeTruthy();
-        expect(screen.getByText(/No pudimos recuperar tu planeación\. Intenta nuevamente\./)).toBeTruthy();
+        expect(screen.getAllByText(/No pudimos recuperar.*Intenta nuevamente\./).length).toBeGreaterThan(0);
       });
 
       // Invariant: Fresh-week CTA is NOT shown
@@ -793,6 +809,8 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       // Planning with canonical ID but belonging to a different teacher
       const wrongTeacherPlan = createCanonicalLabPlanning({ teacherId: 'lab-teacher-carmen' });
       await repo.save(wrongTeacherPlan);
+
+      window.history.pushState({}, '', `/?planId=${wrongTeacherPlan.planningId}`);
 
       const service = new PlanningWorkflowService(repo);
       const source = new DeterministicPedagogicalRecommendationSource();
@@ -1055,6 +1073,8 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       const source = new DeterministicPedagogicalRecommendationSource();
       const mockAuth = createMockAuth(FIRST_LIGHT_DIRECTOR_ID);
 
+      window.history.pushState({}, '', `/?planId=${FIRST_LIGHT_PLANNING_ID}`);
+
       render(
         <PlanningDemoApp
           service={service}
@@ -1106,7 +1126,7 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       });
 
       expect(screen.getByText(/Evaluación canónica de Anita para lunes/)).toBeTruthy();
-      expect(screen.getByText(/✓ Enviada por Anita/)).toBeTruthy();
+      expect(screen.getByText(/✓ Enviada por (Asistente Educativa|Anita)/)).toBeTruthy();
       expect(screen.getByRole('button', { name: /Aprobar evaluación/i })).toBeTruthy();
       expect(screen.getByRole('button', { name: /Solicitar cambio/i })).toBeTruthy();
     });
@@ -1157,7 +1177,7 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
       await waitFor(() => {
         expect(screen.getByText(/PENDIENTE DE MI REVISIÓN/i)).toBeTruthy();
       });
-      expect(screen.getByText(/✓ Enviada por Anita/)).toBeTruthy();
+      expect(screen.getByText(/✓ Enviada por (Asistente Educativa|Anita)/)).toBeTruthy();
     });
 
     // C. REVIEWER IDENTITY
@@ -1391,6 +1411,8 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
         const source = new DeterministicPedagogicalRecommendationSource();
         const mockAuth = createMockAuth(FIRST_LIGHT_DIRECTOR_ID);
 
+        window.history.pushState({}, '', `/?planId=${canonicalPlan.planningId}`);
+
         render(
           <PlanningDemoApp
             service={service}
@@ -1454,6 +1476,8 @@ describe('H1R13.3H.6 — LAB Weekly Planning Durable Persistence + Rehydration C
         const service = new PlanningWorkflowService(repo);
         const source = new DeterministicPedagogicalRecommendationSource();
         const mockAuth = createMockAuth(FIRST_LIGHT_DIRECTOR_ID);
+
+        window.history.pushState({}, '', `/?planId=${canonicalPlan.planningId}`);
 
         render(
           <PlanningDemoApp

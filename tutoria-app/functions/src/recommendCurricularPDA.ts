@@ -31,7 +31,7 @@ export const MAX_PAYLOAD_BYTES = 10240;
 /**
  * Maximum allowed length for individual string fields.
  */
-export const MAX_TEXT_FIELD_LENGTH = 500;
+export const MAX_TEXT_FIELD_LENGTH = 1000;
 
 /**
  * Client -> Gateway request payload contract.
