@@ -156,8 +156,8 @@ describe("SR-MD-19 — Circuito Completo de Devolución de Planeación (Ceci ↔
       fireEvent.click(screen.getByText("✓ Marcar día como revisado"));
     });
 
-    // Submit button should now be enabled and say "Enviar correcciones a la Directora"
-    const submitBtn = screen.getByText("Enviar correcciones a la Directora");
+    // Submit button should now be enabled and say "Enviar correcciones a la Educadora"
+    const submitBtn = screen.getByText(/Enviar correcciones a la (Educadora|Directora)/i);
     expect((submitBtn.closest("button") as HTMLButtonElement).disabled).toBe(false);
 
     // Resubmit to director

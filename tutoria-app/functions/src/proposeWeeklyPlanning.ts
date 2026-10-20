@@ -477,6 +477,12 @@ export interface WeeklyPlanningGatewayLogEntry {
   readonly failureCode?: WeeklyPlanningFailureCode;
   readonly diagnosticSubtype?: WeeklyPlanningDiagnosticSubtype;
   readonly upstreamStatus?: number;
+  readonly ruleId?: string;
+  readonly dayOfWeek?: string;
+  readonly activityIndex?: number;
+  readonly contextField?: string;
+  readonly offendingValue?: string | number;
+  readonly validationReason?: string;
 }
 
 /**
@@ -507,6 +513,7 @@ export interface WeeklyPlanningProposalExecutorOptions {
   readonly onTelemetry?: WeeklyPlanningAITelemetryObserver;
   readonly apiKey?: string;
   readonly fetchFn?: typeof fetch;
+  readonly timeoutMs?: number;
 }
 
 /**
@@ -519,6 +526,7 @@ export function createWeeklyPlanningProposalExecutor(
     apiKey: options.apiKey,
     fetchFn: options.fetchFn,
     onTelemetry: options.onTelemetry,
+    timeoutMs: options.timeoutMs ?? 120000,
   });
   const source = new AIWeeklyPlanningProposalSource(executor);
   return (request: WeeklyPlanningProposalRequest) => source.propose(request);
@@ -576,11 +584,15 @@ export function mapToSafeWeeklyPlanningError(err: unknown): HttpsError {
   }
 
   if (target instanceof PedagogicalPolicyViolationError) {
+    const specificDetail = target.violations && target.violations.length > 0
+      ? `: ${target.violations[0].message}`
+      : '.';
     return new HttpsError(
       'failed-precondition',
-      'Proposed activities violate pedagogical safety or age-appropriate development policy.'
+      `Proposed activities violate pedagogical safety or age-appropriate development policy${specificDetail}`
     );
   }
+
 
   if (target instanceof WeeklyPlanningAIExecutorConfigurationError) {
     return new HttpsError(
@@ -689,6 +701,12 @@ export interface WeeklyPlanningFailureClassification {
   readonly processingStage: WeeklyPlanningProcessingStage;
   readonly failureCode: WeeklyPlanningFailureCode;
   readonly diagnosticSubtype?: WeeklyPlanningDiagnosticSubtype;
+  readonly ruleId?: string;
+  readonly dayOfWeek?: string;
+  readonly activityIndex?: number;
+  readonly contextField?: string;
+  readonly offendingValue?: string | number;
+  readonly validationReason?: string;
 }
 
 /**
@@ -746,18 +764,32 @@ export function classifyWeeklyPlanningFailure(
   }
 
   if (target instanceof BlockingMaterialPolicyViolationError) {
+    const first = target.violations?.[0];
     return {
       safeError,
       processingStage: 'MATERIAL_ENCLOSURE',
       failureCode: 'BLOCKING_MATERIAL_POLICY',
+      ruleId: first?.ruleId,
+      dayOfWeek: first?.dayOfWeek,
+      activityIndex: first?.activityIndex,
+      contextField: first?.contextField,
+      offendingValue: first?.offendingValue,
+      validationReason: first?.message ?? target.message,
     };
   }
 
   if (target instanceof PedagogicalPolicyViolationError) {
+    const first = target.violations?.[0];
     return {
       safeError,
       processingStage: 'AGE_SAFETY',
       failureCode: 'BLOCKING_AGE_POLICY',
+      ruleId: first?.ruleId,
+      dayOfWeek: first?.dayOfWeek,
+      activityIndex: first?.activityIndex,
+      contextField: first?.contextField,
+      offendingValue: first?.offendingValue,
+      validationReason: first?.message ?? target.message,
     };
   }
 
@@ -856,10 +888,15 @@ export function classifyWeeklyPlanningFailure(
 
     // Undeclared material mention
     if (msg.includes('mentions material') && msg.includes('without declaring its ref in materialRefs')) {
+      const match = /Activity at day index (\d+), activity index (\d+) proceduralAction mentions material '([^']+)'/i.exec(msg);
       return {
         safeError,
         processingStage: 'MATERIAL_ENCLOSURE',
         failureCode: 'UNDECLARED_MATERIAL',
+        activityIndex: match ? parseInt(match[2], 10) : undefined,
+        contextField: 'proceduralAction',
+        offendingValue: match ? match[3] : undefined,
+        validationReason: 'proceduralAction mentions material without declaring its ref in materialRefs',
       };
     }
 
@@ -1048,7 +1085,10 @@ export async function handleProposeWeeklyPlanning(
         specialSituations: validatedPayload.currentContext.specialSituations || '',
         availableMaterials: validatedPayload.currentContext.availableMaterials || '',
       },
-      ...(validatedPayload.constraints ? { constraints: validatedPayload.constraints } : {}),
+      constraints: {
+        minActivitiesPerDay: 5,
+        ...validatedPayload.constraints,
+      },
     };
 
     // 5. Setup request-scoped telemetry state
@@ -1105,6 +1145,11 @@ export async function handleProposeWeeklyPlanning(
     }
 
     const classification = classifyWeeklyPlanningFailure(rawErr, currentStage);
+    const validationReason =
+      classification.validationReason ??
+      (classification.processingStage === 'REQUEST_VALIDATION' && rawErr instanceof HttpsError
+        ? rawErr.message
+        : undefined);
 
     logger.write({
       severity: 'ERROR',
@@ -1115,6 +1160,12 @@ export async function handleProposeWeeklyPlanning(
       safeErrorCategory: classification.safeError.code,
       processingStage: classification.processingStage,
       failureCode: classification.failureCode,
+      ...(classification.ruleId ? { ruleId: classification.ruleId } : {}),
+      ...(classification.dayOfWeek ? { dayOfWeek: classification.dayOfWeek } : {}),
+      ...(classification.activityIndex !== undefined ? { activityIndex: classification.activityIndex } : {}),
+      ...(classification.contextField ? { contextField: classification.contextField } : {}),
+      ...(classification.offendingValue !== undefined ? { offendingValue: classification.offendingValue } : {}),
+      ...(validationReason ? { validationReason } : {}),
       ...(classification.diagnosticSubtype ? { diagnosticSubtype: classification.diagnosticSubtype } : {}),
       ...(upstreamStatus !== undefined ? { upstreamStatus } : {}),
     });
@@ -1131,6 +1182,7 @@ export const proposeWeeklyPlanning = onCall(
     enforceAppCheck: false,
     maxInstances: 10,
     secrets: [openAIApiKey],
+    timeoutSeconds: 120,
   },
   async (request) => {
     return handleProposeWeeklyPlanning(request);

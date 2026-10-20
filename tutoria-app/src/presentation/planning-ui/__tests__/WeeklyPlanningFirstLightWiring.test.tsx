@@ -560,8 +560,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
     expect(screen.getByText('Revisar propuesta de TutorIA')).toBeDefined();
   });
 
-  // Proof Y: Lactantes B remains un-authorized for AI and uses legacy fallback
-  it('Y. SR-MD-18-C: Lactantes B remains without AI authorization and executes legacy fallback', async () => {
+  // Proof Y: Unauthorized rooms (e.g. Maternal A) remain without AI authorization and execute legacy fallback
+  it('Y. SR-MD-18-C / SR-MD-25: Maternal A remains without AI authorization and executes legacy fallback', async () => {
     const generateSpy = vi.spyOn(pedSource, 'generateRecommendation');
 
     render(
@@ -571,7 +571,12 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         firstLightEnv={eligibleEnv}
         firstLightAuth={mockAuth}
         initialAction="new"
-        roomOverride={RoomCatalog.getRoom('room-lactantes-b')}
+        roomOverride={{
+          roomId: 'room-maternal-a',
+          name: 'Maternal A',
+          minAgeMonths: 19,
+          maxAgeMonths: 24,
+        }}
       />
     );
 
@@ -584,5 +589,93 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
 
     expect(generateSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('Revisar propuesta de TutorIA')).toBeNull();
+  });
+
+  // Proof Y2: Lactantes C has AI authorization under SR-MD-25 and presents the Human Gate
+  it('Y2. SR-MD-25: Lactantes C has AI authorization and presents the Human Gate', async () => {
+    const mockProposalSource: WeeklyPlanningProposalSource = {
+      propose: vi.fn().mockResolvedValue({
+        days: [
+          {
+            dayOfWeek: 'MONDAY',
+            activities: [
+              {
+                category: 'ACTIVIDADES PEDAGÓGICAS',
+                objective: 'Exploración de texturas',
+                description: 'Inicio: Mostrar libros. Desarrollo: Explorar. Cierre: Guardar. Adaptaciones: Respetar ritmo individual.',
+                durationMinutes: 15,
+                materials: ['libros de tela con textura'],
+              },
+            ],
+          },
+        ],
+      }),
+    };
+
+    render(
+      <PlanningDemoApp
+        service={service}
+        source={pedSource}
+        firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        firstLightWeeklyPlanningSource={mockProposalSource}
+        initialAction="new"
+        roomOverride={RoomCatalog.getRoom('lactantes-c')}
+      />
+    );
+
+    await navigateToWizard();
+
+    const generateBtn = screen.getByText(/Ayúdame con TutorIA/i);
+    await act(async () => {
+      fireEvent.click(generateBtn);
+    });
+
+    expect(mockProposalSource.propose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Revisar propuesta de TutorIA')).toBeDefined();
+  });
+
+  // Proof Z: Lactantes B is now authorized for AI generation under SR-MD-22
+  it('Z. SR-MD-22: Lactantes B has AI authorization and presents the Human Gate', async () => {
+    const mockProposalSource: WeeklyPlanningProposalSource = {
+      propose: vi.fn().mockResolvedValue({
+        days: [
+          {
+            dayOfWeek: 'MONDAY',
+            activities: [
+              {
+                category: 'ACTIVIDADES PEDAGÓGICAS',
+                objective: 'Exploración de texturas',
+                description: 'Inicio: Mostrar libros. Desarrollo: Explorar. Cierre: Guardar.',
+                durationMinutes: 15,
+                materials: ['libros de tela con textura'],
+              },
+            ],
+          },
+        ],
+      }),
+    };
+
+    render(
+      <PlanningDemoApp
+        service={service}
+        source={pedSource}
+        firstLightEnv={eligibleEnv}
+        firstLightAuth={mockAuth}
+        firstLightWeeklyPlanningSource={mockProposalSource}
+        initialAction="new"
+        roomOverride={RoomCatalog.getRoom('room-lactantes-b')}
+      />
+    );
+
+    await navigateToWizard();
+
+    const generateBtn = screen.getByText(/Ayúdame con TutorIA/i);
+    await act(async () => {
+      fireEvent.click(generateBtn);
+    });
+
+    expect(mockProposalSource.propose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Revisar propuesta de TutorIA')).toBeDefined();
   });
 });

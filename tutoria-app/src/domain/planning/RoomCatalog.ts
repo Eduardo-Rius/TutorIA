@@ -28,6 +28,14 @@ export class RoomCatalog {
   ];
 
   public static getRoom(roomId: string): Room | undefined {
+    if (roomId === 'room-lactantes-c') {
+      return {
+        roomId: 'room-lactantes-c',
+        name: 'Lactantes C',
+        minAgeMonths: 13,
+        maxAgeMonths: 18,
+      };
+    }
     return this.rooms.find(r => r.roomId === roomId);
   }
 

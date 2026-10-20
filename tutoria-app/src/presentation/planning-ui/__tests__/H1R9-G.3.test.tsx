@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { PlanningDemoApp } from "../PlanningDemoApp";
 import { InMemoryWeeklyPlanningRepository } from "../../../infrastructure/repositories/InMemoryWeeklyPlanningRepository";
 import { PlanningWorkflowService } from "../../../application/planning/PlanningWorkflowService";
@@ -8,6 +8,14 @@ import { DeterministicPedagogicalRecommendationSource } from "../../../applicati
 import { WeeklyPlanning } from "../../../domain/planning/WeeklyPlanning";
 
 describe("H1R9-G.3.2: Simplified Human Governance for Daily Evaluation", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    if (typeof window !== "undefined" && window.history) {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
   const createTestDeps = () => {
     const repo = new InMemoryWeeklyPlanningRepository();
     const service = new PlanningWorkflowService(repo);

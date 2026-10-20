@@ -1220,7 +1220,7 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
                 objective: 'Lectura de nanas',
                 description: 'Lectura afectuosa',
                 materials: [],
-                durationMinutes: 20, // invalid for reading
+                durationMinutes: 0, // invalid duration outside bounds (1-60)
               },
             ],
           },
@@ -1229,7 +1229,7 @@ describe('H1R12.3A-I — DETERMINISTIC MATERIAL ENCLOSURE', () => {
 
       expect(() => {
         validateWeeklyPlanningDailyReadingInvariant(rawInvalidReading);
-      }).toThrow(/Day MONDAY reading activity duration is 20 minutes; must be exactly 15 minutes/);
+      }).toThrow(/reading activity duration is invalid \(0 minutes\)/);
     });
 
     // 10. Ausencia de escrituras automáticas

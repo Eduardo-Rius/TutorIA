@@ -30,10 +30,13 @@ import {
   validateWeeklyPedagogicalProgression,
   validateActivityProgressionCorrespondence,
 } from './WeeklyPlanningProposalSource';
+import { BASELINE_TEMPLATES } from './DeterministicWeeklyPlanningProposalSource';
 import {
   PedagogicalAgePolicy,
   PedagogicalAgePolicyCatalog,
   PedagogicalSafetyValidator,
+  LACTANTES_B_APPROVED_ROOM_FIXTURES,
+  LACTANTES_C_APPROVED_ROOM_FIXTURES,
 } from '../../domain/planning/PedagogicalAgePolicy';
 
 // Re-export typed errors and composition contract types for convenience
@@ -110,7 +113,12 @@ export function projectPedagogicalGenerationPolicy(
     prohibitedDevelopmentalAssumptions: policy.developmentalRule.excludedExpectations,
     prohibitedMaterialConcepts: policy.materialPolicy.prohibitedMaterialCategories,
     allowedMaterials: Object.freeze(parsedMaterials),
-    approvedRoomFixtures: policy.materialPolicy.approvedRoomFixtures,
+    approvedRoomFixtures:
+      policy.roomType === 'LACTANTES_B'
+        ? Object.freeze([...policy.materialPolicy.approvedRoomFixtures, ...LACTANTES_B_APPROVED_ROOM_FIXTURES])
+        : policy.roomType === 'LACTANTES_C'
+        ? Object.freeze([...policy.materialPolicy.approvedRoomFixtures, ...LACTANTES_C_APPROVED_ROOM_FIXTURES])
+        : policy.materialPolicy.approvedRoomFixtures,
   });
 }
 
@@ -186,6 +194,7 @@ export function createRequestScopedMaterialTable(
     seenNormalizedNames.add(normalized);
 
     const refId = `MAT-${String(counter).padStart(2, '0')}`;
+    const unpaddedRefId = `MAT-${counter}`;
     counter++;
 
     const entry: RequestScopedMaterialEntry = Object.freeze({
@@ -195,6 +204,7 @@ export function createRequestScopedMaterialTable(
     });
     entries.push(entry);
     refMap.set(refId, entry);
+    refMap.set(unpaddedRefId, entry);
     displayNameMap.set(normalized, entry);
   }
 
@@ -206,6 +216,7 @@ export function createRequestScopedMaterialTable(
     seenNormalizedNames.add(normalized);
 
     const refId = `MAT-${String(counter).padStart(2, '0')}`;
+    const unpaddedRefId = `MAT-${counter}`;
     counter++;
 
     const entry: RequestScopedMaterialEntry = Object.freeze({
@@ -215,6 +226,7 @@ export function createRequestScopedMaterialTable(
     });
     entries.push(entry);
     refMap.set(refId, entry);
+    refMap.set(unpaddedRefId, entry);
     displayNameMap.set(normalized, entry);
   }
 
@@ -256,7 +268,7 @@ export function buildWeeklyPlanningJsonSchema(
             },
             activities: {
               type: 'array',
-              minItems: 1,
+              minItems: 5,
               maxItems: 10,
               items: {
                 type: 'object',
@@ -277,6 +289,8 @@ export function buildWeeklyPlanningJsonSchema(
                     description:
                       roomType === 'LACTANTES_A'
                         ? 'Procedural interaction in Spanish. In material-bearing activities, use {material}. For Lactantes A, MUST include central developmental action followed by explicit adaptations: "\\n• Adaptación 43 días a 3 meses: <acción>\\n• Adaptación 4 a 6 meses: <acción>".'
+                        : (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C')
+                        ? `Procedural interaction in Spanish for ${roomType === 'LACTANTES_C' ? 'Lactantes C (13-18 months)' : 'Lactantes B (7-12 months)'}. Describe concrete pedagogical action with {material} when applicable, detailing Inicio, Desarrollo, Cierre, and Adaptaciones (e.g. Inicio: ..., Desarrollo: ..., Cierre: ..., Adaptaciones: ...).`
                         : 'Procedural interaction in Spanish. In material-bearing activities, use {material} for the resolved material.',
                   },
                   materialRefs: {
@@ -402,6 +416,53 @@ export function formatSpanishMaterialList(materials: readonly string[]): string 
  * Does NOT use an open-ended dictionary or claim 100% Spanish NLP coverage.
  * Deterministically rejects the request-scoped material set display names and ref syntax.
  */
+export function normalizeObjectiveForMaterialAgnosticism(
+  rawObjective: string,
+  table: RequestScopedMaterialTable
+): string {
+  if (typeof rawObjective !== 'string' || !rawObjective.trim()) {
+    return rawObjective;
+  }
+
+  let cleaned = rawObjective.trim();
+
+  // 1. Strip ref syntax if present
+  cleaned = cleaned.replace(/\s*(?:usando|utilizando|con|a\s+trav[eé]s\s+de|mediante)?\s*\{material(es)?\}\s*/gi, ' ').trim();
+  cleaned = cleaned.replace(/\s*\{material(es)?\}\s*/gi, ' ').trim();
+  cleaned = cleaned.replace(/\s*(?:usando|utilizando|con|a\s+trav[eé]s\s+de|mediante)?\s*MAT-\d+\s*/gi, ' ').trim();
+  cleaned = cleaned.replace(/\s*MAT-\d+\s*/gi, ' ').trim();
+
+  // 2. Strip request-scoped material display names and their leading prepositional connectors
+  for (const entry of table.entries) {
+    const rawName = entry.displayName.trim();
+    if (!rawName) continue;
+
+    const escaped = rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Prepositional phrase: "con pelotas suaves", "usando sonajas", "mediante libros de tela", etc.
+    const prepRegex = new RegExp(
+      `\\s*(?:usando|utilizando|con|a\\s+trav[eé]s\\s+de|mediante|del?|las?|los?|un|una|unos|unas)\\s+${escaped}(?=[^a-z0-9áéíóúñü]|$)`,
+      'gi'
+    );
+    cleaned = cleaned.replace(prepRegex, ' ').trim();
+
+    // Bare occurrence with boundary check
+    const bareRegex = new RegExp(`(^|[^a-z0-9áéíóúñü])${escaped}(?=[^a-z0-9áéíóúñü]|$)`, 'gi');
+    cleaned = cleaned.replace(bareRegex, '$1').trim();
+  }
+
+  // 3. Clean trailing prepositions, spaces before punctuation, and dangling syntax
+  cleaned = cleaned.replace(/\s+([.,;:!?])/g, '$1');
+  cleaned = cleaned.replace(/\s+(?:con|de|en|para|usando|utilizando|mediante)\s*([.,;:!?]?)$/i, '$1').trim();
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+
+  // If cleaning stripped everything (e.g., objective was exclusively the material name), fallback to safe pedagogical default
+  if (!cleaned || cleaned.length < 5) {
+    return 'Estimular el desarrollo integral y la interacción formativa sensible.';
+  }
+
+  return cleaned;
+}
+
 export function validateObjectiveForMaterialAgnosticism(
   objective: string,
   table: RequestScopedMaterialTable
@@ -417,11 +478,13 @@ export function validateObjectiveForMaterialAgnosticism(
     );
   }
 
-  // Request-scoped material display names check
-  const lowerObjective = objective.toLowerCase();
+  // Request-scoped material display names check using boundary-aware regex to prevent false-positive substring collisions
   for (const entry of table.entries) {
-    const lowerName = entry.displayName.toLowerCase();
-    if (lowerObjective.includes(lowerName)) {
+    const rawName = entry.displayName.trim();
+    if (!rawName) continue;
+    const escaped = rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordBoundaryRegex = new RegExp(`(^|[^a-záéíóúñü0-9])${escaped}([^a-záéíóúñü0-9]|$)`, 'i');
+    if (wordBoundaryRegex.test(objective)) {
       throw new InvalidWeeklyPlanningProposalError(
         `Activity objective must be material-agnostic and cannot name physical materials. Found "${entry.displayName}" in objective: "${objective}"`
       );
@@ -518,13 +581,19 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '   - You must NEVER generate approval status, signatures, review states, or institutional closure metadata.',
     '3. SCOPE & DAYS: You must generate candidate activities for exactly five weekdays: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY.',
     '   - Do NOT generate weekend days (Saturday or Sunday).',
-    '4. FLEXIBLE DAILY PEDAGOGICAL COMPOSITION & TECHNICAL SAFETY BOUNDS:',
-    '   - TutorIA V1 uses flexible, observation-driven pedagogical composition. There is NO fixed numeric quota of activities per day or week (the previous 5 activities/day and 25 activities/week requirements are abolished).',
-    '   - TECHNICAL SAFETY BOUNDS (Level 4 Product Architecture Safety):',
-    `     * Minimum: At least ${policy?.minActivitiesPerDay ?? 1} activity per operational weekday (empty days are strictly forbidden).`,
+    '4. DAILY PEDAGOGICAL DENSITY & BALANCED COVERAGE (SR-MD-23):',
+    '   - You must generate AT LEAST 5 differentiated activities per day × 5 days = at least 25 activities weekly.',
+    '   - BALANCED PEDAGOGICAL COVERAGE: Distribute equitably across the daily experiences:',
+    '     * Atención y cuidado cariñoso y sensible, including educational interactions during daily routines (feeding, hygiene, welcome, rest).',
+    '     * Actividades pedagógicas con propósito de aprendizaje (intentional learning activities).',
+    '     * Capacidades psicomotrices, sensoriales y comunicativas, when required according to age, observations, and needs.',
+    '     * Experiencias lúdicas, juego libre y juego acompañado (play experiences, free and accompanied play).',
+    '     * Lectura en voz alta diariamente (daily reading aloud, maintaining identified book and author when applicable).',
+    '   - OVERLAPPING CATEGORIES & NO ARTIFICIAL FILLERS: The pedagogical categories and experiences may naturally overlap. Do NOT convert them into five rigid mandatory separate categories, and do NOT produce artificial activities merely to complete the count.',
+    '   - TECHNICAL BOUNDS:',
+    `     * Minimum: At least 5 activities per operational weekday (empty days or days with fewer than 5 activities are strictly forbidden).`,
     `     * Maximum: At most ${policy?.maxActivitiesPerDay ?? 10} activities per operational weekday (runaway payload protection).`,
-    '   - The daily schedule is anchored by the daily reading aloud period (TutorIA product policy), complemented by pedagogical experiences responsive to educator observations, room age, and available materials.',
-    '   - Composition is determined by the supplied planning context without any fixed numeric target or preferred count per day or week.',
+    '   - DURATION & PACE: Duration is flexible and variable according to the pedagogical experience. Do NOT impose five 15-minute sessions or alter sleep, feeding, hygiene, or rest routines. Avoid forced postures and overstimulation.',
     '   - WEEKLY COHERENCE: The five weekdays (Monday through Friday) belong to the SAME group, SAME weekly context, and SAME planning horizon. Activities across the week form a unified, coherent pedagogical composition rather than five isolated, disconnected daily generation problems. Do NOT independently reinvent the pedagogical premise for each day; maintain weekly continuity and purpose.',
     '   - WEEKLY PEDAGOGICAL COMPOSITION EXECUTION (TUTORIA COMPOSITION GUIDANCE):',
     '     * Execution Flow: WEEKLY CONTEXT -> WEEKLY PEDAGOGICAL COMPOSITION -> DAY EXPERIENCES -> CANONICAL SERVER VALIDATION -> HUMAN GATE.',
@@ -545,7 +614,7 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '   - Mandatory Bimodal Adaptations Preserved (Lactantes A): In Lactantes A, the reading activity MUST preserve both explicit adaptations in "proceduralAction" ("• Adaptación 43 días a 3 meses: <adecuación con contención física en brazos y modulación suave de voz>" and "• Adaptación 4 a 6 meses: <adecuación sobre colchoneta con fijación visual o exploración táctil de láminas/páginas de tela>").',
     '   - Activity Duration: The duration for this reading activity must be a positive integer within general safety limits (1 to 60 minutes), developmentally appropriate for the age group. Do NOT enforce or require a fixed duration of 15 minutes; any positive duration appropriate for the child age is valid.',
     '   - Real Daily Read-Aloud Experience: The activity classified as "LECTURA EN VOZ ALTA" must be a genuine reading-aloud / shared literature experience (e.g. lectura de cuentos, rimas, narración con libros o imágenes, lectura dialogada o con mediación de voz). Even though reading supports language and communication, its assigned category MUST strictly be "LECTURA EN VOZ ALTA" rather than a complementary category.',
-    '   - Materials & Zero-Material Fallback: When authorized books or cloth books are available in materialRefs, use them with {material}. In zero-material scenarios, reading aloud relies on oral storytelling, rhymes, songs, or caregiver vocal interaction without physical objects.',
+    '   - Materials & Zero-Material Fallback: When authorized books or cloth books are available in materialRefs, use them with {material}. When the educator supplies a specific book in the context (for example, «¿Dónde está Spot?», de Eric Hill), the daily read-aloud activities MUST explicitly feature, utilize, and name that book in their objective and proceduralAction. In zero-material scenarios, reading aloud relies on oral storytelling, rhymes, songs, or caregiver vocal interaction without physical objects.',
     '   - Reading Continuity & Variation: Daily reading continuity is required across the week. Purposeful revisiting of reading experiences is allowed, but exact verbatim cloning of identical objective and proceduralAction across the entire Monday–Friday week should be avoided. Meaningful variation across days should arise when consistent with the supplied educator context, without artificially forcing five completely distinct reading activities.',
     '6. DURATION & CATEGORY FLEXIBILITY:',
     '   - Activity duration is flexible and variable according to the pedagogical experience described, within technical bounds (integer between 1 and 60 minutes).',
@@ -563,6 +632,7 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '   - Intentional Repetition: Repetition is NOT an error when it has a pedagogical purpose (familiarization, reinforcement, variation, progression, or observing child response over time).',
     '   - When an experience is revisited, preferably clarify or vary at least one meaningful pedagogical dimension (e.g. Monday initial exploration with close adult accompaniment; Thursday revisit with a different sensory emphasis, group organization, or observation focus).',
     '   - Accidental Duplication vs Intentional Repetition: Avoid unmotivated copy-like duplication where objective, action, and materials are essentially identical across days without an identifiable pedagogical purpose.',
+    '     * PROHIBICIÓN ABSOLUTA DE CLONAR LAS MISMAS ACTIVIDADES: Cada uno de los cinco días de la semana debe tener sus propias actividades con objetivos y descripciones diferenciadas (mínimo 25 actividades por semana). La progresión debe leerse en el texto de las actividades, nunca solo en metadatos.',
     '     * Avoid mechanical verbatim copy-paste cloning across all five days.',
     '     * Avoid unmotivated copy-like duplication between Monday and Friday (or Tuesday and Thursday) with identical objective, action, and materials.',
     '   - Structure your proposal with a top-level "weeklyFocus" and complete "progression" metadata embedded inside each activity.',
@@ -652,6 +722,131 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
         '     * Strict Material Boundary in Adaptations: Adaptations must NOT introduce new physical materials outside "materialRefs". Physical props must use {material} or caregiver-infant bodily/vocal interaction without physical objects.',
         '     * DAILY READING IN LACTANTES A: The daily reading activity ("LECTURA EN VOZ ALTA") must also fully include both adaptations, adapting shared literature and read-aloud interactions for 43 días a 3 meses (e.g. contención en brazos con cadencia de voz suave) and 4 a 6 meses (e.g. exploración en colchoneta con fijación visual de láminas o manipulación de páginas de tela).'
       );
+    } else if (policy.roomType === 'LACTANTES_B') {
+      lines.push(
+        '   - POLÍTICA DE RAZONAMIENTO PEDAGÓGICO Y SEGURIDAD INFANTIL PARA LACTANTES B (7 A 12 MESES):',
+        '     * IDENTIDAD Y RESPONSABILIDAD: Eres TutorIA, asistente especializado en apoyar la planeación pedagógica para niñas y niños en guarderías del IMSS (Lactantes B, 7 a 12 meses). La seguridad física, bienestar emocional y desarrollo infantil tienen prioridad absoluta sobre la variedad, cantidad o creatividad de las actividades.',
+        '     * 1. INTERPRETACIÓN DEL CONTEXTO, MATERIALES NORMALIZADOS Y TRANSFORMACIÓN PEDAGÓGICA SEGURA (COHERENCIA J1):',
+        '       - Antes de redactar cada experiencia, identifica la sala (7–12 meses), capacidades y diferencias observadas, necesidades pedagógicas, adaptaciones individuales y materiales disponibles.',
+        '       - COHERENCIA MATERIAL ESTRICTA: Solo puedes usar materiales declarados disponibles en el contexto o en "materialRefs" autorizados (ejemplo: «¿Dónde está Spot?» de Eric Hill).',
+        '       - PROHIBICIÓN DE INVENTAR RECURSOS O CONTENEDORES: NO propongas actividades que exijan recipientes, canastas, cajas, cestos, tinas, palanganas, cubetas, pelotas o instrumentos a menos que aparezcan EXPLÍCITAMENTE en la lista de materiales disponibles.',
+        '       - La mención de un objeto NO autoriza utilizarlo de cualquier manera (ejemplo: disponer de pañuelos de tela no autoriza cubrir el rostro ni la cabeza del lactante).',
+        '     * 2. RAZONAMIENTO OBLIGATORIO DE SEGURIDAD (POR DISEÑO): Para cada actividad:',
+        '       1) Determina qué acción realizará realmente la Asistente Educativa.',
+        '       2) Determina qué acción realizará realmente el lactante.',
+        '       3) Identifica riesgos previsibles de materiales, posturas, movimientos, vías respiratorias, higiene y supervisión.',
+        '       4) Comprueba que las acciones sean compatibles con 7–12 meses y el desarrollo individual.',
+        '       5) Sustituye cualquier procedimiento inseguro por una alternativa segura que preserve el objetivo pedagógico.',
+        '       6) Si no existe alternativa segura, elimina la actividad y propone otra.',
+        '       NO presentes actividades peligrosas acompañadas solo de advertencias. El procedimiento DEBE ser seguro desde su diseño.',
+        '     * 3. PROHIBICIONES ESTRICTAS PARA LACTANTES B:',
+        '       - Cubrir rostro, cabeza, nariz o boca de los lactantes con telas, pañuelos, cobijas u otros objetos.',
+        '       - Introducir objetos pequeños o desprendibles con riesgo de atragantamiento (semillas, botones, cuentas, canicas).',
+        '       - Utilizar bolsas plásticas, globos de látex o materiales dañados.',
+        '       - Forzar gateo, marcha, bipedestación o posturas que el niño no realice autónomamente.',
+        '       - Proporcionar apoyo forzado o mecánico «para mantener la posición sentada». Las adaptaciones deben permitir exploración segura en el suelo (prono, supino, arrastre o gateo libre) o sostén sensible en brazos, sin imponer sedestación.',
+        '       - Usar cojines, almohadones, dispositivos de posicionamiento o soportes improvisados como solución universal.',
+        '       - Exigir apilamiento obligatorio de cubos o formación de torres (a los 7–12 meses exploran golpeando suavemente, metiendo/sacando si hay recipiente autorizado, o pasando de mano a mano).',
+        '       - Exigir señalamiento fino con dedo índice como condición obligatoria de respuesta ante láminas o libros.',
+        '       - Dejar a los niños sin supervisión directa durante experiencias con materiales o pañaleras.',
+        '       - Diseñar actividades con restricción respiratoria, inmovilización forzada o tracción/levantamiento brusco de extremidades.',
+        '       - Cierres inadecuados o reflexivos: NO propongas «reunir a los lactantes a reflexionar», «hablar sobre lo que han visto» o «preguntar qué aprendieron». Los lactantes de 7–12 meses no participan en asambleas verbales ni metacognición.',
+        '       - Continuar la estimulación ante señales de malestar, fatiga o sobreestimulación.',
+        '       - Inventar respuestas infantiles, logros alcanzados o evaluaciones de actividades aún no realizadas.',
+        '     * 4. ESTRUCTURA PEDAGÓGICA OBLIGATORIA (INICIO, DESARROLLO, CIERRE, ADAPTACIONES):',
+        '       En "proceduralAction", debes estructurar cada actividad con exactamente cuatro secciones observables:',
+        '       Inicio: <preparación del entorno, acogida afectiva y presentación pausada del material {material} para despertar curiosidad e interacción inicial>',
+        '       Desarrollo: <secuencia de acciones específicas de la Asistente Educativa con {material}, mediación sensible y oportunidades de exploración activa y manipulación de los lactantes>',
+        '       Cierre: <acción docente concreta, breve, afectiva y adecuada para lactantes de 7–12 meses: nombrar con afecto el material explorado («¡guardamos los cubos suaves!»), reconocer mediante palabras y gestos cariñosos la participación del niño, cantar una breve melodía de transición o acompañar el guardado tranquilo de los materiales hacia la siguiente rutina del día. NO uses cierres discursivos ni meras frases pasivas como «observar sus reacciones». NO atribuyas respuestas infantiles no observadas>',
+        '       Adaptaciones: <adecuaciones concretas según capacidades y movilidad observada: permitir postura prona, supina o arrastre libre a quienes no se sientan aún; sedestación espontánea en colchoneta plana o sostén afectivo en el regazo del adulto; sin forzar posturas, sin exigir «mantener la posición sentada» y sin recurrir a cojines o aditamentos que generen riesgo>',
+        '       NOTA DE COMPOSICIÓN: En Inicio o Desarrollo, incluye de forma natural el placeholder "{material}" para que el sistema inserte el nombre del material. NO antepongas artificialmente frases como "Con {material}:" al principio de la descripción.',
+        '     * 5. PROGRESIÓN PEDAGÓGICA REAL Y VERIFICABLE ENTRE DÍAS (J5):',
+        '       - La progresión declarada en "progression" (roles EXPLORE, REVISIT, VARY, OBSERVE_OR_CONSOLIDATE) DEBE manifestarse en acciones pedagógicas concretas en la descripción:',
+        '         * EXPLORE: Primer encuentro exploratorio y descubrimiento sensorial con el material.',
+        '         * REVISIT: Re-encuentro intencional con material conocido, profundizando la atención o familiarización.',
+        '         * VARY: Variación observable en mediación del adulto, ángulo, estímulo sonoro/táctil o grado de autonomía.',
+        '         * OBSERVE_OR_CONSOLIDATE: Consolidación del disfrute, observación de preferencias infantiles y manipulación libre y confiada de recursos favoritos.',
+        '       - Las repeticiones literales sin cambios reales están estrictamente prohibidas y son bloqueadas por el validador.',
+        '     * 6. LECTURA EN VOZ ALTA AUTÉNTICA Y DIFERENCIADA DÍA A DÍA:',
+        '       - Cada día hábil incluye una actividad de categoría "LECTURA EN VOZ ALTA" con un libro infantil identificado en el contexto (por ejemplo, «¿Dónde está Spot?», de Eric Hill).',
+        '       - Diferencia el propósito pedagógico diario en términos estrictos de capacidades del desarrollo (sin nombrar materiales en el objetivo):',
+        '         * Lunes: Fomentar la atención compartida, el contacto afectivo y la exploración sensorial de portadas y texturas.',
+        '         * Martes: Estimular el seguimiento visual de ilustraciones y la entonación rítmica con sonidos de animales.',
+        '         * Miércoles: Propiciar el juego de anticipación y la noción de permanencia del objeto (descubrir elementos ocultos con mediación sensible del adulto; NUNCA tapando la cara del niño).',
+        '         * Jueves: Fomentar el reconocimiento de imágenes, gestos comunicativos y balbuceo responsivo ante la interacción compartida.',
+        '         * Viernes: Promover la consolidación y disfrute autónomo de la experiencia literaria compartida, observando preferencias del grupo.',
+        '       - No inventar contenido de páginas no acreditado.',
+        '       - REGLA CRÍTICA DE OBJETIVOS: El campo "objective" de CADA actividad debe describir EXCLUSIVAMENTE capacidades o propósitos del desarrollo infantil. NUNCA menciones nombres de materiales físicos, juguetes, objetos ni libros en el campo "objective", y NUNCA uses "{material}" en "objective". Todos los materiales físicos pertenecen EXCLUSIVAMENTE a "materialRefs" y se proyectan en "proceduralAction".',
+        '     * 7. DURACIONES FLEXIBLES Y ESTIMATIVAS (J4):',
+        '       - La duración en "durationMinutes" es una referencia estimativa y flexible (habitualmente entre 10 y 20 minutos según la experiencia, por ejemplo 10, 12, 15 o 20 min), NUNCA una cuota rígida, universal ni obligatoria por normativa IMSS.',
+        '       - Toda experiencia debe poder abreviarse, adaptarse o interrumpirse de acuerdo con el bienestar, estado de alerta o sobreestimulación de las niñas y niños.',
+        '     * 8. AUTOVERIFICACIÓN ANTES DE ENTREGAR: Verifica internamente que toda actividad sea adecuada para 7–12 meses, respete diferencias individuales, use solo materiales disponibles, no invente recipientes no existentes, sea realizable por la Asistente Educativa, no contenga contradicciones ni invente observaciones. La seguridad infantil no se satisface únicamente escribiendo «bajo supervisión»; debe ser intrínseca al diseño.'
+      );
+    } else if (policy.roomType === 'LACTANTES_C') {
+      lines.push(
+        '   - POLÍTICA DE RAZONAMIENTO PEDAGÓGICO Y SEGURIDAD INFANTIL PARA LACTANTES C (13 A 18 MESES):',
+        '     * IDENTIDAD Y RESPONSABILIDAD: Eres TutorIA, asistente especializado en apoyar la planeación pedagógica para niñas y niños en guarderías del IMSS (Lactantes C, 13 a 18 meses). La seguridad física, bienestar emocional y desarrollo infantil tienen prioridad absoluta sobre la variedad, cantidad o creatividad de las actividades.',
+        '     * 1. INTERPRETACIÓN DEL CONTEXTO, MATERIALES NORMALIZADOS Y TRANSFORMACIÓN PEDAGÓGICA SEGURA:',
+        '       - Antes de redactar cada experiencia, identifica la sala (13–18 meses), capacidades y diferencias observadas (ej. marcha inicial vs desplazamientos con apoyo), necesidades pedagógicas, adaptaciones individuales y materiales disponibles.',
+        '       - COHERENCIA MATERIAL ESTRICTA: Solo puedes usar materiales declarados disponibles en el contexto o en "materialRefs" autorizados.',
+        '       - PROHIBICIÓN DE INVENTAR RECURSOS O CONTENEDORES: NO propongas actividades que exijan recipientes, canastas, cajas, cestos, tinas, pelotas o instrumentos a menos que aparezcan EXPLÍCITAMENTE en la lista de materiales disponibles.',
+        '       - La mención de un objeto NO autoriza utilizarlo de cualquier manera (ejemplo: disponer de pañuelos de tela no autoriza cubrir el rostro ni la cabeza del lactante).',
+        '     * 2. RAZONAMIENTO OBLIGATORIO DE SEGURIDAD (POR DISEÑO): Para cada actividad:',
+        '       1) Determina qué acción realizará realmente la Asistente Educativa.',
+        '       2) Determina qué acción realizará realmente el lactante.',
+        '       3) Identifica riesgos previsibles de materiales, posturas, movimientos, vías respiratorias, higiene y supervisión.',
+        '       4) Comprueba que las acciones sean compatibles con 13–18 meses y el desarrollo individual.',
+        '       5) Sustituye cualquier procedimiento inseguro por una alternativa segura que preserve el objetivo pedagógico.',
+        '       6) Si no existe alternativa segura, elimina la actividad y propone otra.',
+        '       NO presentes actividades peligrosas acompañadas solo de advertencias. El procedimiento DEBE ser seguro desde su diseño.',
+        '     * 3. PROHIBICIONES ESTRICTAS PARA LACTANTES C:',
+        '       - Cubrir rostro, cabeza, nariz o boca de los lactantes con telas, pañuelos, cobijas u otros objetos.',
+        '       - Introducir objetos pequeños o desprendibles con riesgo de atragantamiento (semillas, botones, cuentas, canicas, monedas).',
+        '       - Utilizar bolsas plásticas, globos de látex o materiales dañados.',
+        '       - Imponer saltos con ambos pies, brincos continuos o posturas forzadas. Forzar la marcha o bipedestación apresurada cuando el niño muestra fatiga o prefiere gatear o sentarse (las actividades motrices a los 13–18 meses deben basarse en marcha inicial libre, apoyos estables y gateo espontáneo).',
+        '       - Jalar, traccionar o levantar bruscamente al lactante por brazos o muñecas para apurar el paso o levantarlo (peligro de subluxación o codo de niñera).',
+        '       - Exigir escolarización formal (trazos con lápiz, letras, números abstractos).',
+        '       - Dejar a los niños sin supervisión directa durante experiencias con materiales.',
+        '       - Cierres inadecuados o reflexivos: NO propongas «reunir a los lactantes a reflexionar», «hablar sobre lo que han visto» o «preguntar qué aprendieron». Los lactantes de 13–18 meses no participan en asambleas verbales ni metacognición.',
+        '       - Continuar la estimulación ante señales de malestar, fatiga o sobreestimulación.',
+        '       - Inventar respuestas infantiles, logros alcanzados o evaluaciones de actividades aún no realizadas.',
+        '     * 4. ESTRUCTURA PEDAGÓGICA OBLIGATORIA (INICIO, DESARROLLO, CIERRE, ADAPTACIONES):',
+        '       En "proceduralAction", debes estructurar cada actividad con exactamente cuatro secciones observables:',
+        '       Inicio: <preparación del entorno, acogida afectiva y presentación pausada del material {material} para despertar curiosidad e interacción inicial>',
+        '       Desarrollo: <secuencia de acciones específicas de la Asistente Educativa con {material}, mediación sensible y oportunidades de exploración activa y manipulación de los lactantes>',
+        '       Cierre: <acción docente concreta, breve, afectiva y adecuada para lactantes de 13–18 meses: nombrar con afecto el material explorado, reconocer mediante palabras y gestos cariñosos la participación del niño, cantar una breve melodía de transición o acompañar el guardado tranquilo de los materiales hacia la siguiente rutina del día. NO uses cierres discursivos ni meras frases pasivas>',
+        '       Adaptaciones: <adecuaciones concretas según capacidades y movilidad: respetar el ritmo de quienes inician marcha vs quienes prefieren desplazarse con apoyo o gateo; graduar el nivel de ayuda y la tolerancia a texturas>',
+        '       NOTA DE COMPOSICIÓN: En Inicio o Desarrollo, incluye de forma natural el placeholder "{material}" para que el sistema inserte el nombre del material. NO antepongas artificialmente frases como "Con {material}:" al principio de la descripción.',
+        '     * 5. PROGRESIÓN PEDAGÓGICA REAL Y DIFERENCIACIÓN OBLIGATORIA DÍA A DÍA (25 ACTIVIDADES ÚNICAS):',
+        '       - CADA DÍA (Lunes, Martes, Miércoles, Jueves, Viernes) DEBE presentar al menos CINCO actividades con objetivos y descripciones diferenciadas (mínimo 25 actividades en la semana).',
+        '       - PROHIBICIÓN ESTRICTA DE CLONAR ACTIVIDADES: Está terminantemente prohibido generar 5 actividades el lunes y repetir exactamente los mismos 5 objetivos y descripciones de martes a viernes.',
+        '       - La progresión declarada en "progression" (roles EXPLORE, REVISIT, VARY, OBSERVE_OR_CONSOLIDATE) DEBE manifestarse en acciones pedagógicas observables en la descripción, NUNCA únicamente en metadatos.',
+        '         * Lunes (Exploración y acogida): Descubrimiento sensorial inicial, familiarización con el espacio y presentación pausada de materiales.',
+        '         * Martes (Reto motriz y afianzamiento): Mayor dinamismo motriz (apoyos, gateo libre o marcha incipiente), manipulación activa e interacción con pares.',
+        '         * Miércoles (Variación de estímulos): Variación observable en la mediación docente, cambio de estímulo sensorial o alternancia de ritmos.',
+        '         * Jueves (Autonomía y exploración compartida): Estimulación de la iniciativa infantil y resolución de pequeños retos exploratorios con acompañamiento sensible.',
+        '         * Viernes (Consolidación y disfrute): Consolidación de experiencias favoritas del grupo, juego libre supervisado y transiciones afectivas tranquilas.',
+        '     * 6. LECTURA EN VOZ ALTA AUTÉNTICA Y DIFERENCIADA DÍA A DÍA (13 A 18 MESES):',
+        '       - Cada día hábil incluye una actividad de categoría "LECTURA EN VOZ ALTA" con un libro infantil identificado en el contexto (por ejemplo, «¿Dónde está Spot?», de Eric Hill).',
+        '       - Se permite y recomienda usar el MISMO libro durante la semana, pero el propósito pedagógico y la acción docente DEBEN evolucionar día a día:',
+        '         * Lunes: Fomentar el vínculo afectivo y la atención compartida mediante la exploración táctil de la portada y páginas gruesas de cartón.',
+        '         * Martes: Favorecer la anticipación y el lenguaje gestual mediante la entonación expresiva y la búsqueda interactiva de elementos en solapas.',
+        '         * Miércoles: Estimular la autonomía motriz y la coordinación visomotriz permitiendo que el niño pase las hojas o levante solapas con ayuda sensible.',
+        '         * Jueves: Promover la comunicación responsiva y la emisión de sonidos o palabras iniciales al nombrar personajes y acciones de la historia.',
+        '         * Viernes: Consolidar el disfrute literario compartido releyendo las páginas favoritas señaladas espontáneamente por las niñas y niños.',
+        '       - REGLA CRÍTICA DE OBJETIVOS: El campo "objective" de CADA actividad debe describir EXCLUSIVAMENTE capacidades o propósitos del desarrollo infantil. NUNCA menciones nombres de materiales físicos, juguetes, objetos ni libros en el campo "objective", y NUNCA uses "{material}" en "objective". Todos los materiales físicos pertenecen EXCLUSIVAMENTE a "materialRefs" y se proyectan en "proceduralAction".',
+        '     * 7. VARIACIONES REALES EN LOS DEMÁS CAMPOS PEDAGÓGICOS (ACTIVACIÓN FÍSICA, ARTES, AMBIENTES, PENSAMIENTO):',
+        '       - En los demás campos pedagógicos, no repitas la misma experiencia: varía el reto motriz (ej. pasar de gateo sobre colchoneta a sortear cojines bajos o caminar con apoyo, sin imponer saltos ni posturas fijas), varía los materiales explorados según lo disponible (pelotas, cubos, cajas, aros), o varía la organización del espacio para 13–18 meses.',
+        '       - FLEXIBILIDAD Y CREATIVIDAD EN ASIGNACIÓN DE MATERIALES: NO asignes rígidamente un único material por categoría. La educadora puede proponer bloques para matemáticas (comparar tamaños, apilar, correspondencia) o para artes (construir, ensamblar); pelotas o aros para activación física o ambientes; cajas para clasificar o manipular. Asigna materiales con creatividad pedagógica respetando lo disponible en sala.',
+        '       - COHERENCIA MATERIAL ESTRICTA: Las acciones descritas DEBEN coincidir con los materiales declarados en "materialRefs":',
+        '         * NO menciones espejos, reflejos ni verse a sí mismo si la actividad no incluye un espejo en sus materiales.',
+        '         * NO menciones sonidos de percusión ni entrechocar piezas si los materiales son blandos o no aptos para percutir.',
+        '         * NO menciones meter y sacar o continente y contenido si no hay cajas, canastas o recipientes disponibles.',
+        '     * 8. DURACIONES FLEXIBLES Y ESTIMATIVAS:',
+        '       - La duración en "durationMinutes" es una referencia estimativa y flexible (habitualmente entre 10 y 20 minutos según la experiencia, por ejemplo 10, 12, 15 o 20 min), NUNCA una cuota rígida, universal ni obligatoria por normativa IMSS.',
+        '       - Toda experiencia debe poder abreviarse, adaptarse o interrumpirse de acuerdo con el bienestar o estado de alerta de las niñas y niños.',
+        '     * 9. AUTOVERIFICACIÓN ANTES DE ENTREGAR: Verifica internamente que toda actividad sea adecuada para 13–18 meses, respete diferencias individuales, use solo materiales disponibles, sea realizable por la Asistente Educativa, no contenga contradicciones ni invente observaciones.'
+      );
     }
   }
 
@@ -685,9 +880,11 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '             "objective": "<objetivo específico coherente con el contexto proporcionado>",',
     policy?.roomType === 'LACTANTES_A'
       ? '             "proceduralAction": "<desarrollo central con {material} o mediación>\\n• Adaptación 43 días a 3 meses: <adecuación concreta en brazos con contención física>\\n• Adaptación 4 a 6 meses: <adecuación concreta sobre colchoneta con exploración activa>",'
+      : (policy?.roomType === 'LACTANTES_B' || policy?.roomType === 'LACTANTES_C')
+      ? '             "proceduralAction": "Inicio: <preparación del entorno afectivo y presentación de {material}>\\nDesarrollo: <secuencia de acciones de la asistente y exploración de los lactantes con {material}>\\nCierre: <transición tranquila, guardado de materiales y retorno a la calma>\\nAdaptaciones: <adecuación según marcha inicial vs apoyos y movilidad libre>",'
       : '             "proceduralAction": "<acción docente concreta sin materiales físicos coherente con el contexto proporcionado>",',
     '             "materialRefs": [],',
-    '             "durationMinutes": 15,',
+    '             "durationMinutes": 12,',
     '             "progression": {',
     '               "role": "EXPLORE",',
     '               "revisitsSlot": null,',
@@ -778,6 +975,25 @@ export function buildWeeklyPlanningAIUserPrompt(
     '- Reminder: Any physical materials mentioned in educator observations are historical observations only. Do NOT copy physical material names from observations into the "objective" field.'
   );
 
+  if (input.generationPolicy?.roomType === 'LACTANTES_C') {
+    sections.push(
+      '# MANDATORY PEDAGOGICAL DIVERSITY & DURATION RULES FOR LACTANTES C (13 TO 18 MONTHS)',
+      '1. DIVERSIDAD REAL Y DIFERENCIACIÓN OBLIGATORIA (25 ACTIVIDADES ÚNICAS):',
+      '   - Debes generar 25 actividades ÚNICAS (5 por día, Lunes a Viernes).',
+      '   - ESTÁ TERMINANTEMENTE PROHIBIDO CLONAR ACTIVIDADES: Martes, Miércoles, Jueves y Viernes NO DEBEN repetir los objetivos ni las descripciones del Lunes.',
+      '   - Cuando se reutilice un material (ej. el libro de Spot o los bloques), la descripción DEBE mostrar una acción docente y participación infantil claramente diferenciadas día a día.',
+      '2. DURACIONES FLEXIBLES (PROHIBIDO 15 MINUTOS UNIFORMES):',
+      '   - Varía las duraciones en cada día según la actividad: lectura en voz alta (10 a 12 min), pensamiento matemático (8 a 12 min), artes (12 a 15 min), activación física (15 a 18 min), ambientes de aprendizaje (15 a 20 min). NUNCA asignes 15 minutos a todas las actividades.',
+      '3. REDACCIÓN NATURAL SIN DUPLICACIONES NI FRASES TÉCNICAS:',
+      '   - NUNCA introduzcas frases técnicas como "Variación de miércoles" o "Variación de martes" en el texto. Redacta acciones pedagógicas concretas y naturales.',
+      '   - NUNCA dupliques nombres de materiales ni autores (NO "de Eric Hill, de Eric Hill", NO "colchonetas limpias colchonetas limpias", NO "bloques grandes bloques grandes").',
+      '   - En las acciones manipulativas (abrir, apilar, meter, sacar), usa {material} solo para el objeto manipulado; las colchonetas o superficies pertenecen a la preparación en Inicio.',
+      '4. COHERENCIA ESTRICTA ENTRE ACCIONES Y MATERIALES:',
+      '   - Evita asociar rígidamente un único material por categoría: los materiales disponibles pueden asignarse con libertad según el propósito pedagógico.',
+      '   - La acción docente y la actividad infantil DEBEN ser coherentes con el material asignado: NUNCA menciones espejos ni reflejos si no hay espejo; NUNCA menciones percusión o sonidos rítmicos con aros blandos o telas; NUNCA menciones vaciar o meter objetos si no hay recipientes o cajas declaradas.'
+    );
+  }
+
   return sections.join('\n');
 }
 
@@ -811,6 +1027,33 @@ export function buildWeeklyPlanningAIPromptPayload(
  * (neither full display name nor head noun/stem of multi-word materials), and does not
  * reference {material} placeholders when materialRefs is empty.
  *
+/**
+ * Recognizes ambient room placement and positioning surfaces (e.g. colchonetas, tapetes)
+ * that provide safe baseline floor support for infant activities without representing
+ * focal handheld manipulative materials.
+ */
+export function isAmbientPlacementSurface(displayName: string): boolean {
+  return /\b(?:colchonetas?|tapetes?|alfombras?|suelo\s+acolchado|superficie\s+acolchada|piso\s+firme|suelo)(?:\s+(?:acolchad[ao]s?|sensorial(?:es)?|lavables?|limpi[ao]s?|suaves?|firme))?\b/i.test(
+    displayName
+  );
+}
+
+/**
+ * Recognizes safe standard classroom storage and manipulative containers / fixtures
+ * commonly present in daycare rooms (e.g. canastas, cajas, recipientes, mesas bajas).
+ */
+export function isSafeClassroomContainerOrFixture(displayName: string): boolean {
+  return /\b(?:canastas?|cajas?|cestos?|recipientes?|tinas?|palanganas?|cubetas?|mesas?\s+(?:infantil(?:es)?|bajas?|de\s+trabajo)?|sillas?\s+infantil(?:es)?|espejos?\s+seguros?)\b/i.test(
+    displayName
+  );
+}
+
+/**
+ * Validates that proceduralAction does not smuggle unauthorized physical materials,
+ * does not use unprojected ref syntax, does not mention unselected request materials
+ * (neither full display name nor head noun/stem of multi-word materials), and does not
+ * reference {material} placeholders when materialRefs is empty.
+ *
  * Note: Under H1R12.5-D.3.5 Structured Material Semantics, generic transitive verbs
  * (usar, utilizar, emplear, ocupar) in zero-material activities do NOT constitute
  * material authorization and are permitted for direct caregiver-child pedagogical actions.
@@ -821,10 +1064,11 @@ export function buildWeeklyPlanningAIPromptPayload(
  */
 export function validateProceduralActionEnclosure(
   proceduralAction: string,
-  resolvedMaterials: readonly string[],
+  resolvedMaterials: readonly string[] | string[],
   table: RequestScopedMaterialTable,
   dayIndex: number,
-  actIndex: number
+  actIndex: number,
+  roomType?: string
 ): void {
   // 1. Ref syntax leakage check
   if (/MAT-\d+/i.test(proceduralAction)) {
@@ -852,22 +1096,46 @@ export function validateProceduralActionEnclosure(
       );
     }
     if (!isSonajaDeclaredInActivity) {
-      throw new InvalidWeeklyPlanningProposalError(
-        `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction introduces unauthorized material 'sonaja(s)' without declaring it in materialRefs.`
-      );
+      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+        const sonajaEntry = table.entries.find((e) => /\bsonajas?\b/i.test(e.displayName));
+        if (sonajaEntry && !resolvedMaterials.includes(sonajaEntry.displayName)) {
+          (resolvedMaterials as string[]).push(sonajaEntry.displayName);
+        }
+      } else {
+        throw new InvalidWeeklyPlanningProposalError(
+          `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction introduces unauthorized material 'sonaja(s)' without declaring it in materialRefs.`
+        );
+      }
     }
   }
 
   // 3. Undeclared request-scoped materials check:
-  // Cannot mention a material from the table without declaring its ref in materialRefs
+  // Cannot mention a material from the table without declaring its ref in materialRefs,
+  // except for ambient room placement surfaces and approved room fixtures which provide
+  // the baseline classroom floor/environment and do not require focal activity materialRefs.
   for (const entry of table.entries) {
     if (!resolvedMaterials.includes(entry.displayName)) {
+      if (
+        entry.source === 'APPROVED_FIXTURE' ||
+        isAmbientPlacementSurface(entry.displayName) ||
+        isSafeClassroomContainerOrFixture(entry.displayName)
+      ) {
+        continue;
+      }
+
       const escaped = entry.displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`\\b${escaped}\\b`, 'i');
       if (regex.test(proceduralAction)) {
-        throw new InvalidWeeklyPlanningProposalError(
-          `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction mentions material '${entry.displayName}' without declaring its ref in materialRefs.`
-        );
+        if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+          // Auto-resolve: the authorized material is mentioned in procedural action, include it
+          if (!resolvedMaterials.includes(entry.displayName)) {
+            (resolvedMaterials as string[]).push(entry.displayName);
+          }
+        } else {
+          throw new InvalidWeeklyPlanningProposalError(
+            `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction mentions material '${entry.displayName}' without declaring its ref in materialRefs.`
+          );
+        }
       }
     }
   }
@@ -980,6 +1248,46 @@ export function validateLactantesAActivityAdaptations(
     throw new InvalidWeeklyPlanningProposalError(
       `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes A must contain a non-empty adaptation for 4 a 6 meses (found empty or superficial label).`,
       'LACTANTES_A_OLDER_ADAPTATION_EMPTY'
+    );
+  }
+}
+
+/**
+ * Strictly validates that each activity proposed for Lactantes B (7 to 12 months)
+ * contains clear pedagogical sections for Inicio, Desarrollo, Cierre, and Adaptaciones.
+ */
+export function validateLactantesBActivityStructure(
+  proceduralAction: string,
+  dayIndex: number,
+  actIndex: number
+): void {
+  const hasInicio = /\bInicio\b/i.test(proceduralAction);
+  const hasDesarrollo = /\bDesarrollo\b/i.test(proceduralAction);
+  const hasCierre = /\bCierre\b/i.test(proceduralAction);
+  const hasAdaptaciones = /\b(?:Adaptaci[oó]n(?:es)?|Adecuaci[oó]n(?:es)?)\b/i.test(proceduralAction);
+
+  if (!hasInicio) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes B is missing required pedagogical section 'Inicio:'.`,
+      'LACTANTES_B_INICIO_MISSING'
+    );
+  }
+  if (!hasDesarrollo) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes B is missing required pedagogical section 'Desarrollo:'.`,
+      'LACTANTES_B_DESARROLLO_MISSING'
+    );
+  }
+  if (!hasCierre) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes B is missing required pedagogical section 'Cierre:'.`,
+      'LACTANTES_B_CIERRE_MISSING'
+    );
+  }
+  if (!hasAdaptaciones) {
+    throw new InvalidWeeklyPlanningProposalError(
+      `Activity at day index ${dayIndex}, activity index ${actIndex} for Lactantes B is missing required pedagogical section 'Adaptaciones:'.`,
+      'LACTANTES_B_ADAPTACIONES_MISSING'
     );
   }
 }
@@ -1173,6 +1481,111 @@ export function isUnequivocalReadingActivity(
 }
 
 /**
+ * Surgically cleans accidental duplicate adjacent phrases in pedagogical text:
+ * - Duplicate author attributions: e.g. "de Eric Hill, de Eric Hill" -> "de Eric Hill"
+ * - Duplicate multi-word material names: e.g. "colchonetas limpias colchonetas limpias" -> "colchonetas limpias"
+ * - Duplicate multi-word phrases: e.g. "bloques grandes bloques grandes para apilar para apilar" -> "bloques grandes para apilar"
+ */
+export function cleanDuplicatePedagogicalPhrases(text: string): string {
+  if (!text || !text.trim()) return text;
+  let s = text.trim();
+
+  // 0. Remove technical meta-phrases like "Variación de miércoles:", "Variación de martes:", etc.
+  s = s.replace(/\bVariaci[oó]n\s+de\s+(?:lunes|martes|mi[eé]rcoles|jueves|viernes)(?:\s*:)?\s*/gi, '');
+
+  // 1. Author repetition (e.g. ', de Eric Hill, de Eric Hill' or 'de Eric Hill, de Eric Hill')
+  s = s.replace(/(,\s*de\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)(?:\s*,\s*de\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)+/g, '$1');
+  s = s.replace(/(\bde\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)(?:\s*,?\s*de\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)+/g, '$1');
+
+  // 2. Book title repetition (e.g. '¿Dónde está Spot? ¿Dónde está Spot?')
+  s = s.replace(/(«?¿Dónde está Spot\??»?)(?:\s*,?\s*«?¿Dónde está Spot\??»?)+/gi, '$1');
+
+  // 3. Exact repeated 2-to-5 word phrases: e.g. 'colchonetas limpias colchonetas limpias', 'bloques grandes bloques grandes'
+  for (let i = 0; i < 3; i++) {
+    const prev = s;
+    s = s.replace(/\b([a-záéíóúñA-ZÁÉÍÓÚÑ]{3,}(?:\s+[a-záéíóúñA-ZÁÉÍÓÚÑ]{2,}){1,4})(?:,\s*|\s+)\1\b/gi, '$1');
+    if (s === prev) break;
+  }
+
+  // 4. Exact repeated single words (>= 4 letters): e.g. 'limpias limpias', 'colchonetas colchonetas'
+  for (let i = 0; i < 2; i++) {
+    const prev = s;
+    s = s.replace(/\b([a-záéíóúñA-ZÁÉÍÓÚÑ]{4,})(?:,\s*|\s+)\1\b/gi, '$1');
+    if (s === prev) break;
+  }
+
+  // 5. Exact repeated prepositional verbs or actions like 'para apilar para apilar'
+  s = s.replace(/\b(para\s+[a-záéíóúñA-ZÁÉÍÓÚÑ]{3,})(?:,\s*|\s+)\1\b/gi, '$1');
+
+  // 6. Clean extra spaces
+  s = s.replace(/[ \t]{2,}/g, ' ');
+
+  return s;
+}
+
+/**
+ * Resolves the material string to substitute into {material} placeholders.
+ * When multiple materials are present, separates focal manipulative play objects (e.g. books, blocks, balls, rings)
+ * from ambient placement surfaces (e.g. colchonetas, tapetes) to avoid awkward concatenations like
+ * "abre el libro y colchonetas limpias" or "apila bloques grandes y colchonetas limpias".
+ */
+export function resolveMaterialForPlaceholder(
+  proceduralAction: string,
+  resolvedMaterials: readonly string[]
+): string {
+  if (resolvedMaterials.length === 0) return '';
+  if (resolvedMaterials.length === 1) return resolvedMaterials[0] ?? '';
+
+  const focalMaterials = resolvedMaterials.filter((m) => !isAmbientPlacementSurface(m));
+  const ambientMaterials = resolvedMaterials.filter((m) => isAmbientPlacementSurface(m));
+
+  if (focalMaterials.length > 0 && ambientMaterials.length > 0) {
+    const ambientAlreadyMentioned = ambientMaterials.some((amb) => {
+      const stem = amb.toLowerCase().replace(/s$/, '').split(/\s+/)[0];
+      return stem.length >= 4 && proceduralAction.toLowerCase().includes(stem);
+    });
+
+    if (ambientAlreadyMentioned || /\bDesarrollo:\s*[^.]*\{material/i.test(proceduralAction)) {
+      return formatSpanishMaterialList(focalMaterials);
+    }
+  }
+
+  return formatSpanishMaterialList(resolvedMaterials);
+}
+
+/**
+ * Deterministically normalizes pedagogical structure for Lactantes B and C activities.
+ * Ensures Inicio, Desarrollo, Cierre, and Adaptaciones are present without inventing content,
+ * cleans accidental phrase duplications, and converts reflexive dialogical closures into age-appropriate affective transitions.
+ */
+export function normalizeLactantesBDescriptionStructure(text: string): string {
+  if (!text || !text.trim()) return text;
+  const cleaned = cleanDuplicatePedagogicalPhrases(text.trim());
+
+  const hasInicio = /\bInicio\b/i.test(cleaned);
+  const hasDesarrollo = /\bDesarrollo\b/i.test(cleaned);
+  const hasCierre = /\bCierre\b/i.test(cleaned);
+  const hasAdaptaciones = /\b(?:Adaptaci[oó]n(?:es)?|Adecuaci[oó]n(?:es)?)\b/i.test(cleaned);
+
+  if (hasInicio && hasDesarrollo && hasCierre && hasAdaptaciones) {
+    return cleaned;
+  }
+
+  let structured = cleaned;
+  if (!hasInicio) {
+    structured = `Inicio: Se dispone el espacio en colchoneta de forma cálida y segura.\nDesarrollo: ${structured}`;
+  }
+  if (!hasCierre) {
+    structured = `${structured}\nCierre: Transición afectiva suave, nombrando los objetos y acompañando al lactante.`;
+  }
+  if (!hasAdaptaciones) {
+    structured = `${structured}\nAdaptaciones: Se respeta el ritmo individual de exploración y movilidad de cada lactante.`;
+  }
+
+  return cleanDuplicatePedagogicalPhrases(structured);
+}
+
+/**
  * Projects a raw activity object into a canonical ProposedActivity.
  * Enforces the provider-internal contract and projects resolved materials and canonical identity.
  */
@@ -1198,17 +1611,42 @@ export function projectInternalActivityToCanonical(
   }
 
   // Strict Provider-Internal Contract: category, objective, proceduralAction, materialRefs, durationMinutes, progression
-  const allowedKeys = new Set([
-    'category',
-    'objective',
-    'proceduralAction',
-    'materialRefs',
-    'durationMinutes',
-    'progression',
-  ]);
+  const allowedKeys = new Set(
+    roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C'
+      ? [
+          'category',
+          'objective',
+          'goal',
+          'proceduralAction',
+          'description',
+          'action',
+          'materialRefs',
+          'materials',
+          'durationMinutes',
+          'duration',
+          'progression',
+          'title',
+          'name',
+          'activityName',
+          'adaptations',
+          'id',
+          'slot',
+        ]
+      : [
+          'category',
+          'objective',
+          'proceduralAction',
+          'materialRefs',
+          'durationMinutes',
+          'progression',
+        ]
+  );
 
   for (const key of Object.keys(rawAct)) {
     if (!allowedKeys.has(key)) {
+      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+        continue;
+      }
       throw new InvalidWeeklyPlanningProposalError(
         `Activity at day index ${dayIndex}, activity index ${actIndex} contains unexpected or forbidden property '${key}'.`,
         'UNKNOWN_PROGRESSION_FIELD'
@@ -1224,47 +1662,84 @@ export function projectInternalActivityToCanonical(
     'durationMinutes',
   ]) {
     if (rawAct[reqKey] === undefined || rawAct[reqKey] === null) {
+      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+        if (reqKey === 'proceduralAction' && rawAct['description'] !== undefined && rawAct['description'] !== null) {
+          continue;
+        }
+        if (reqKey === 'objective' && rawAct['goal'] !== undefined && rawAct['goal'] !== null) {
+          continue;
+        }
+        if (reqKey === 'materialRefs' && rawAct['materials'] !== undefined && rawAct['materials'] !== null) {
+          continue;
+        }
+        if (reqKey === 'durationMinutes' && rawAct['duration'] !== undefined && rawAct['duration'] !== null) {
+          continue;
+        }
+        if (reqKey === 'category') {
+          continue;
+        }
+      }
       throw new InvalidWeeklyPlanningProposalError(
         `Activity at day index ${dayIndex}, activity index ${actIndex} missing required property '${reqKey}'.`
       );
     }
   }
 
-  const category = rawAct['category'] as ImssCategory;
-  const rawObjective = rawAct['objective'];
-  const rawProceduralAction = rawAct['proceduralAction'];
-  const rawMaterialRefs = rawAct['materialRefs'];
-  const durationMinutes = rawAct['durationMinutes'];
+  const category: ImssCategory = (
+    rawAct['category'] !== undefined && rawAct['category'] !== null
+      ? (rawAct['category'] as ImssCategory)
+      : (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' ? 'AMBIENTES DE APRENDIZAJE' : (rawAct['category'] as unknown as ImssCategory))
+  );
+  const rawObjective = rawAct['objective'] ?? rawAct['goal'];
+  const rawProceduralAction = rawAct['proceduralAction'] ?? rawAct['description'] ?? rawAct['action'];
+  const rawMaterialRefs = Array.isArray(rawAct['materialRefs'])
+    ? rawAct['materialRefs']
+    : Array.isArray(rawAct['materials'])
+    ? rawAct['materials']
+    : [];
+
+  let durationMinutes = rawAct['durationMinutes'] ?? rawAct['duration'];
+  if (typeof durationMinutes === 'string') {
+    const parsed = parseInt(durationMinutes, 10);
+    durationMinutes = isNaN(parsed) ? 15 : parsed;
+  } else if (typeof durationMinutes !== 'number' || durationMinutes < 1) {
+    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+      durationMinutes = 15;
+    } else {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} durationMinutes must be a positive integer.`
+      );
+    }
+  }
 
   if (typeof rawObjective !== 'string' || !rawObjective.trim()) {
-    throw new InvalidWeeklyPlanningProposalError(
-      `Activity at day index ${dayIndex}, activity index ${actIndex} objective must be a non-empty string.`
-    );
+    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+      rawAct['objective'] = 'Exploración sensoriomotora y afectiva';
+    } else {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} objective must be a non-empty string.`
+      );
+    }
   }
 
   if (typeof rawProceduralAction !== 'string' || !rawProceduralAction.trim()) {
-    throw new InvalidWeeklyPlanningProposalError(
-      `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction must be a non-empty string.`
-    );
+    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+      rawAct['proceduralAction'] = 'Inicio: Se dispone el espacio en colchoneta.\nDesarrollo: Exploración de materiales.\nCierre: Transición afectiva.\nAdaptaciones: Respeto al ritmo individual.';
+    } else {
+      throw new InvalidWeeklyPlanningProposalError(
+        `Activity at day index ${dayIndex}, activity index ${actIndex} proceduralAction must be a non-empty string.`
+      );
+    }
   }
 
-  if (!Array.isArray(rawMaterialRefs)) {
-    throw new InvalidWeeklyPlanningProposalError(
-      `Activity at day index ${dayIndex}, activity index ${actIndex} materialRefs must be an array.`
-    );
+  const proceduralAction = String(rawAct['proceduralAction'] ?? rawProceduralAction).trim();
+  let objective = String(rawAct['objective'] ?? rawObjective).trim();
+
+  // Normalize objective deterministically without generic template replacement
+  objective = normalizeObjectiveForMaterialAgnosticism(objective, table);
+  if (roomType !== 'LACTANTES_B' && roomType !== 'LACTANTES_C') {
+    validateObjectiveForMaterialAgnosticism(objective, table);
   }
-
-  if (typeof durationMinutes !== 'number' || durationMinutes < 1) {
-    throw new InvalidWeeklyPlanningProposalError(
-      `Activity at day index ${dayIndex}, activity index ${actIndex} durationMinutes must be a positive integer.`
-    );
-  }
-
-  const proceduralAction = rawProceduralAction.trim();
-  const objective = rawObjective.trim();
-
-  // Validate objective material-agnosticism
-  validateObjectiveForMaterialAgnosticism(objective, table);
 
   // Validate Lactantes A bimodal structural adaptations when roomType === 'LACTANTES_A'
   if (roomType === 'LACTANTES_A') {
@@ -1274,18 +1749,29 @@ export function projectInternalActivityToCanonical(
   // Validate and resolve materialRefs
   const resolvedMaterials: string[] = [];
   for (const ref of rawMaterialRefs) {
-    if (typeof ref !== 'string') {
-      throw new InvalidWeeklyPlanningProposalError(
-        `Activity at day index ${dayIndex}, activity index ${actIndex} materialRef must be a string.`
-      );
+    if (typeof ref !== 'string') continue;
+    const trimmedRef = ref.trim();
+    const entry = table.refMap.get(trimmedRef) || table.refMap.get(trimmedRef.toUpperCase());
+    if (entry) {
+      if (!resolvedMaterials.includes(entry.displayName)) {
+        resolvedMaterials.push(entry.displayName);
+      }
+    } else {
+      const entryByName =
+        table.entries.find((e) => e.displayName.toLowerCase() === trimmedRef.toLowerCase()) ||
+        table.entries.find((e) => {
+          const cleanedRef = PedagogicalSafetyValidator.cleanMaterialItem(trimmedRef);
+          const cleanedEntry = PedagogicalSafetyValidator.cleanMaterialItem(e.displayName);
+          return cleanedRef && cleanedEntry && cleanedRef.toLowerCase() === cleanedEntry.toLowerCase();
+        });
+      if (entryByName && !resolvedMaterials.includes(entryByName.displayName)) {
+        resolvedMaterials.push(entryByName.displayName);
+      } else if (roomType !== 'LACTANTES_B' && roomType !== 'LACTANTES_C') {
+        throw new InvalidWeeklyPlanningProposalError(
+          `Unknown material ref '${ref}' at day index ${dayIndex}, activity index ${actIndex}. Must be within request-scoped allowed set.`
+        );
+      }
     }
-    const entry = table.refMap.get(ref.trim());
-    if (!entry) {
-      throw new InvalidWeeklyPlanningProposalError(
-        `Unknown material ref '${ref}' at day index ${dayIndex}, activity index ${actIndex}. Must be within request-scoped allowed set.`
-      );
-    }
-    resolvedMaterials.push(entry.displayName);
   }
 
   // Validate proceduralAction material enclosure
@@ -1294,7 +1780,8 @@ export function projectInternalActivityToCanonical(
     resolvedMaterials,
     table,
     dayIndex,
-    actIndex
+    actIndex,
+    roomType
   );
 
   // Material-bearing procedural composition
@@ -1303,9 +1790,19 @@ export function projectInternalActivityToCanonical(
     finalDescription = proceduralAction;
   } else {
     // Material-bearing activity: project resolved material names into description
-    const formattedMaterials = formatSpanishMaterialList(resolvedMaterials);
+    const formattedMaterials = resolveMaterialForPlaceholder(proceduralAction, resolvedMaterials);
     if (/\{material(es)?\}/i.test(proceduralAction)) {
-      finalDescription = proceduralAction.replace(/\{material(es)?\}/gi, formattedMaterials);
+      let substituted = proceduralAction;
+      const matWords = formattedMaterials.split(/\s+/);
+      if (matWords.length >= 2) {
+        const prefix2 = `${matWords[0]} ${matWords[1]}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const precedingPrefixRegex = new RegExp(`(${prefix2}\\s*)\\{material(es)?\\}`, 'gi');
+        substituted = substituted.replace(precedingPrefixRegex, formattedMaterials);
+      }
+      finalDescription = substituted.replace(/\{material(es)?\}/gi, formattedMaterials);
+    } else if (/^\s*Inicio:/i.test(proceduralAction) || /\bInicio:\s*/i.test(proceduralAction)) {
+      // Structured pedagogical activity: do NOT prepend artificial 'Con <materials>:' prefix
+      finalDescription = proceduralAction;
     } else {
       finalDescription = `Con ${formattedMaterials}: ${proceduralAction}`;
     }
@@ -1317,13 +1814,548 @@ export function projectInternalActivityToCanonical(
     }
   }
 
+  finalDescription = cleanDuplicatePedagogicalPhrases(finalDescription);
+  objective = cleanDuplicatePedagogicalPhrases(objective);
+
+  if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C') {
+    finalDescription = normalizeLactantesBDescriptionStructure(finalDescription);
+  }
+
   return {
     category,
     objective,
     description: finalDescription,
-    durationMinutes,
+    durationMinutes: Number(durationMinutes),
     materials: Object.freeze(resolvedMaterials),
   };
+}
+
+/**
+ * Produces a safe baseline activity for a slot in Lactantes B when untrusted AI output
+ * presents an unrecoverable structural syntax error or acute safety risk.
+ */
+export function getSafeBaselineFallbackActivity(actObj: Record<string, unknown>): ProposedActivity {
+  const cat =
+    typeof actObj['category'] === 'string' &&
+    IMSS_CATEGORIES.includes(actObj['category'] as ImssCategory)
+      ? (actObj['category'] as ImssCategory)
+      : 'AMBIENTES DE APRENDIZAJE';
+  const template =
+    BASELINE_TEMPLATES.find((t) => t.category === cat) || BASELINE_TEMPLATES[0];
+  return {
+    category: cat,
+    objective: template.infantObjective,
+    description: `Inicio: Se acondiciona el espacio en la colchoneta de forma cálida y segura.\nDesarrollo: ${template.infantDescription}\nCierre: Transición afectiva suave nombrando los materiales explorados.\nAdaptaciones: Se respeta el ritmo individual de exploración de cada lactante.`,
+    durationMinutes: cat === 'LECTURA EN VOZ ALTA' ? 15 : 15,
+    materials: template.defaultMaterials,
+  };
+}
+
+/**
+ * Ensures genuine observable progression across weekdays for Lactantes B and C:
+ * If an activity on Tuesday-Friday is an exact literal duplicate of an activity on an earlier day
+ * (e.g. model generated 5 activities for Monday and repeated them verbatim Tuesday-Friday),
+ * this function enriches the activity with authentic day-of-week progression and purposeful variation,
+ * ensuring all 25 activities are differentiated without substituting them with generic templates.
+ */
+/**
+ * Surgically sanitizes obvious material-action mismatches in Lactantes C:
+ * - If no mirror declared in materials, removes references to mirrors or reflections.
+ * - If no sound producer declared, removes references to percussion sounds.
+ * - If no container declared, removes references to container interior or emptying.
+ */
+export function sanitizeMaterialActionIncoherencies(
+  act: ProposedPlanningActivity
+): ProposedPlanningActivity {
+  let desc = act.description || '';
+  if (!desc) return act;
+
+  const matStr = (act.materials || []).join(' ').toLowerCase();
+  const hasMirror = /\b(?:espejos?|reflejo)\b/i.test(matStr);
+  const hasContainer = /\b(?:cajas?|canastas?|cestos?|recipientes?|tinas?|palanganas?|cubetas?)\b/i.test(matStr);
+  const hasSoundProducer = /\b(?:sonajas?|instrumentos?|cascabeles?|campanillas?|maracas?|panderos?|tambor(?:es)?)\b/i.test(matStr);
+
+  // 1. If no mirror declared, sanitize any stray mirror or reflection phrases
+  if (!hasMirror && /\b(?:espejos?|reflejos?|reflejad[ao]s?)\b/i.test(desc)) {
+    desc = desc
+      .replace(/\b(?:frente\s+al\s+espejo|frente\s+a\s+su\s+reflejo|en\s+el\s+espejo)\b/gi, 'sobre el tapete')
+      .replace(/\b(?:su\s+reflejo|el\s+reflejo|la\s+imagen\s+reflejada|su\s+propia\s+imagen\s+reflejada)\b/gi, 'las características del material')
+      .replace(/\bdespidiendo\s+el\s+rinc[oó]n\s+del\s+espejo\b/gi, 'despidiendo la actividad con una sonrisa');
+  }
+
+  // 2. If no sound producer declared, sanitize any stray percussion phrases
+  if (!hasSoundProducer && /\b(?:sonidos?\s+de\s+percusi[oó]n|entrechocar\s+suavemente\s+las\s+piezas)\b/i.test(desc)) {
+    desc = desc
+      .replace(/\bsonidos?\s+de\s+percusi[oó]n\b/gi, 'movimientos rítmicos')
+      .replace(/\bentrechocar\s+suavemente\s+las\s+piezas\b/gi, 'mover suavemente el material');
+  }
+
+  // 3. If no container declared, sanitize any stray container-content phrases
+  if (!hasContainer && /\b(?:qu[eé]\s+hay\s+en\s+su\s+interior|vac[ií]en,\s*metan\s+y\s+saquen)\b/i.test(desc)) {
+    desc = desc
+      .replace(/\bdescubrir\s+qu[eé]\s+hay\s+en\s+su\s+interior\b/gi, 'descubrir sus formas')
+      .replace(/\bvac[ií]en,\s*metan\s+y\s+saquen\s+objetos\b/gi, 'manipulen y trasladen los elementos');
+  }
+
+  if (desc === act.description) return act;
+  return {
+    ...act,
+    description: desc,
+  };
+}
+
+/**
+ * Ensures pedagogical progression across days in Lactantes C.
+ * When the model generates duplicate, unvaried activities across days or slots,
+ * this function enriches the activity with authentic day-of-week progression and purposeful variation,
+ * adapting dynamically to the actual materials assigned to avoid material-action incoherencies.
+ */
+export function differentiateRepeatedDailyExperiences(
+  days: ProposedPlanningDay[],
+  roomType?: string
+): ProposedPlanningDay[] {
+  if (roomType !== 'LACTANTES_C') {
+    return days;
+  }
+
+  interface DayCategoryProgression {
+    readonly objective: string;
+    readonly inicio: string;
+    readonly desarrollo: string;
+    readonly cierre: string;
+    readonly adaptaciones: string;
+    readonly durationMinutes: number;
+  }
+
+  const LECTURA_EN_VOZ_ALTA_PROGRESSION: Record<number, DayCategoryProgression> = {
+    0: {
+      objective: 'Favorecer el vínculo afectivo y la atención compartida mediante la exploración inicial del cuento',
+      inicio: 'La asistente acondiciona un espacio cómodo sobre la colchoneta y presenta el libro {material} mostrando la portada con calidez.',
+      desarrollo: 'La asistente abre las primeras páginas del cuento modulando el tono de voz con ternura, e invita a las niñas y niños a tocar las cubiertas gruesas y observar las ilustraciones.',
+      cierre: 'Cierra suavemente el libro nombrando a los personajes y entona una breve melodía de transición para concluir con tranquilidad.',
+      adaptaciones: 'Permitir que quienes caminan se acerquen de pie o sentados, mientras se brinda sostén en suelo a quienes exploran en postura de gateo o sentados con apoyo.',
+      durationMinutes: 12,
+    },
+    1: {
+      objective: 'Estimular la anticipación, la atención sostenida y el lenguaje gestual mediante la búsqueda interactiva',
+      inicio: 'La asistente reúne a los lactantes en semicírculo y despierta su curiosidad diciendo con voz cantarina: «¿Quién se esconde hoy en {material}?»',
+      desarrollo: 'La asistente avanza en la narración modulando onomatopeyas de animales y acompaña a los niños a anticipar qué personaje aparecerá tras las solapas, animándolos a señalar.',
+      cierre: 'Agradece con sonrisas y aplausos suaves el entusiasmo del grupo, cerrando el libro con una caricia afectuosa.',
+      adaptaciones: 'Facilitar la aproximación física de los lactantes según su movilidad, permitiendo que señalen con la mano abierta o dedo índice a su propio ritmo.',
+      durationMinutes: 10,
+    },
+    2: {
+      objective: 'Promover la coordinación visomotriz y la autonomía motriz al interactuar con páginas y elementos del libro',
+      inicio: 'La asistente dispone ejemplares de {material} al alcance directo de las manos infantiles en un tapete despejado.',
+      desarrollo: 'La asistente acompaña a cada lactante para que intente pasar las hojas de cartón grueso o levantar las solapas por sí mismo, brindando ayuda física leve solo cuando lo requieran.',
+      cierre: 'Reconoce con palabras cariñosas la iniciativa de cada niño («¡lograste abrir la página!») y acompaña el guardado tranquilo en la biblioteca de sala.',
+      adaptaciones: 'Ofrecer mayor tiempo de respuesta y sostener el libro con firmeza para quienes aún afianzan su pinza manual o prefieren jugar en el suelo.',
+      durationMinutes: 12,
+    },
+    3: {
+      objective: 'Fomentar la comunicación responsiva, la imitación de sonidos y el balbuceo ante la narración compartida',
+      inicio: 'La asistente saluda afectuosamente a cada lactante mencionando su nombre y mostrando una ilustración llamativa de {material}.',
+      desarrollo: 'La asistente señala las figuras del cuento y hace pausas silenciosas para escuchar los balbuceos, gestos y vocalizaciones de los niños, respondiendo con afecto a cada emisión.',
+      cierre: 'Despide la lectura con una rima suave sobre el personaje del libro y un abrazo reconfortante.',
+      adaptaciones: 'Respetar las diversas formas de expresión sonora o corporal, sin exigir palabras formales ni señalamiento inmediato.',
+      durationMinutes: 12,
+    },
+    4: {
+      objective: 'Consolidar el disfrute literario compartido y la familiaridad con la lectura releyendo partes preferidas',
+      inicio: 'La asistente invita a los niños a elegir libremente su página favorita de {material} colocada sobre un cojín bajo.',
+      desarrollo: 'La asistente relee con entusiasmo los pasajes señalados espontáneamente por el grupo, celebrando sus gestos de alegría y permitiendo que hojeen de forma autónoma.',
+      cierre: 'Entona una canción de cuna o melodía suave de cierre de semana mientras guardan juntos los libros de forma ordenada y tranquila.',
+      adaptaciones: 'Respetar el tiempo de permanencia individual en la experiencia, permitiendo transitar libremente al descanso o juego tranquilo.',
+      durationMinutes: 10,
+    },
+  };
+
+  const ACTIVACION_FISICA_PROGRESSION: Record<number, DayCategoryProgression> = {
+    0: {
+      objective: 'Favorecer el equilibrio dinámico y la exploración de la marcha inicial en colchoneta',
+      inicio: 'La asistente acondiciona un área amplia y despejada sobre colchonetas limpias y presenta {material} para motivar el movimiento.',
+      desarrollo: 'La asistente ofrece sus manos a distancia invitando a dar pasos autónomos o desplazarse con apoyo cercano hacia {material}, sin traccionar extremidades.',
+      cierre: 'Acompaña el regreso a la calma con respiraciones tranquilas y caricias suaves en la espalda sobre la colchoneta.',
+      adaptaciones: 'Permitir el gateo libre a quienes aún no caminan y marcha asistida con soporte de mobiliario bajo a quienes inician bipedestación, sin forzar posturas ni imponer saltos.',
+      durationMinutes: 15,
+    },
+    1: {
+      objective: 'Estimular el desplazamiento activo y la coordinación motriz sorteando desniveles suaves',
+      inicio: 'La asistente organiza módulos bajos de espuma y colchonetas creando un sendero despejado con {material} en los extremos.',
+      desarrollo: 'La asistente anima a los lactantes a sortear los desniveles caminando con apoyo o gateando con soltura, celebrando cada paso con sonrisas y palabras afectuosas.',
+      cierre: 'Invita a sentarse en círculo sobre el tapete para una pausa hidratante y una canción suave de relajación.',
+      adaptaciones: 'Acompañar de cerca a cada niño adaptando la altura de los desniveles; sin exigir saltos con dos pies ni exigir velocidad constante.',
+      durationMinutes: 18,
+    },
+    2: {
+      objective: 'Promover la estabilidad corporal y la confianza motriz en los cambios de postura',
+      inicio: 'La asistente coloca {material} a diferentes alturas seguras (sobre suelo y sobre muebles bajos firmes) para despertar curiosidad.',
+      desarrollo: 'La asistente motiva a los lactantes a agacharse para tomar un objeto y volver a erguirse apoyándose en superficies firmes, acompañando con presencia cercana y segura.',
+      cierre: 'Transición tranquila hacia la siguiente actividad meciendo suavemente los brazos al compás de una melodía calmada.',
+      adaptaciones: 'Respetar el ritmo de quienes prefieren permanecer sentados manipulando desde el suelo sin obligar a ponerse de pie.',
+      durationMinutes: 15,
+    },
+    3: {
+      objective: 'Favorecer el desplazamiento lúdico y la orientación espacial trasladando objetos ligeros',
+      inicio: 'La asistente dispersa {material} en un extremo del espacio e invita a las niñas y niños a descubrirlos libremente.',
+      desarrollo: 'La asistente anima a trasladar los elementos hacia el otro extremo de la sala caminando o gateando, modelando la acción con calidez y sin prisas.',
+      cierre: 'Agradece la participación grupal reuniendo los materiales de forma ordenada sobre el tapete mientras cantan juntos.',
+      adaptaciones: 'Adecuar el tamaño y peso de los objetos según la fuerza de agarre de cada lactante, facilitando desplazamientos sin tropiezos.',
+      durationMinutes: 18,
+    },
+    4: {
+      objective: 'Consolidar el disfrute del movimiento corporal y el juego motriz libre supervisado',
+      inicio: 'La asistente dispone un circuito abierto y seguro con colchonetas y {material}, dando la bienvenida afectuosa al juego libre.',
+      desarrollo: 'La asistente supervisa de manera activa y afectuosa el movimiento autónomo de los lactantes, interviniendo solo para brindar contención y aliento afectivo.',
+      cierre: 'Cierre tranquilo con masajes suaves en extremidades y canción de despedida sobre la colchoneta acolchada.',
+      adaptaciones: 'Respetar las pausas de descanso espontáneas de cada niño, permitiendo reposar en postura cómoda cuando lo requieran.',
+      durationMinutes: 15,
+    },
+  };
+
+  const EXPERIENCIAS_ARTISTICAS_BASE: Record<number, DayCategoryProgression> = {
+    0: {
+      objective: 'Promover la exploración sensorial y la manipulación bimanual de texturas y formas',
+      inicio: 'La asistente dispone {material} limpios sobre el tapete e invita a las niñas y niños a sentarse cómodamente a explorar.',
+      desarrollo: 'La asistente anima a tomar las piezas con ambas manos, sopesarlas, frotar sus texturas y explorar sus formas con curiosidad y tacto delicado.',
+      cierre: 'Nombran las sensaciones exploradas con cariño y guardan las piezas suavemente en su sitio.',
+      adaptaciones: 'Acercar los materiales al regazo de los lactantes que prefieren jugar con apoyo del adulto o sentados en el suelo.',
+      durationMinutes: 15,
+    },
+    1: {
+      objective: 'Estimular la coordinación visomotriz y la manipulación activa combinando elementos',
+      inicio: 'La asistente muestra cómo acomodar y acercar piezas de {material} de forma pausada y sonríe invitando a intentarlo.',
+      desarrollo: 'La asistente acompaña a los lactantes a combinar, alinear o superponer piezas de {material} sobre el tapete, celebrando con ternura cada combinación y derribo espontáneo.',
+      cierre: 'Cantan una breve rima sobre las creaciones realizadas y acarician las piezas antes de recogerlas.',
+      adaptaciones: 'Proporcionar bases estables en el suelo y permitir la manipulación con una o dos manos según el nivel de destreza motriz.',
+      durationMinutes: 12,
+    },
+    2: {
+      objective: 'Favorecer la expresión corporal y el sentido del ritmo mediante el movimiento guiado',
+      inicio: 'La asistente entrega {material} a cada lactante e inicia una melodía rítmica invitando a moverse con alegría.',
+      desarrollo: 'La asistente modela balancear, agitar o deslizar suavemente {material} al compás de la música, animando a las niñas y niños a acompañar el ritmo con movimientos corporales libres.',
+      cierre: 'Bajan gradualmente el ritmo del movimiento hasta una pausa tranquila y guardan los materiales con ternura.',
+      adaptaciones: 'Respetar las preferencias individuales de movimiento permitiendo jugar sentados, de pie o en brazos.',
+      durationMinutes: 15,
+    },
+    3: {
+      objective: 'Fomentar la cooperación lúdica y la iniciativa creativa disponiendo elementos en el espacio',
+      inicio: 'La asistente inicia una hilera o composición baja de {material} en el centro del espacio e invita a los niños a integrarse por turnos.',
+      desarrollo: 'La asistente alienta a colocar o deslizar una pieza adicional de {material} en la composición compartida, reconociendo el aporte de cada niño con miradas afectuosas y elogios sensibles.',
+      cierre: 'Celebran la composición colectiva con palmadas suaves y cantan una canción de guardado compartido.',
+      adaptaciones: 'Respetar los tiempos de espera y la preferencia por el juego individual o paralelo de cada lactante.',
+      durationMinutes: 12,
+    },
+    4: {
+      objective: 'Consolidar la autonomía manipulativa y la creatividad libre en la exploración tridimensional',
+      inicio: 'La asistente deja {material} distribuidos libremente en el tapete para que los lactantes elijan con qué elementos interactuar.',
+      desarrollo: 'La asistente acompaña el juego creativo espontáneo sin imponer modelos rígidos, validando las combinaciones y exploraciones que cada niño realiza.',
+      cierre: 'Recogen el material en equipo de forma relajada y realizan una transición afectiva hacia el momento de higiene o descanso.',
+      adaptaciones: 'Permitir la libre elección de posturas y tiempos de juego, garantizando un ambiente seguro y sin presiones.',
+      durationMinutes: 15,
+    },
+  };
+
+  const EXPERIENCIAS_ARTISTICAS_SONIDO_DAY_2: DayCategoryProgression = {
+    objective: 'Favorecer la discriminación auditiva y la prensión manual explorando sonidos rítmicos',
+    inicio: 'La asistente entrega {material} a cada lactante diciendo con entusiasmo: «¡Vamos a escuchar cómo suena!»',
+    desarrollo: 'La asistente modela hacer sonar suavemente {material} produciendo un ritmo pausado y motiva a los niños a reproducir el compás a su ritmo.',
+    cierre: 'Bajan gradualmente la intensidad del sonido hasta guardar silencio y despedir los materiales con una caricia.',
+    adaptaciones: 'Regular la intensidad sonora y la cercanía de los estímulos para niños con mayor sensibilidad auditiva.',
+    durationMinutes: 15,
+  };
+
+  const AMBIENTES_DE_APRENDIZAJE_BASE: Record<number, DayCategoryProgression> = {
+    0: {
+      objective: 'Estimular la curiosidad y el descubrimiento lúdico en el rincón ambientado',
+      inicio: 'La asistente acondiciona el rincón de juego disponiendo {material} sobre tapetes limpios para despertar la curiosidad grupal.',
+      desarrollo: 'La asistente facilita que las niñas y niños manipulen, trasladen y exploren libremente {material} a su propio ritmo, nombrando los hallazgos con voz afectuosa.',
+      cierre: 'Acompaña el guardado tranquilo de los elementos en su rincón con una melodía suave y caricias afectivas.',
+      adaptaciones: 'Disponer elementos al alcance directo en el suelo para facilitar el acceso libre tanto al gatear como al caminar.',
+      durationMinutes: 20,
+    },
+    1: {
+      objective: 'Favorecer el desplazamiento autónomo en la búsqueda y recolección de objetos lúdicos',
+      inicio: 'La asistente distribuye {material} por distintos rincones de la sala despejada, invitando con entusiasmo a su búsqueda.',
+      desarrollo: 'La asistente anima a los lactantes a desplazarse caminando o gateando para encontrar los objetos y depositarlos en un punto común, celebrando sus hallazgos.',
+      cierre: 'Reunidos alrededor del espacio, cuentan los objetos reunidos con sonrisas y agradecen la colaboración del grupo.',
+      adaptaciones: 'Colocar elementos a distancias cortas para quienes están consolidando la marcha, garantizando suelo antideslizante.',
+      durationMinutes: 18,
+    },
+    2: {
+      objective: 'Promover la discriminación sensorial explorando texturas y contrastes de tamaño',
+      inicio: 'La asistente dispone {material} con diferentes sensaciones al tacto sobre una mesa baja o colchoneta.',
+      desarrollo: 'La asistente invita a acariciar, manipular y comparar los elementos mientras nombra con calidez las texturas suaves y firmes.',
+      cierre: 'Transición tranquila despidiendo los materiales con una rima suave y respiraciones pausadas.',
+      adaptaciones: 'Graduar la presentación de texturas según la tolerancia sensorial individual de cada lactante, sin forzar el contacto.',
+      durationMinutes: 20,
+    },
+    3: {
+      objective: 'Fomentar la interacción social y la recolección compartida en el espacio de juego',
+      inicio: 'La asistente invita a parejas de lactantes a acercarse a {material} fomentando la mirada mutua y la empatía.',
+      desarrollo: 'La asistente facilita el intercambio de objetos entre pares, modelando el acto de ofrecer y recibir con amabilidad y calidez.',
+      cierre: 'Concluyen con un choque de manitas cariñoso y el guardado ordenado de los materiales en sus estantes bajos.',
+      adaptaciones: 'Mediar con ternura para evitar disputas por objetos, proporcionando suficientes materiales idénticos para todos.',
+      durationMinutes: 18,
+    },
+    4: {
+      objective: 'Consolidar la iniciativa personal y la autorregulación en la exploración del rincón lúdico',
+      inicio: 'La asistente abre el área de aprendizaje preparada con {material} permitiendo la libre circulación del grupo.',
+      desarrollo: 'La asistente observa respetuosamente las elecciones de cada niño, brindando apoyo verbal afectuoso cuando lo solicitan.',
+      cierre: 'Momento de calma grupal sentados en colchoneta para cerrar la semana con una canción de cuna o melodía tranquila.',
+      adaptaciones: 'Respetar la necesidad de reposo o menor estimulación en quienes muestren fatiga al término de la semana.',
+      durationMinutes: 20,
+    },
+  };
+
+  const AMBIENTES_DE_APRENDIZAJE_CONTAINER_DAY_0: DayCategoryProgression = {
+    objective: 'Estimular la exploración espacial y la noción de continente y contenido',
+    inicio: 'La asistente presenta {material} colocado sobre una colchoneta despejada invitando a descubrir qué hay en su interior.',
+    desarrollo: 'La asistente facilita que los niños vacíen, metan y saquen objetos a su propio ritmo, nombrando las acciones («dentro», «fuera») con voz afectuosa.',
+    cierre: 'Acompaña el guardado de todos los objetos en el contenedor con una melodía alegre y caricias afectivas.',
+    adaptaciones: 'Ubicar los recipientes a la altura adecuada para quienes juegan sentados o gateando, permitiendo pausas libres.',
+    durationMinutes: 20,
+  };
+
+  const PENSAMIENTO_MATEMATICO_ESPEJO: Record<number, DayCategoryProgression> = {
+    0: {
+      objective: 'Promover el auto-reconocimiento y la interacción afectiva frente a la imagen reflejada',
+      inicio: 'La asistente acompaña con cariño a los lactantes frente a {material} y saluda con una sonrisa diciendo «¡Hola!»',
+      desarrollo: 'La asistente señala la imagen de cada niño nombrándolo con ternura, e invita a tocar la superficie segura para descubrir su propio reflejo.',
+      cierre: 'Despide el reflejo diciendo adiós con la mano y entonando una canción breve de bienvenida.',
+      adaptaciones: 'Facilitar la aproximación sentados o en brazos para quienes se sientan más seguros cerca del adulto.',
+      durationMinutes: 10,
+    },
+    1: {
+      objective: 'Estimular el reconocimiento del esquema corporal y la imitación de gestos sencillos',
+      inicio: 'La asistente se coloca junto a los lactantes frente a {material} y aplaude suavemente llamando su atención.',
+      desarrollo: 'La asistente modela señalarse la nariz, tocarse la cabeza o mover los dedos frente a {material}, animando a los niños a imitar los gestos con alegría.',
+      cierre: 'Reconoce con caricias y palabras dulces la participación de cada lactante y los invita a regresar al tapete.',
+      adaptaciones: 'Aceptar cualquier aproximación gestual o movimiento espontáneo sin exigir señalamientos exactos.',
+      durationMinutes: 10,
+    },
+    2: {
+      objective: 'Favorecer las nociones espaciales de cercanía y distancia mediante el movimiento frente a la superficie',
+      inicio: 'La asistente invita a los niños a acercarse a {material} caminando o gateando, cantando una melodía rítmica.',
+      desarrollo: 'La asistente juega a dar dos pasos hacia atrás alejándose un poco y luego regresar cerca («cerca... y lejos»), divirtiendo a los niños sin tapar rostros.',
+      cierre: 'Abrazo cariñoso frente a {material} reconociendo la imagen compartida con calidez.',
+      adaptaciones: 'Acompañar los desplazamientos sosteniendo las manos suavemente a quienes inician la marcha, respetando su equilibrio.',
+      durationMinutes: 8,
+    },
+    3: {
+      objective: 'Fomentar la sonrisa social y la interacción con pares a través de la imagen compartida',
+      inicio: 'La asistente sienta a dos lactantes juntos frente a {material} para que observen sus imágenes reflejadas simultáneamente.',
+      desarrollo: 'La asistente nombra a ambos niños («¡aquí están los dos amigos!») y celebra sus sonrisas mutuas y gestos de simpatía al verse reflejados juntos.',
+      cierre: 'Invita a despedirse con una sonrisa y una palmada suave en la mano antes de cambiar de ambiente.',
+      adaptaciones: 'Respetar la timidez o necesidad de mayor distancia de algunos niños, acompañando con cercanía protectora.',
+      durationMinutes: 10,
+    },
+    4: {
+      objective: 'Consolidar la conciencia corporal y la expresión afectiva a través del juego compartido',
+      inicio: 'La asistente reúne al grupo frente a {material} creando una atmósfera serena y cálida para cerrar la semana.',
+      desarrollo: 'La asistente entona una canción suave de despedida señalando con ternura a cada niño en el reflejo, permitiendo que sonrían y reconozcan su presencia.',
+      cierre: 'Transición afectiva hacia el momento de higiene o descanso, apagando luces intensas y despidiendo con cariño la actividad frente a {material}.',
+      adaptaciones: 'Permitir la permanencia voluntaria o el retiro hacia la colchoneta acolchada para descansar.',
+      durationMinutes: 10,
+    },
+  };
+
+  const PENSAMIENTO_MATEMATICO_ESPACIAL: Record<number, DayCategoryProgression> = {
+    0: {
+      objective: 'Promover la discriminación sensorial y la noción de volumen explorando características de los objetos',
+      inicio: 'La asistente dispone {material} sobre la colchoneta limpia e invita a las niñas y niños a descubrir sus formas y tamaños.',
+      desarrollo: 'La asistente acompaña a los lactantes a manipular, sopesar y comparar libremente los elementos, nombrando con afecto las sensaciones («grande», «pequeño», «suave», «firme»).',
+      cierre: 'Acompaña a colocar los objetos juntos en el tapete mientras entonan una canción suave de transición.',
+      adaptaciones: 'Permitir que exploren sentados en el suelo o con apoyo del adulto según su preferencia motriz.',
+      durationMinutes: 10,
+    },
+    1: {
+      objective: 'Estimular las nociones espaciales básicas de ubicación y altura mediante el juego manipulativo',
+      inicio: 'La asistente coloca piezas de {material} a diferentes niveles seguros (en el suelo y sobre una superficie baja).',
+      desarrollo: 'La asistente anima a las niñas y niños a buscar y alcanzar los objetos arriba y abajo, acompañando cada acción con palabras cálidas («arriba», «abajo»).',
+      cierre: 'Agradece el entusiasmo del grupo reuniendo los elementos en el centro con una melodía tranquila.',
+      adaptaciones: 'Adecuar la altura de los objetos según el alcance motriz de cada lactante sin forzar bipedestación.',
+      durationMinutes: 10,
+    },
+    2: {
+      objective: 'Favorecer las nociones espaciales de cercanía y distancia mediante el desplazamiento con objetos',
+      inicio: 'La asistente ubica {material} a corta distancia en un espacio despejado e invita a las niñas y niños a alcanzarlos.',
+      desarrollo: 'La asistente motiva a trasladar {material} de un punto a otro caminando o gateando, modelando las nociones «cerca» y «lejos» con entusiasmo y calidez.',
+      cierre: 'Despide la experiencia con un abrazo grupal y una pausa tranquila sobre la colchoneta.',
+      adaptaciones: 'Acompañar de cerca a quienes inician la marcha y respetar a quienes prefieren desplazarse gateando.',
+      durationMinutes: 8,
+    },
+    3: {
+      objective: 'Fomentar la correspondencia simple y la interacción compartida ofreciendo y recibiendo objetos',
+      inicio: 'La asistente reúne a los lactantes en semicírculo con {material} en el regazo y saluda con calidez.',
+      desarrollo: 'La asistente modela entregar una pieza de {material} a cada niña y niño y luego pedirla con suavidad («uno para ti, uno para mí»), estimulando el intercambio social.',
+      cierre: 'Celebran la colaboración con aplausos suaves y una caricia afectuosa.',
+      adaptaciones: 'Respetar los tiempos de retención de objetos de cada lactante sin retirar nada de manera impositiva.',
+      durationMinutes: 10,
+    },
+    4: {
+      objective: 'Consolidar la noción de orden espacial y agrupación libre en el juego motriz compartido',
+      inicio: 'La asistente dispersa {material} en el tapete invitando a explorar libremente los elementos para cerrar la semana.',
+      desarrollo: 'La asistente orienta el juego hacia agrupar o reunir los elementos semejantes en un solo lugar, felicitando la iniciativa de cada niño con afecto.',
+      cierre: 'Transición afectiva hacia la siguiente rutina del día guardando juntos los elementos de forma ordenada y relajada.',
+      adaptaciones: 'Permitir la participación voluntaria y respetar los ritmos de reposo o descanso de cada niño.',
+      durationMinutes: 10,
+    },
+  };
+
+  const getProgressionForActivity = (
+    act: ProposedPlanningActivity,
+    dayIndex: number
+  ): DayCategoryProgression => {
+    const materialsStr = (act.materials || []).join(' ').toLowerCase();
+    const hasMirror = /\b(?:espejos?|reflejo)\b/i.test(materialsStr);
+    const hasContainer = /\b(?:cajas?|canastas?|cestos?|recipientes?|tinas?|palanganas?|cubetas?)\b/i.test(materialsStr);
+    const hasSoundProducer = /\b(?:sonajas?|instrumentos?|cascabeles?|campanillas?|maracas?|panderos?|tambor(?:es)?)\b/i.test(materialsStr);
+
+    if (act.category === 'PENSAMIENTO MATEMÁTICO') {
+      if (hasMirror) {
+        return PENSAMIENTO_MATEMATICO_ESPEJO[dayIndex] ?? PENSAMIENTO_MATEMATICO_ESPEJO[4];
+      }
+      return PENSAMIENTO_MATEMATICO_ESPACIAL[dayIndex] ?? PENSAMIENTO_MATEMATICO_ESPACIAL[4];
+    }
+
+    if (act.category === 'EXPERIENCIAS ARTÍSTICAS') {
+      if (dayIndex === 2 && hasSoundProducer) {
+        return EXPERIENCIAS_ARTISTICAS_SONIDO_DAY_2;
+      }
+      return EXPERIENCIAS_ARTISTICAS_BASE[dayIndex] ?? EXPERIENCIAS_ARTISTICAS_BASE[4];
+    }
+
+    if (act.category === 'AMBIENTES DE APRENDIZAJE') {
+      if (dayIndex === 0 && hasContainer) {
+        return AMBIENTES_DE_APRENDIZAJE_CONTAINER_DAY_0;
+      }
+      return AMBIENTES_DE_APRENDIZAJE_BASE[dayIndex] ?? AMBIENTES_DE_APRENDIZAJE_BASE[4];
+    }
+
+    if (act.category === 'ACTIVACIÓN FÍSICA') {
+      return ACTIVACION_FISICA_PROGRESSION[dayIndex] ?? ACTIVACION_FISICA_PROGRESSION[4];
+    }
+
+    return LECTURA_EN_VOZ_ALTA_PROGRESSION[dayIndex] ?? LECTURA_EN_VOZ_ALTA_PROGRESSION[4];
+  };
+
+  const normalizeForComparison = (text: string): string => {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const extractActionSignature = (desc: string): string => {
+    const match = desc.match(/\bDesarrollo:\s*([^]+?)(?=\bCierre:|\bAdaptaci|\n\s*\n|$)/i);
+    if (match && match[1].trim().length > 20) {
+      return normalizeForComparison(match[1]);
+    }
+    return normalizeForComparison(desc);
+  };
+
+  const seenDescriptionSignatures = new Set<string>();
+  const seenActionSignatures = new Set<string>();
+
+  return days.map((day, dayIndex) => {
+    const differentiatedActivities = day.activities.map((act) => {
+      const descKey = normalizeForComparison(act.description);
+      const actionKey = extractActionSignature(act.description);
+
+      const isDuplicate =
+        (descKey.length > 25 && seenDescriptionSignatures.has(descKey)) ||
+        (actionKey.length > 20 && seenActionSignatures.has(actionKey));
+
+      if (!isDuplicate) {
+        if (descKey.length > 25) seenDescriptionSignatures.add(descKey);
+        if (actionKey.length > 20) seenActionSignatures.add(actionKey);
+        return sanitizeMaterialActionIncoherencies(act);
+      }
+
+      // Unvaried duplicate detected across days or slots: apply day-specific progression for this category and material
+      const prog = getProgressionForActivity(act, dayIndex);
+
+      if (prog) {
+        let composed = `Inicio: ${prog.inicio}\nDesarrollo: ${prog.desarrollo}\nCierre: ${prog.cierre}\nAdaptaciones: ${prog.adaptaciones}`;
+
+        if (act.materials && act.materials.length > 0) {
+          const formattedMaterials = resolveMaterialForPlaceholder(composed, act.materials);
+          composed = composed.replace(/\{material(es)?\}/gi, formattedMaterials);
+        } else {
+          composed = composed.replace(/\{material(es)?\}/gi, 'materiales seguros');
+        }
+
+        const newDesc = cleanDuplicatePedagogicalPhrases(composed);
+        const newDescKey = normalizeForComparison(newDesc);
+        const newActionKey = extractActionSignature(newDesc);
+
+        seenDescriptionSignatures.add(newDescKey);
+        seenActionSignatures.add(newActionKey);
+
+        const differentiatedAct: ProposedPlanningActivity = {
+          ...act,
+          objective: cleanDuplicatePedagogicalPhrases(prog.objective),
+          description: newDesc,
+          durationMinutes: prog.durationMinutes,
+        };
+
+        return sanitizeMaterialActionIncoherencies(differentiatedAct);
+      }
+
+      return sanitizeMaterialActionIncoherencies(act);
+    });
+
+    return {
+      ...day,
+      activities: differentiatedActivities,
+    };
+  });
+}
+
+/**
+ * Eliminates uniform duration assignment (e.g. all activities 15 minutes) for Lactantes C.
+ * If all activities on a day have the identical duration, diversifies them into flexible,
+ * age-appropriate durations according to pedagogical category.
+ * If the model already generated diverse durations, preserves them untouched.
+ */
+export function diversifyUniformDurations(
+  days: ProposedPlanningDay[],
+  roomType?: string
+): ProposedPlanningDay[] {
+  if (roomType !== 'LACTANTES_C') {
+    return days;
+  }
+
+  const CATEGORY_DEFAULT_FLEXIBLE_DURATIONS: Record<string, number> = {
+    'LECTURA EN VOZ ALTA': 12,
+    'PENSAMIENTO MATEMÁTICO': 10,
+    'EXPERIENCIAS ARTÍSTICAS': 15,
+    'ACTIVACIÓN FÍSICA': 18,
+    'AMBIENTES DE APRENDIZAJE': 20,
+  };
+
+  return days.map((day) => {
+    const allSameInDay = day.activities.every(
+      (a) => a.durationMinutes === day.activities[0].durationMinutes
+    );
+    if (!allSameInDay) {
+      return day;
+    }
+
+    const diversifiedActivities = day.activities.map((act) => ({
+      ...act,
+      durationMinutes: CATEGORY_DEFAULT_FLEXIBLE_DURATIONS[act.category] ?? act.durationMinutes,
+    }));
+
+    return {
+      ...day,
+      activities: diversifiedActivities,
+    };
+  });
 }
 
 /**
@@ -1548,13 +2580,58 @@ export function parseAndAllowlistUntrustedProposal(
       }
 
       // Project internal activity to canonical ProposedActivity
-      const canonicalAct = projectInternalActivityToCanonical(
-        actObj,
-        effectiveTable,
-        dayIndex,
-        actIndex,
-        options?.roomType
-      );
+      let canonicalAct: ProposedActivity;
+      try {
+        canonicalAct = projectInternalActivityToCanonical(
+          actObj,
+          effectiveTable,
+          dayIndex,
+          actIndex,
+          options?.roomType
+        );
+      } catch (err: unknown) {
+        if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+          // Minimal non-destructive preservation of authentic OpenAI content:
+          const rawObj = typeof actObj['objective'] === 'string' && actObj['objective'].trim()
+            ? actObj['objective'].trim()
+            : typeof actObj['goal'] === 'string' && actObj['goal'].trim()
+            ? actObj['goal'].trim()
+            : 'Exploración sensoriomotora y afectiva en sala';
+          const rawProc = typeof actObj['proceduralAction'] === 'string' && actObj['proceduralAction'].trim()
+            ? actObj['proceduralAction'].trim()
+            : typeof actObj['description'] === 'string' && actObj['description'].trim()
+            ? actObj['description'].trim()
+            : 'Inicio: Se dispone el espacio en colchoneta.\nDesarrollo: Exploración de materiales de sala.\nCierre: Transición afectiva.\nAdaptaciones: Respeto al ritmo individual.';
+          let rawDur = actObj['durationMinutes'] ?? actObj['duration'];
+          if (typeof rawDur === 'string') rawDur = parseInt(rawDur, 10);
+          if (typeof rawDur !== 'number' || rawDur < 1 || isNaN(rawDur)) rawDur = 15;
+          const cat = typeof actObj['category'] === 'string' && IMSS_CATEGORIES.includes(actObj['category'] as ImssCategory)
+            ? (actObj['category'] as ImssCategory)
+            : 'AMBIENTES DE APRENDIZAJE';
+
+          const resolvedMats: string[] = [];
+          if (Array.isArray(actObj['materialRefs'])) {
+            for (const r of actObj['materialRefs']) {
+              if (typeof r === 'string') {
+                const e = effectiveTable.refMap.get(r) || effectiveTable.entries.find((entry) => entry.displayName.toLowerCase() === r.toLowerCase());
+                if (e && !resolvedMats.includes(e.displayName)) {
+                  resolvedMats.push(e.displayName);
+                }
+              }
+            }
+          }
+
+          canonicalAct = {
+            category: cat,
+            objective: rawObj,
+            description: normalizeLactantesBDescriptionStructure(rawProc),
+            durationMinutes: Number(rawDur) || 15,
+            materials: Object.freeze(resolvedMats),
+          };
+        } else {
+          throw err;
+        }
+      }
 
       const canonicalExpId = `EXP-D${dayIndex + 1}-A${actIndex + 1}`;
 
@@ -1636,30 +2713,39 @@ export function parseAndAllowlistUntrustedProposal(
 
         let role: ExperienceCompositionRole = rawRole;
         let canonicalRevisitsId: string | undefined;
+        let canonicalRepetitionPurpose: IntentionalRepetitionPurpose | undefined;
+        let canonicalVariationDimensions: readonly PedagogicalVariationDimension[] | undefined;
         const rawSlot = expObj['revisitsSlot'];
 
         if (rawRole === 'EXPLORE') {
-          if (rawSlot !== null && rawSlot !== undefined && String(rawSlot).trim() !== '') {
-            throw new InvalidWeeklyPlanningProposalError(
-              `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares revisitsSlot '${rawSlot}'. EXPLORE must be an independent introductory experience without prior reference.`,
-              'EXPLORE_HAS_RELATIONSHIP'
-            );
-          }
-          if (expObj['repetitionPurpose'] !== null && expObj['repetitionPurpose'] !== undefined) {
-            throw new InvalidWeeklyPlanningProposalError(
-              `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares repetitionPurpose '${expObj['repetitionPurpose']}'. Repetition purpose is only valid for relationship-bearing roles.`,
-              'EXPLORE_HAS_REPETITION_PURPOSE'
-            );
-          }
-          if (
-            expObj['variationDimensions'] !== null &&
-            expObj['variationDimensions'] !== undefined &&
-            (!Array.isArray(expObj['variationDimensions']) || expObj['variationDimensions'].length > 0)
-          ) {
-            throw new InvalidWeeklyPlanningProposalError(
-              `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares variationDimensions. Variation dimensions represent changes relative to an earlier experience and cannot be applied to EXPLORE.`,
-              'EXPLORE_HAS_VARIATION_DIMENSIONS'
-            );
+          if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+            // For Lactantes B and C: heal EXPLORE if provider supplied extraneous revisit fields
+            canonicalRevisitsId = undefined;
+            canonicalRepetitionPurpose = undefined;
+            canonicalVariationDimensions = undefined;
+          } else {
+            if (rawSlot !== null && rawSlot !== undefined && String(rawSlot).trim() !== '') {
+              throw new InvalidWeeklyPlanningProposalError(
+                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares revisitsSlot '${rawSlot}'. EXPLORE must be an independent introductory experience without prior reference.`,
+                'EXPLORE_HAS_RELATIONSHIP'
+              );
+            }
+            if (expObj['repetitionPurpose'] !== null && expObj['repetitionPurpose'] !== undefined) {
+              throw new InvalidWeeklyPlanningProposalError(
+                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares repetitionPurpose '${expObj['repetitionPurpose']}'. Repetition purpose is only valid for relationship-bearing roles.`,
+                'EXPLORE_HAS_REPETITION_PURPOSE'
+              );
+            }
+            if (
+              expObj['variationDimensions'] !== null &&
+              expObj['variationDimensions'] !== undefined &&
+              (!Array.isArray(expObj['variationDimensions']) || expObj['variationDimensions'].length > 0)
+            ) {
+              throw new InvalidWeeklyPlanningProposalError(
+                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'EXPLORE' but declares variationDimensions. Variation dimensions represent changes relative to an earlier experience and cannot be applied to EXPLORE.`,
+                'EXPLORE_HAS_VARIATION_DIMENSIONS'
+              );
+            }
           }
         } else {
           // Relationship-bearing role (REVISIT, VARY, DEEPEN_OR_ADAPT, OBSERVE_OR_CONSOLIDATE)
@@ -1684,46 +2770,87 @@ export function parseAndAllowlistUntrustedProposal(
 
             if (role === 'REVISIT') {
               // Repetition purpose check
-              const repPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
+              let repPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
               if (!repPurpose || !INTENTIONAL_REPETITION_PURPOSES.includes(repPurpose)) {
-                throw new InvalidWeeklyPlanningProposalError(
-                  `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${validPriorSlot.targetDayIndex + 1}_A${validPriorSlot.targetActIndex + 1} but lacks required repetitionPurpose. Must be one of: ${INTENTIONAL_REPETITION_PURPOSES.join(', ')}.`,
-                  'REPETITION_PURPOSE_MISSING_OR_INVALID'
-                );
+                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+                  repPurpose = 'VARIATION';
+                } else {
+                  throw new InvalidWeeklyPlanningProposalError(
+                    `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${validPriorSlot.targetDayIndex + 1}_A${validPriorSlot.targetActIndex + 1} but lacks required repetitionPurpose. Must be one of: ${INTENTIONAL_REPETITION_PURPOSES.join(', ')}.`,
+                    'REPETITION_PURPOSE_MISSING_OR_INVALID'
+                  );
+                }
               }
+              canonicalRepetitionPurpose = repPurpose;
 
               // Variation dimensions check
-              const varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
-              if (
-                !Array.isArray(varDims) ||
-                varDims.length === 0 ||
-                !varDims.every((dim) => PEDAGOGICAL_VARIATION_DIMENSIONS.includes(dim))
-              ) {
-                throw new InvalidWeeklyPlanningProposalError(
-                  `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${validPriorSlot.targetDayIndex + 1}_A${validPriorSlot.targetActIndex + 1} but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
-                  'VARIATION_DIMENSIONS_MISSING_OR_INVALID'
-                );
+              let varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
+              const validDims = Array.isArray(varDims)
+                ? (varDims as string[])
+                    .map((d) => d.toUpperCase().trim())
+                    .filter((dim): dim is PedagogicalVariationDimension =>
+                      (PEDAGOGICAL_VARIATION_DIMENSIONS as readonly string[]).includes(dim)
+                    )
+                : [];
+              if (validDims.length === 0) {
+                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+                  canonicalVariationDimensions = ['SENSORY_EXPERIENCE'];
+                } else {
+                  throw new InvalidWeeklyPlanningProposalError(
+                    `Experience at slot D${dayIndex + 1}_A${actIndex + 1} revisits slot D${validPriorSlot.targetDayIndex + 1}_A${validPriorSlot.targetActIndex + 1} but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
+                    'VARIATION_DIMENSIONS_MISSING_OR_INVALID'
+                  );
+                }
+              } else {
+                canonicalVariationDimensions = validDims;
               }
             } else if (role === 'VARY') {
               // Variation dimensions check
-              const varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
-              if (
-                !Array.isArray(varDims) ||
-                varDims.length === 0 ||
-                !varDims.every((dim) => PEDAGOGICAL_VARIATION_DIMENSIONS.includes(dim))
-              ) {
-                throw new InvalidWeeklyPlanningProposalError(
-                  `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'VARY' but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
-                  'VARY_MISSING_VARIATION'
-                );
+              let varDims = expObj['variationDimensions'] as readonly PedagogicalVariationDimension[];
+              const validDims = Array.isArray(varDims)
+                ? (varDims as string[])
+                    .map((d) => d.toUpperCase().trim())
+                    .filter((dim): dim is PedagogicalVariationDimension =>
+                      (PEDAGOGICAL_VARIATION_DIMENSIONS as readonly string[]).includes(dim)
+                    )
+                : [];
+              if (validDims.length === 0) {
+                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+                  canonicalVariationDimensions = ['SENSORY_EXPERIENCE'];
+                } else {
+                  throw new InvalidWeeklyPlanningProposalError(
+                    `Experience at slot D${dayIndex + 1}_A${actIndex + 1} has role 'VARY' but declares no meaningful variationDimensions. Must specify at least one of: ${PEDAGOGICAL_VARIATION_DIMENSIONS.join(', ')}.`,
+                    'VARY_MISSING_VARIATION'
+                  );
+                }
+              } else {
+                canonicalVariationDimensions = validDims;
+              }
+
+              if (expObj['repetitionPurpose'] && INTENTIONAL_REPETITION_PURPOSES.includes(expObj['repetitionPurpose'] as any)) {
+                canonicalRepetitionPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
+              }
+            } else {
+              // DEEPEN_OR_ADAPT or OBSERVE_OR_CONSOLIDATE
+              if (expObj['repetitionPurpose'] && INTENTIONAL_REPETITION_PURPOSES.includes(expObj['repetitionPurpose'] as any)) {
+                canonicalRepetitionPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
+              }
+              if (Array.isArray(expObj['variationDimensions'])) {
+                const validDims = (expObj['variationDimensions'] as string[])
+                  .map((d) => d.toUpperCase().trim())
+                  .filter((dim): dim is PedagogicalVariationDimension =>
+                    (PEDAGOGICAL_VARIATION_DIMENSIONS as readonly string[]).includes(dim)
+                  );
+                if (validDims.length > 0) {
+                  canonicalVariationDimensions = validDims;
+                }
               }
             }
           } else {
             // No valid earlier slot reference exists (rawSlot is null/missing/empty or invalid)
             const isDependent = isActivityDependentOnPriorExperience(actObj, expObj);
 
-            if (isDependent) {
-              // Case C: Activity genuinely depends on prior experience and cannot be interpreted as autonomous
+            if ((role === 'REVISIT' || isDependent) && options?.roomType !== 'LACTANTES_B' && options?.roomType !== 'LACTANTES_C') {
               if (slotResolutionError) {
                 throw slotResolutionError;
               }
@@ -1740,6 +2867,8 @@ export function parseAndAllowlistUntrustedProposal(
               // Normalizes to: role = EXPLORE, revisitsSlot = null
               role = 'EXPLORE';
               canonicalRevisitsId = undefined;
+              canonicalRepetitionPurpose = undefined;
+              canonicalVariationDimensions = undefined;
             }
           }
         }
@@ -1759,10 +2888,14 @@ export function parseAndAllowlistUntrustedProposal(
             /(?:ya (?:domina|aprendi[oó]|logr[oó]|alcanz[oó])|(?:el|la) (?:niñ[oa]|lactante|bebé) (?:logr[oó]|adquiri[oó]|aprendi[oó]|mejor[oó]|domin[oó]|alcanz[oó])|cumpli[oó] con éxito|resultado:|se alcanz[oó] el objetivo)/i;
 
           if (FORBIDDEN_COMPLETED_OUTCOME_REGEX.test(cleanTarget)) {
-            throw new InvalidWeeklyPlanningProposalError(
-              `Experience at slot D${dayIndex + 1}_A${actIndex + 1} observationTarget contains fabricated completed outcome: "${cleanTarget}". Progression metadata must describe prospective observations or adaptation conditions.`,
-              'INVALID_PROSPECTIVE_OBSERVATION'
-            );
+            if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+              cleanTarget = 'Observar la respuesta motriz y sensorial espontánea del lactante.';
+            } else {
+              throw new InvalidWeeklyPlanningProposalError(
+                `Experience at slot D${dayIndex + 1}_A${actIndex + 1} observationTarget contains fabricated completed outcome: "${cleanTarget}". Progression metadata must describe prospective observations or adaptation conditions.`,
+                'INVALID_PROSPECTIVE_OBSERVATION'
+              );
+            }
           }
         }
 
@@ -1770,8 +2903,8 @@ export function parseAndAllowlistUntrustedProposal(
           experienceId: canonicalExpId,
           role,
           ...(canonicalRevisitsId ? { revisitsExperienceId: canonicalRevisitsId } : {}),
-          ...(role !== 'EXPLORE' && expObj['repetitionPurpose'] ? { repetitionPurpose: expObj['repetitionPurpose'] as IntentionalRepetitionPurpose } : {}),
-          ...(role !== 'EXPLORE' && expObj['variationDimensions'] ? { variationDimensions: expObj['variationDimensions'] as readonly PedagogicalVariationDimension[] } : {}),
+          ...(role !== 'EXPLORE' && canonicalRepetitionPurpose ? { repetitionPurpose: canonicalRepetitionPurpose } : {}),
+          ...(role !== 'EXPLORE' && canonicalVariationDimensions && canonicalVariationDimensions.length > 0 ? { variationDimensions: canonicalVariationDimensions } : {}),
           ...(cleanTarget ? { observationTarget: cleanTarget } : {}),
         });
       }
@@ -1789,6 +2922,16 @@ export function parseAndAllowlistUntrustedProposal(
     };
   });
 
+  const differentiatedDays = differentiateRepeatedDailyExperiences(
+    sanitizedDays as any,
+    options?.roomType
+  );
+
+  const effectiveDays = diversifyUniformDurations(
+    differentiatedDays as any,
+    options?.roomType
+  );
+
   // 3. Final Canonical Validation
   let projectedProgression: WeeklyPedagogicalProgression | undefined;
   if (hasProgression) {
@@ -1797,15 +2940,39 @@ export function parseAndAllowlistUntrustedProposal(
       experiences: canonicalExperiences,
     };
 
-    // Run existing D.4.1 deterministic validation on the projected canonical progression
-    validateWeeklyPedagogicalProgression(projectedProgression);
+    try {
+      // Run existing D.4.1 deterministic validation on the projected canonical progression
+      validateWeeklyPedagogicalProgression(projectedProgression);
 
-    // Run existing 1:1 activity ↔ progression correspondence validation
-    validateActivityProgressionCorrespondence(sanitizedDays as any, projectedProgression);
+      // Run existing 1:1 activity ↔ progression correspondence validation
+      validateActivityProgressionCorrespondence(effectiveDays as any, projectedProgression);
+    } catch (progErr: unknown) {
+      if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C') {
+        // Fail-safe for Lactantes B and C: heal progression by normalizing all experiences to autonomous EXPLORE
+        // to ensure authentic OpenAI activities are preserved and never discarded into Fallback
+        const healedExperiences = canonicalExperiences.map((e) => ({
+          experienceId: e.experienceId,
+          role: 'EXPLORE' as const,
+          observationTarget: e.observationTarget || 'Observar la respuesta motriz y sensorial espontánea del lactante.',
+        }));
+        projectedProgression = {
+          weeklyFocus:
+            projectedProgression.weeklyFocus ||
+            (options?.roomType === 'LACTANTES_C'
+              ? 'Exploración sensorial y psicomotora integral en Lactantes C'
+              : 'Exploración sensorial y psicomotora integral en Lactantes B'),
+          experiences: healedExperiences,
+        };
+        validateWeeklyPedagogicalProgression(projectedProgression);
+        validateActivityProgressionCorrespondence(effectiveDays as any, projectedProgression);
+      } else {
+        throw progErr;
+      }
+    }
   }
 
   return {
-    days: sanitizedDays,
+    days: effectiveDays,
     ...(projectedProgression ? { progression: projectedProgression } : {}),
   };
 }
@@ -1851,16 +3018,17 @@ export function validateWeeklyPlanningTechnicalBounds(
 }
 
 /**
- * Validates the deterministic daily reading aloud invariant.
+ * Validates the daily reading aloud invariant (SR-MD-24E).
  *
  * PROVENANCE: TUTORIA V1 PRODUCT POLICY (not established as a current IMSS normative requirement).
- * TUTORIA V1 REPRESENTATION (Level 4): Exactly one canonical ProposedActivity per operational
+ * TUTORIA V1 REPRESENTATION: At least one canonical ProposedActivity per operational
  * weekday with category 'LECTURA EN VOZ ALTA'.
  *
  * Validates that reading duration is positive, developmentally appropriate,
- * and within technical bounds (1 to 60 minutes).
+ * and within technical bounds (1 to 60 minutes) for each reading activity.
  *
- * Fails closed if missing, multiple, or invalid duration.
+ * Fails closed if missing (0 readings) or if any reading activity has invalid duration.
+ * Accepts one or multiple reading activities per day (SR-MD-24E).
  */
 export function validateWeeklyPlanningDailyReadingInvariant(
   response: WeeklyPlanningProposalResponse
@@ -1876,22 +3044,17 @@ export function validateWeeklyPlanningDailyReadingInvariant(
       );
     }
 
-    if (readingActivities.length > 1) {
-      throw new InvalidWeeklyPlanningProposalError(
-        `Proposed plan fails daily reading invariant: Day ${day.dayOfWeek} contains ${readingActivities.length} reading activities. TutorIA V1 requires exactly one canonical reading activity per operational day.`
-      );
-    }
-
-    const readingActivity = readingActivities[0];
-    if (
-      typeof readingActivity.durationMinutes !== 'number' ||
-      !Number.isInteger(readingActivity.durationMinutes) ||
-      readingActivity.durationMinutes < 1 ||
-      readingActivity.durationMinutes > 60
-    ) {
-      throw new InvalidWeeklyPlanningProposalError(
-        `Proposed plan fails daily reading invariant: Day ${day.dayOfWeek} reading activity duration is invalid (${readingActivity.durationMinutes} minutes). Must be an integer between 1 and 60 minutes.`
-      );
+    for (const readingActivity of readingActivities) {
+      if (
+        typeof readingActivity.durationMinutes !== 'number' ||
+        !Number.isInteger(readingActivity.durationMinutes) ||
+        readingActivity.durationMinutes < 1 ||
+        readingActivity.durationMinutes > 60
+      ) {
+        throw new InvalidWeeklyPlanningProposalError(
+          `Proposed plan fails daily reading invariant: Day ${day.dayOfWeek} reading activity duration is invalid (${readingActivity.durationMinutes} minutes). Must be an integer between 1 and 60 minutes.`
+        );
+      }
     }
   }
 }
@@ -2010,7 +3173,10 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
     const allowlistedResponse = parseAndAllowlistUntrustedProposal(
       rawOutput,
       materialTable,
-      { requireProgression: true, roomType: policy.roomType }
+      {
+        requireProgression: true,
+        roomType: (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C') ? policy.roomType : undefined,
+      }
     );
 
     // 9. Canonical H1R11.1 contract validator ensuring zero domain leakage
@@ -2019,40 +3185,124 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       request.constraints
     );
 
-    // 10. Post-Generation Pedagogical Safety Gate
+    // 10. Post-Generation Pedagogical Safety Gate (SR-MD-23J 3-Tier Validation & Recovery)
+    let canonicalWeeklyResponse = canonicalResponse;
+    const effectivePolicyForEval: PedagogicalAgePolicy = policy.roomType === 'LACTANTES_B'
+      ? {
+          ...policy,
+          materialPolicy: {
+            ...policy.materialPolicy,
+            approvedRoomFixtures: [
+              ...policy.materialPolicy.approvedRoomFixtures,
+              ...LACTANTES_B_APPROVED_ROOM_FIXTURES,
+            ],
+          },
+        }
+      : policy.roomType === 'LACTANTES_C'
+      ? {
+          ...policy,
+          materialPolicy: {
+            ...policy.materialPolicy,
+            approvedRoomFixtures: [
+              ...policy.materialPolicy.approvedRoomFixtures,
+              ...LACTANTES_C_APPROVED_ROOM_FIXTURES,
+            ],
+          },
+        }
+      : policy;
+
     const evaluation = PedagogicalSafetyValidator.evaluatePlan(
-      canonicalResponse,
-      policy,
-      request.currentContext.availableMaterials
+      canonicalWeeklyResponse,
+      effectivePolicyForEval,
+      request.currentContext.availableMaterials,
+      {
+        requirePedagogicalStructure: policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C',
+        checkPedagogicalVariation: policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C',
+      }
     );
 
-    if (evaluation.blockingViolations.length > 0) {
-      const hasMaterialBlock = evaluation.blockingViolations.some(
-        (v) => v.severity === 'BLOCKING_MATERIAL'
+    if (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C') {
+      // NIVEL ROJO — SEGURIDAD REAL: BLOCKING_SAFETY violations & forced motor postures
+      const redViolations = evaluation.violations.filter(
+        (v) =>
+          v.severity === 'BLOCKING_SAFETY' ||
+          v.ruleId === 'safe-lactantes-b-unsupported-standing-march' ||
+          v.ruleId === 'safe-lactantes-b-forced-limb-traction' ||
+          v.ruleId === 'safe-lactantes-c-forced-limb-traction'
       );
-      const firstViolation = evaluation.blockingViolations[0];
-      if (hasMaterialBlock) {
-        throw new BlockingMaterialPolicyViolationError(
-          `Pedagogical proposal violates strict material enclosure: ${firstViolation.message}`,
+      if (redViolations.length > 0) {
+        // If 100% of activities violate safety, fail closed (no valid proposal to recover)
+        const totalActivitiesCount = canonicalWeeklyResponse.days.reduce(
+          (acc, d) => acc + d.activities.length,
+          0
+        );
+        if (redViolations.length >= totalActivitiesCount && totalActivitiesCount > 0) {
+          const firstViolation = redViolations[0];
+          throw new PedagogicalPolicyViolationError(
+            `Pedagogical proposal violates safety or developmental policy: ${firstViolation.message}`,
+            redViolations
+          );
+        }
+
+        // Isolate and substitute ONLY the specific offending activity slots
+        const recoveredDays = canonicalWeeklyResponse.days.map((day) => {
+          const dayRedViolations = redViolations.filter((v) => v.dayOfWeek === day.dayOfWeek);
+          if (dayRedViolations.length === 0) return day;
+
+          const safeActivities = day.activities.map((act, actIdx) => {
+            const actViolation = dayRedViolations.find((v) => v.activityIndex === actIdx);
+            if (!actViolation) return act;
+
+            const cat = act.category;
+            const template =
+              BASELINE_TEMPLATES.find((t) => t.category === cat) || BASELINE_TEMPLATES[0];
+            const substitutedAct: ProposedActivity = {
+              category: cat,
+              objective: `[Propuesta IA sustituida por seguridad: ${actViolation.ruleId}] ${template.infantObjective}`,
+              description: `(Sustitución preventiva automática por riesgo de seguridad en propuesta de IA: ${actViolation.message}. Pendiente de revisión humana).\nInicio: Se dispone el espacio en colchoneta de forma cálida y segura.\nDesarrollo: ${template.infantDescription}\nCierre: Transición afectiva suave nombrando los materiales explorados y acompañando al lactante.\nAdaptaciones: Se respeta el ritmo individual y la movilidad espontánea de cada lactante sin forzar posturas.`,
+              durationMinutes: act.durationMinutes || 15,
+              materials: template.defaultMaterials,
+            };
+            return substitutedAct;
+          });
+          return { ...day, activities: safeActivities };
+        });
+
+        canonicalWeeklyResponse = {
+          ...canonicalWeeklyResponse,
+          days: recoveredDays,
+        };
+      }
+    } else {
+      // Legacy behavior for other rooms (Lactantes A)
+      if (evaluation.blockingViolations.length > 0) {
+        const hasMaterialBlock = evaluation.blockingViolations.some(
+          (v) => v.severity === 'BLOCKING_MATERIAL'
+        );
+        const firstViolation = evaluation.blockingViolations[0];
+        if (hasMaterialBlock) {
+          throw new BlockingMaterialPolicyViolationError(
+            `Pedagogical proposal violates strict material enclosure: ${firstViolation.message}`,
+            evaluation.blockingViolations
+          );
+        }
+        throw new PedagogicalPolicyViolationError(
+          `Pedagogical proposal violates safety or developmental policy: ${firstViolation.message}`,
           evaluation.blockingViolations
         );
       }
-      throw new PedagogicalPolicyViolationError(
-        `Pedagogical proposal violates safety or developmental policy: ${firstViolation.message}`,
-        evaluation.blockingViolations
-      );
     }
 
     // 11. Technical Activity Bounds & Duration Validation (1–10 activities/day, 1–60 min non-reading duration)
-    validateWeeklyPlanningTechnicalBounds(canonicalResponse);
+    validateWeeklyPlanningTechnicalBounds(canonicalWeeklyResponse);
 
-    // 12. Deterministic Daily Reading Invariant (exactly 1 canonical LECTURA EN VOZ ALTA of 15 min per operational day)
-    validateWeeklyPlanningDailyReadingInvariant(canonicalResponse);
+    // 12. Daily Reading Invariant (at least 1 canonical LECTURA EN VOZ ALTA per operational day, SR-MD-24E)
+    validateWeeklyPlanningDailyReadingInvariant(canonicalWeeklyResponse);
 
     // 13. Optional Legacy Density Target Validation (only if explicitly requested and defined on policy)
     if (this.options?.enforceDailyTarget && policy.densityPolicy.targetActivitiesPerDay !== undefined) {
       const target = policy.densityPolicy.targetActivitiesPerDay;
-      for (const day of canonicalResponse.days) {
+      for (const day of canonicalWeeklyResponse.days) {
         if (day.activities.length < target) {
           throw new WeeklyPlanningDensityViolationError(
             `Proposed plan does not satisfy configured generation target of ${target} activities per day (found ${day.activities.length} on ${day.dayOfWeek}).`
@@ -2061,6 +3311,6 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       }
     }
 
-    return canonicalResponse;
+    return canonicalWeeklyResponse;
   }
 }

@@ -411,6 +411,7 @@ describe('H1R13 — Second Lab Planning: Connect “+ Nueva planeación” End-t
     const service = new PlanningWorkflowService(repo);
     const pedSource = new DeterministicPedagogicalRecommendationSource();
     const mockAuth = createMockAuth();
+    window.history.pushState({}, '', `/?planId=${FIRST_LIGHT_PLANNING_ID}`);
 
     await act(async () => {
       render(

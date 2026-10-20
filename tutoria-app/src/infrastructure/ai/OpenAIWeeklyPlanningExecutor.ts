@@ -143,13 +143,14 @@ export const DEFAULT_WEEKLY_PLANNING_AI_MODEL = 'gpt-4o-mini';
 /**
  * Bounded completion budget for a 5-day weekly pedagogical proposal.
  *
- * Sizing rationale:
- * A 5-day proposal with 1-3 activities per day (each containing category, objective,
- * description, duration, and materials in professional Spanish) produces approximately
- * 1500-2500 tokens of strict JSON. 3000 tokens provides a safe bounded ceiling that
+ * Sizing rationale (SR-MD-23):
+ * A 5-day proposal with at least 5 activities per day (25 activities weekly), where each
+ * activity contains category, objective, structured proceduralAction (Inicio, Desarrollo,
+ * Cierre, Adaptaciones), duration, and materials in professional Spanish produces approximately
+ * 4000-6000 tokens of strict JSON. 8000 tokens provides a safe bounded ceiling that
  * reliably avoids premature truncation while strictly preventing runaway token consumption.
  */
-export const DEFAULT_WEEKLY_PLANNING_MAX_COMPLETION_TOKENS = 3000;
+export const DEFAULT_WEEKLY_PLANNING_MAX_COMPLETION_TOKENS = 8000;
 
 /**
  * Locked temperature for deterministic, bounded pedagogical generation.

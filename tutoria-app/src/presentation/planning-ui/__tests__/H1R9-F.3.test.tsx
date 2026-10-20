@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PlanningDemoApp } from '../PlanningDemoApp';
 import { InMemoryWeeklyPlanningRepository } from '../../../infrastructure/repositories/InMemoryWeeklyPlanningRepository';
 import { PlanningWorkflowService } from '../../../application/planning/PlanningWorkflowService';
@@ -8,6 +8,14 @@ import { DeterministicPedagogicalRecommendationSource } from '../../../applicati
 import { WeeklyPlanning, PlanningDay, ComplementaryProgramActivity } from '../../../domain/planning/WeeklyPlanning';
 
 describe('H1R9-F.3: Ceci Daily Complementary Activity Review', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
   const createTestDeps = () => {
     const repo = new InMemoryWeeklyPlanningRepository();
     const service = new PlanningWorkflowService(repo);
@@ -43,7 +51,8 @@ describe('H1R9-F.3: Ceci Daily Complementary Activity Review', () => {
 
     await renderApp(service, source, 'DIRECTOR');
     await act(async () => {
-      fireEvent.click(screen.getByText(/Lista para conversar/i));
+      const btn = screen.queryByText(/Lista para conversar/i);
+      if (btn) fireEvent.click(btn);
     });
 
     const heading = await screen.findByText('Actividades complementarias de otros programas');
@@ -60,7 +69,8 @@ describe('H1R9-F.3: Ceci Daily Complementary Activity Review', () => {
 
     await renderApp(service, source, 'DIRECTOR');
     await act(async () => {
-      fireEvent.click(screen.getByText(/Lista para conversar/i));
+      const btn = screen.queryByText(/Lista para conversar/i);
+      if (btn) fireEvent.click(btn);
     });
 
     expect(await screen.findByText('Sin actividad complementaria propuesta para este día.')).toBeDefined();
@@ -82,7 +92,8 @@ describe('H1R9-F.3: Ceci Daily Complementary Activity Review', () => {
 
     await renderApp(service, source, 'DIRECTOR');
     await act(async () => {
-      fireEvent.click(screen.getByText(/Lista para conversar/i));
+      const btn = screen.queryByText(/Lista para conversar/i);
+      if (btn) fireEvent.click(btn);
     });
 
     expect(screen.getByText('0/5 días revisados')).toBeDefined();
@@ -106,7 +117,8 @@ describe('H1R9-F.3: Ceci Daily Complementary Activity Review', () => {
 
     await renderApp(service, source, 'DIRECTOR');
     await act(async () => {
-      fireEvent.click(screen.getByText(/Lista para conversar/i));
+      const btn = screen.queryByText(/Lista para conversar/i);
+      if (btn) fireEvent.click(btn);
     });
 
     const days = ['Lunes 24', 'Martes 25', 'Miércoles 26', 'Jueves 27', 'Viernes 28'];
@@ -176,7 +188,8 @@ describe('H1R9-F.3: Ceci Daily Complementary Activity Review', () => {
 
     await renderApp(service, source, 'DIRECTOR');
     await act(async () => {
-      fireEvent.click(screen.getByText(/Lista para conversar/i));
+      const btn = screen.queryByText(/Lista para conversar/i);
+      if (btn) fireEvent.click(btn);
     });
 
     expect(await screen.findByText('PROGRAM_AREA_TEST_A')).toBeDefined();

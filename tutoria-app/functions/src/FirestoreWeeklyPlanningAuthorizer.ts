@@ -134,7 +134,11 @@ export class FirestoreWeeklyPlanningAuthorizer {
     if (context.roomId && typeof context.roomId === 'string' && context.roomId.trim()) {
       if (Array.isArray(doc.roomIds) && doc.roomIds.length > 0) {
         const targetRoom = context.roomId.trim();
-        if (!doc.roomIds.includes(targetRoom)) {
+        const isAuthorizedRoom =
+          doc.roomIds.includes(targetRoom) ||
+          (targetRoom === 'room-lactantes-c' && doc.roomIds.includes('lactantes-c')) ||
+          (targetRoom === 'lactantes-c' && doc.roomIds.includes('room-lactantes-c'));
+        if (!isAuthorizedRoom) {
           return {
             authorized: false,
             reason: 'Teacher is not authorized for the requested room.',

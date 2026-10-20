@@ -65,7 +65,7 @@ export const ASSIGNMENTS = [
             personId: '10000000-0000-4000-8000-000000000001',
             role: 'TEACHER',
             daycareId: '00000000-0000-4000-8000-000000000001',
-            roomIds: ['room-lactantes-a', 'room-lactantes-b']
+            roomIds: ['room-lactantes-a', 'room-lactantes-b', 'room-lactantes-c']
         }
     },
     {
@@ -129,7 +129,7 @@ export const AUTHORIZATION_CONTEXTS = [
             assignmentId: '20000000-0000-4000-8000-000000000001',
             institutionalRole: 'TEACHER',
             authorizedDaycareIds: ['00000000-0000-4000-8000-000000000001'],
-            roomIds: ['room-lactantes-a', 'room-lactantes-b'],
+            roomIds: ['room-lactantes-a', 'room-lactantes-b', 'room-lactantes-c'],
             active: true,
             validFrom: new Date(),
             validTo: null

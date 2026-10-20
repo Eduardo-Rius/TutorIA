@@ -153,10 +153,10 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
       expect(policyByName).toBe(LACTANTES_B_AGE_POLICY);
     });
 
-    it('el catálogo contiene exactamente las políticas autorizadas de Lactantes A y Lactantes B', () => {
+    it('el catálogo contiene exactamente las políticas autorizadas de Lactantes A, Lactantes B y Lactantes C', () => {
       const allPolicies = PedagogicalAgePolicyCatalog.getAllPolicies();
-      expect(allPolicies).toHaveLength(2);
-      expect(allPolicies.map(p => p.roomType)).toEqual(['LACTANTES_A', 'LACTANTES_B']);
+      expect(allPolicies).toHaveLength(3);
+      expect(allPolicies.map(p => p.roomType)).toEqual(['LACTANTES_A', 'LACTANTES_B', 'LACTANTES_C']);
     });
   });
 
@@ -403,6 +403,438 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
       );
       expect(sittingResult.isPedagogicallySafe).toBe(true);
     });
+
+    // -----------------------------------------------------------------------
+    // SR-MD-22F: RAZONAMIENTO PEDAGÓGICO Y DISTINCIÓN DE NEGACIONES / PRECAUCIONES
+    // -----------------------------------------------------------------------
+    describe('SR-MD-22F: Distinción de negaciones preventivas vs prohibiciones afirmativas', () => {
+      it('aprueba actividades con advertencia preventiva "sin cubrir el rostro ni la cabeza"', () => {
+        const safeNegationPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Permanencia del objeto con telas',
+                  description:
+                    'Ocultar parcialmente un juguete bajo la tela, mostrando al niño cómo aparece, cuidando de usar pañuelos de tela grandes sin cubrir el rostro ni la cabeza del lactante.',
+                  durationMinutes: 15,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          safeNegationPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(true);
+        expect(result.blockingViolations).toHaveLength(0);
+      });
+
+      it('aprueba actividades con "evitando tapar la cara"', () => {
+        const safePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Aparición de objetos',
+                  description:
+                    'Mover suavemente el pañuelo en el aire invitando a seguir con la mirada, evitando tapar la cara del lactante.',
+                  durationMinutes: 15,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          safePlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(true);
+        expect(result.blockingViolations).toHaveLength(0);
+      });
+
+      it('bloquea cuando la acción de cubrir el rostro es afirmativa', () => {
+        const unsafePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Juego de desaparecer',
+                  description:
+                    'Se cubre el rostro del bebé con un pañuelo de tela para que intente quitárselo con las manos.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          unsafePlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('bloquea acción gobernada por modal afirmativo "vamos a cubrir la cara"', () => {
+        const unsafePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Juego sensorial',
+                  description:
+                    'Primero saludamos y luego vamos a cubrir la cara del niño brevemente con el pañuelo suave.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          unsafePlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('aprueba actividad con "sin forzar la marcha"', () => {
+        const safePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Movimiento en sala',
+                  description:
+                    'Colocar juguetes a corta distancia sobre colchoneta, sin forzar la marcha ni el gateo.',
+                  durationMinutes: 15,
+                  materials: ['sonajas de diferentes formas', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          safePlan,
+          LACTANTES_B_AGE_POLICY,
+          'sonajas de diferentes formas, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(true);
+        expect(result.blockingViolations).toHaveLength(0);
+      });
+
+      it('bloquea cuando se exige afirmativamente forzar la marcha', () => {
+        const unsafePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Desplazamiento vertical',
+                  description:
+                    'La asistente debe forzar la marcha del lactante sosteniéndolo de los brazos para que dé pasos.',
+                  durationMinutes: 10,
+                  materials: ['colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          unsafePlan,
+          LACTANTES_B_AGE_POLICY,
+          'colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-unsupported-standing-march'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('bloquea la negligencia en pañaleras "pañalera sin supervisión"', () => {
+        const unsafePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Exploración libre',
+                  description:
+                    'Dejar al niño con la pañalera sin supervisión para explorar objetos cotidianos.',
+                  durationMinutes: 10,
+                  materials: ['colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          unsafePlan,
+          LACTANTES_B_AGE_POLICY,
+          'colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-unfiltered-bag-access'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('aprueba el caso del Product Owner con precauciones explícitas de seguridad', () => {
+        const poScenarioPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Permanencia del objeto con pañuelos',
+                  description:
+                    'Para favorecer la permanencia del objeto se usan pañuelos de tela grandes para manipulación supervisada sin cubrir el rostro ni la cabeza del lactante, respetando el desarrollo motor individual sin forzar posturas, gateo ni marcha.',
+                  durationMinutes: 15,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          poScenarioPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(true);
+        expect(result.blockingViolations).toHaveLength(0);
+      });
+
+      // ---------------------------------------------------------------------
+      // SR-MD-22G: PRUEBAS ADVERSARIALES DE SEGURIDAD (ORACIONES MIXTAS Y LÍMITES CLAUSALES)
+      // ---------------------------------------------------------------------
+      it('bloquea oraciones mixtas con negación inicial seguida de acción peligrosa: "No cubrir el rostro...; después cubrir la cara..."', () => {
+        const adversarialPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Actividad mixta adversarial',
+                  description:
+                    'No cubrir el rostro durante la preparación; después cubrir la cara del bebé con una tela.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          adversarialPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+        expect(violation?.severity).toBe('BLOCKING_SAFETY');
+      });
+
+      it('bloquea oraciones mixtas con conector pero: "No cubrir el rostro al inicio pero después cubrir la cara del bebé"', () => {
+        const adversarialPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Actividad con adversativo pero',
+                  description:
+                    'No cubrir el rostro al inicio pero después cubrir la cara del bebé con una tela suave.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          adversarialPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('bloquea cuando una negación motriz no neutraliza acción facial peligrosa: "Sin forzar la marcha y cubrir la cara del niño"', () => {
+        const adversarialPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Negación no extensible por conjunción copulativa',
+                  description:
+                    'Sin forzar la marcha y cubrir la cara del niño con un pañuelo.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          adversarialPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('bloquea negación lejana separada por coma con acción afirmativa: "Sin materiales peligrosos, se procede a cubrir el rostro"', () => {
+        const adversarialPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Negación en cláusula previa',
+                  description:
+                    'Sin materiales peligrosos, se procede a cubrir el rostro del lactante con la sábana.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          adversarialPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('bloquea casos ambiguos condicionales ("cubrir la cara si el niño lo desea")', () => {
+        const ambiguousPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Acción condicional ambigua',
+                  description: 'Cubrir la cara del bebé si el niño lo desea para jugar.',
+                  durationMinutes: 10,
+                  materials: ['pañuelos de tela', 'colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          ambiguousPlan,
+          LACTANTES_B_AGE_POLICY,
+          'pañuelos de tela, colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const violation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-suffocation-head-covering'
+        );
+        expect(violation).toBeDefined();
+      });
+
+      it('garantiza que reglas ajenas al rostro (tracción de extremidades) siguen bloqueando aunque haya negación facial', () => {
+        const multiRulePlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Cuidado facial pero tracción brusca',
+                  description:
+                    'Sin cubrir el rostro del lactante pero jalar los brazos fuertemente para levantarlo de la colchoneta.',
+                  durationMinutes: 10,
+                  materials: ['colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          multiRulePlan,
+          LACTANTES_B_AGE_POLICY,
+          'colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const tractionViolation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-forced-limb-traction'
+        );
+        expect(tractionViolation).toBeDefined();
+        expect(tractionViolation?.severity).toBe('BLOCKING_SAFETY');
+      });
+
+      it('garantiza que reglas de pañaleras siguen bloqueando aunque haya negación facial', () => {
+        const bagPlan: PedagogicalWeeklyPlanCandidate = {
+          days: [
+            {
+              dayOfWeek: 'MONDAY',
+              activities: [
+                {
+                  objective: 'Cuidado facial pero pañalera no filtrada',
+                  description:
+                    'Sin cubrir el rostro ni la cabeza, dejar al lactante explorar la pañalera sin supervisión de la asistente.',
+                  durationMinutes: 10,
+                  materials: ['colchonetas'],
+                },
+              ],
+            },
+          ],
+        };
+        const result = PedagogicalSafetyValidator.evaluatePlan(
+          bagPlan,
+          LACTANTES_B_AGE_POLICY,
+          'colchonetas'
+        );
+        expect(result.isPedagogicallySafe).toBe(false);
+        const bagViolation = result.blockingViolations.find(
+          v => v.ruleId === 'safe-lactantes-b-unfiltered-bag-access'
+        );
+        expect(bagViolation).toBeDefined();
+      });
+    });
   });
 
   // =========================================================================
@@ -526,40 +958,43 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
   });
 
   // =========================================================================
-  // 5. GOBERNANZA Y BLOQUEO SOBERANO DE IA PARA LACTANTES B
+  // 5. GOBERNANZA Y AUTORIZACIÓN SOBERANA DE IA (SR-MD-22)
   // =========================================================================
-  describe('5. Gobernanza estricta: Bloqueo de IA para Lactantes B', () => {
-    it('PedagogicalAgePolicyCatalog autoriza IA para LACTANTES_A pero RECHAZA LACTANTES_B', () => {
+  describe('5. Gobernanza estricta: Autorización controlada de IA bajo SR-MD-22', () => {
+    it('PedagogicalAgePolicyCatalog autoriza IA para LACTANTES_A, LACTANTES_B y LACTANTES_C, pero RECHAZA MATERNAL_A y UNKNOWN', () => {
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_A')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(true);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(false);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('UNKNOWN')).toBe(false);
     });
 
-    it('AIWeeklyPlanningProposalSource bloquea Lactantes B con UnsupportedPedagogicalPolicyError ANTES del ejecutor', async () => {
+    it('AIWeeklyPlanningProposalSource bloquea salas no autorizadas (ej. Maternal A) con UnsupportedPedagogicalPolicyError ANTES del ejecutor', async () => {
       const mockExecutor: WeeklyPlanningAIExecutor = {
         execute: vi.fn(),
       };
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
       const request: WeeklyPlanningProposalRequest = {
-        planningId: 'plan-lact-b-blocked-proposal',
+        planningId: 'plan-maternal-blocked-proposal',
         weekStart: '2026-08-24',
         weekEnd: '2026-08-28',
         modality: 'DIRECT',
-        room: sampleLactantesBRoom,
+        room: {
+          roomId: 'room-maternal-a',
+          name: 'Maternal A',
+          minAgeMonths: 19,
+          maxAgeMonths: 24,
+        },
         currentContext: {
-          observations: 'Lactantes explorando de 7 a 12 meses.',
-          identifiedNeeds: 'Estimulación motora y balbuceo.',
+          observations: 'Maternales explorando.',
+          identifiedNeeds: 'Estimulación motora.',
           specialSituations: '',
           availableMaterials: sampleAvailableMaterials,
         },
       };
 
       await expect(provider.propose(request)).rejects.toThrow(UnsupportedPedagogicalPolicyError);
-      await expect(provider.propose(request)).rejects.toThrow(
-        /AI proposal generation is not authorized for room profile: "Lactantes B \(7 a 12 meses\)"/i
-      );
 
       // INVARIANTE CRÍTICO: El ejecutor de IA NUNCA fue llamado
       expect(mockExecutor.execute).toHaveBeenCalledTimes(0);

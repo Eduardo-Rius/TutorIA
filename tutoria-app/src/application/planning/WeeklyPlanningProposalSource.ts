@@ -41,6 +41,11 @@ export type CanonicalProgressionDiagnosticSubtype =
   | 'LACTANTES_A_CENTRAL_ACTION_EMPTY'
   | 'LACTANTES_A_EARLY_ADAPTATION_EMPTY'
   | 'LACTANTES_A_OLDER_ADAPTATION_EMPTY'
+  | 'LACTANTES_B_INICIO_MISSING'
+  | 'LACTANTES_B_DESARROLLO_MISSING'
+  | 'LACTANTES_B_CIERRE_MISSING'
+  | 'LACTANTES_B_ADAPTACIONES_MISSING'
+  | 'LITERAL_REPETITION_WITHOUT_VARIATION'
   | 'OTHER_CANONICAL_VALIDATION';
 
 /**
@@ -679,7 +684,8 @@ export function validateWeeklyPedagogicalProgression(
  */
 export function validateActivityProgressionCorrespondence(
   days: readonly { readonly activities: readonly Record<string, unknown>[] }[],
-  progression: WeeklyPedagogicalProgression
+  progression: WeeklyPedagogicalProgression,
+  options?: { disallowLiteralRepetition?: boolean }
 ): void {
   const activityIds: string[] = [];
   const seenActivityIds = new Set<string>();
@@ -748,6 +754,51 @@ export function validateActivityProgressionCorrespondence(
         `Activity progression sequence mismatch at index ${i}: activity has '${activityIds[i]}' but progression has '${progressionIds[i]}'. Progression experiences order must match the chronological sequence of activities across weekdays.`,
         'ACTIVITY_PROGRESSION_ENTRY_MISSING'
       );
+    }
+  }
+
+  // Check purposeful procedural variation on revisits (SR-MD-22H Section 6)
+  if (options?.disallowLiteralRepetition) {
+    const actMap = new Map<string, { description?: string; proceduralAction?: string }>();
+    for (const day of days) {
+      if (!day || !Array.isArray(day.activities)) continue;
+      for (const act of day.activities) {
+        const id = String(act['experienceId'] ?? act['id'] ?? '').trim();
+        const desc = typeof act['description'] === 'string' ? act['description'] : '';
+        const proc = typeof act['proceduralAction'] === 'string' ? act['proceduralAction'] : '';
+        actMap.set(id, { description: desc, proceduralAction: proc });
+      }
+    }
+
+    for (const exp of progression.experiences) {
+      if (exp.role === 'REVISIT' || exp.role === 'VARY' || exp.role === 'OBSERVE_OR_CONSOLIDATE') {
+        const currentAct = actMap.get(exp.experienceId.trim());
+        const originalAct = exp.revisitsExperienceId ? actMap.get(exp.revisitsExperienceId.trim()) : undefined;
+
+        if (currentAct && originalAct) {
+          const text1 = (currentAct.description || currentAct.proceduralAction || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const text2 = (originalAct.description || originalAct.proceduralAction || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (text1 && text2 && text1 === text2) {
+            throw new InvalidWeeklyPlanningProposalError(
+              `Experience '${exp.experienceId}' revisits '${exp.revisitsExperienceId}' but provides an identical literal description without observable pedagogical variation. Revisit experiences must reflect purposeful variation in adult mediation, infant interaction, or exploration.`,
+              'LITERAL_REPETITION_WITHOUT_VARIATION'
+            );
+          }
+        }
+      }
     }
   }
 }

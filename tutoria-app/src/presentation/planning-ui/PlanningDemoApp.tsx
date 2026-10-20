@@ -19,6 +19,13 @@ import {
   FIRST_LIGHT_SUPERVISOR_ID,
   FIRST_LIGHT_DAYCARE_ID,
   FIRST_LIGHT_ROOM_ID,
+  FIRST_LIGHT_G002_DAYCARE_ID,
+  FIRST_LIGHT_G002_TEACHER_EMAIL,
+  FIRST_LIGHT_G002_TEACHER_ID,
+  FIRST_LIGHT_G002_DIRECTOR_EMAIL,
+  FIRST_LIGHT_G002_DIRECTOR_ID,
+  FIRST_LIGHT_G002_SUPERVISOR_EMAIL,
+  FIRST_LIGHT_G002_SUPERVISOR_ID,
 } from './firstLightLabHarness';
 import { AuthenticationProvider } from '../../application/ports/AuthenticationProvider';
 import { FirebaseAuthenticationProvider } from '../../infrastructure/authentication/FirebaseAuthenticationProvider';
@@ -33,13 +40,42 @@ import type {
   WeeklyPlanningProposalSource,
   WeeklyPlanningProposalRequest,
   WeeklyPlanningProposalResponse,
+  ProposedPlanningDay,
+  WeeklyPlanningWeekday,
 } from '../../application/planning/WeeklyPlanningProposalSource';
+import { IMSS_CATEGORIES, type ImssCategory } from '../../constants/imssCategories';
 import { WeeklyPlanningProposalHumanGate } from './WeeklyPlanningProposalHumanGate';
 import { DailyEvaluationHumanGate, type HumanEvidenceInputs } from './DailyEvaluationHumanGate';
 import type { EvaluationRecommendationSource } from '../../infrastructure/ai/FirebaseEvaluationRecommendationSource';
 
 const MOCK_START = '2026-08-10';
 const MOCK_END = '2026-08-14';
+
+export function calculateWeekEnd(startDateStr: string): string {
+  try {
+    const parts = startDateStr.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const start = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      const end = new Date(start.getTime() + 4 * 24 * 60 * 60 * 1000);
+      return end.toISOString().split('T')[0];
+    }
+  } catch {}
+  return '2026-08-28';
+}
+
+export function getMondayOfWeek(dateStr: string): string {
+  try {
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      const day = d.getUTCDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(d.getTime() + diffToMonday * 24 * 60 * 60 * 1000);
+      return monday.toISOString().split('T')[0];
+    }
+  } catch {}
+  return '2026-08-24';
+}
 
 const LOADING_MESSAGES = [
   "Estoy leyendo tus observaciones...",
@@ -124,11 +160,12 @@ export function formatPlanPeriod(plan: any): string {
   if (plan?.weekStart && plan?.weekEnd) {
     const s = String(plan.weekStart).split('-');
     const e = String(plan.weekEnd).split('-');
-    if (s.length === 3 && e.length === 3) {
+    if (s.length === 3 && e.length === 3 && s[2] && e[2] && e[1] && e[0]) {
       const sDay = parseInt(s[2], 10);
       const eDay = parseInt(e[2], 10);
       const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-      const monthName = months[parseInt(e[1], 10) - 1] || 'agosto';
+      const monthIdx = parseInt(e[1], 10) - 1;
+      const monthName = (monthIdx >= 0 && months[monthIdx]) ? months[monthIdx] : 'agosto';
       return `${sDay} al ${eDay} de ${monthName} de ${e[0]}`;
     }
   }
@@ -172,27 +209,31 @@ export function generateUniquePlanningId(prefix?: string): string {
 }
 
 /**
- * Safely extracts planId and action search parameters from current window URL.
+ * Safely extracts planId, action, and roomId search parameters from current window URL.
  */
-export function getUrlParams(): { planId: string | null; action: string | null } {
+export function getUrlParams(): { planId: string | null; action: string | null; roomId: string | null } {
   if (typeof window !== 'undefined' && window.location?.search) {
     try {
       const params = new URLSearchParams(window.location.search);
       return {
         planId: params.get('planId') || null,
         action: params.get('action') || null,
+        roomId: params.get('roomId') || null,
       };
     } catch {
-      return { planId: null, action: null };
+      return { planId: null, action: null, roomId: null };
     }
   }
-  return { planId: null, action: null };
+  return { planId: null, action: null, roomId: null };
 }
 
 /**
  * Safely updates URL query parameters without full page reload.
  */
-export function updateUrlParams(updates: { planId?: string | null; action?: string | null }, replace = false) {
+export function updateUrlParams(
+  updates: { planId?: string | null; action?: string | null; roomId?: string | null },
+  replace = false
+) {
   if (typeof window !== 'undefined' && window.history) {
     try {
       const currentHref = window.location.href || 'http://localhost/';
@@ -211,6 +252,13 @@ export function updateUrlParams(updates: { planId?: string | null; action?: stri
           url.searchParams.delete('action');
         }
       }
+      if ('roomId' in updates) {
+        if (updates.roomId) {
+          url.searchParams.set('roomId', updates.roomId);
+        } else {
+          url.searchParams.delete('roomId');
+        }
+      }
       const newRelative = url.pathname + (url.search ? url.search : '') + (url.hash ? url.hash : '');
       if (replace) {
         window.history.replaceState({}, '', newRelative);
@@ -218,6 +266,114 @@ export function updateUrlParams(updates: { planId?: string | null; action?: stri
         window.history.pushState({}, '', newRelative);
       }
     } catch {}
+  }
+}
+
+export const SELECTED_ROOM_STORAGE_KEY_PREFIX = 'tutoria_selected_room';
+
+/**
+ * Generates a scoped storage key by daycareId and userId.
+ * Prevents room selection leaking across different user identities or centers.
+ */
+export function getScopedSelectedRoomKey(userId?: string | null, daycareId?: string | null): string {
+  const cleanDaycare = (typeof daycareId === 'string' && daycareId.trim()) || 'default';
+  const cleanUser = (typeof userId === 'string' && userId.trim()) || 'anonymous';
+  return `${SELECTED_ROOM_STORAGE_KEY_PREFIX}:${cleanDaycare}:${cleanUser}`;
+}
+
+/**
+ * Reads and validates persisted selected room.
+ * Priority:
+ * 1. URL search parameter `roomId`
+ * 2. sessionStorage for the scoped key
+ * 3. localStorage for the scoped key
+ *
+ * Validation:
+ * - If authorizedRooms is provided and not empty, the candidate room MUST belong to authorizedRooms.
+ * - If candidate room is unauthorized, it is discarded and cleared from storage & URL.
+ */
+export function readPersistedSelectedRoom(
+  userId?: string | null,
+  daycareId?: string | null,
+  authorizedRooms?: Room[] | null
+): string | null {
+  const scopedKey = getScopedSelectedRoomKey(userId, daycareId);
+  const urlRoomId = getUrlParams().roomId;
+
+  let candidate: string | null = urlRoomId;
+
+  if (!candidate && typeof window !== 'undefined') {
+    try {
+      candidate = window.sessionStorage?.getItem(scopedKey) || null;
+      if (!candidate) {
+        candidate = window.localStorage?.getItem(scopedKey) || null;
+      }
+    } catch {}
+  }
+
+  if (!candidate) return null;
+
+  if (authorizedRooms && authorizedRooms.length > 0) {
+    const isAuthorized = authorizedRooms.some(r => r.roomId === candidate || (candidate === 'lactantes-c' && r.roomId === 'room-lactantes-c') || (candidate === 'room-lactantes-c' && r.roomId === 'lactantes-c'));
+    if (!isAuthorized) {
+      clearPersistedSelectedRoom(userId, daycareId);
+      if (urlRoomId === candidate) {
+        updateUrlParams({ roomId: null }, true);
+      }
+      return null;
+    }
+  }
+
+  if (candidate === 'lactantes-c' && authorizedRooms?.some(r => r.roomId === 'room-lactantes-c')) {
+    return 'room-lactantes-c';
+  }
+
+  return candidate;
+}
+
+/**
+ * Persists selected room into sessionStorage, localStorage, and URL query params.
+ */
+export function persistSelectedRoom(
+  roomId: string,
+  userId?: string | null,
+  daycareId?: string | null,
+  updateUrl = true
+) {
+  if (!roomId) return;
+  const scopedKey = getScopedSelectedRoomKey(userId, daycareId);
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.setItem(scopedKey, roomId);
+      window.localStorage?.setItem(scopedKey, roomId);
+    } catch {}
+  }
+
+  if (updateUrl) {
+    updateUrlParams({ roomId }, true);
+  }
+}
+
+/**
+ * Clears persisted selected room from sessionStorage, localStorage, and URL.
+ */
+export function clearPersistedSelectedRoom(
+  userId?: string | null,
+  daycareId?: string | null,
+  clearUrl = false
+) {
+  const scopedKey = getScopedSelectedRoomKey(userId, daycareId);
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.removeItem(scopedKey);
+      window.localStorage?.removeItem(scopedKey);
+    } catch {}
+  }
+
+  if (clearUrl) {
+    updateUrlParams({ roomId: null }, true);
   }
 }
 
@@ -359,11 +515,32 @@ export interface PlanningDemoAppProps {
   firstLightSource?: CurricularRecommendationSource | undefined;
   firstLightWeeklyPlanningSource?: WeeklyPlanningProposalSource | undefined;
   roomOverride?: Room | undefined;
+  authorizedRooms?: Room[] | undefined;
+  teacherId?: string | undefined;
   initialAction?: 'new' | 'continue' | string | undefined;
   role?: PlanningActorRole | undefined;
 }
 
-export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource: externalEffectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, currentDate, simulateMeasurementFailure, anversoComposerOverride, firstLightEnv, firstLightAuth, firstLightSource, firstLightWeeklyPlanningSource, roomOverride, initialAction, role: initialRole }) => {
+export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurementFailure?: boolean; anversoComposerOverride?: (day: any, plan: any) => ComposedAnversoPage[] }> = ({
+  service,
+  source,
+  curricularRecommendationSource,
+  effectiveWeeklyPlanningProposalSource: externalEffectiveWeeklyPlanningProposalSource,
+  weeklyPlanningProposalSource,
+  evaluationRecommendationSource,
+  currentDate,
+  simulateMeasurementFailure,
+  anversoComposerOverride,
+  firstLightEnv,
+  firstLightAuth,
+  firstLightSource,
+  firstLightWeeklyPlanningSource,
+  roomOverride,
+  authorizedRooms: propsAuthorizedRooms,
+  teacherId: propsTeacherId,
+  initialAction,
+  role: initialRole,
+}) => {
   const [role, setRole] = useState<PlanningActorRole>(initialRole || 'TEACHER');
   const [simulatedDate, setSimulatedDate] = useState<string>(currentDate || '2026-08-24');
 
@@ -396,15 +573,14 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   // FIRST LIGHT LAB HARNESS
   const firstLightGuard = React.useMemo(() => evaluateFirstLightLabGuard(firstLightEnv), [firstLightEnv]);
 
-  const [userSelectedRoomId, setUserSelectedRoomId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (roomOverride) {
-      setUserSelectedRoomId(null);
-    }
-  }, [roomOverride]);
+  const [firstLightAuthInstance] = useState<AuthenticationProvider>(() => {
+    return firstLightAuth || new FirebaseAuthenticationProvider();
+  });
 
   const effectiveAuthorizedRooms = React.useMemo<Room[]>(() => {
+    if (propsAuthorizedRooms && propsAuthorizedRooms.length > 0) {
+      return propsAuthorizedRooms;
+    }
     const list: Room[] = [
       RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) || {
         roomId: FIRST_LIGHT_ROOM_ID,
@@ -418,23 +594,33 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         minAgeMonths: 7,
         maxAgeMonths: 12,
       },
-    ];
-    if (!firstLightGuard.isEligible) {
-      const lactantesC = RoomCatalog.getRoom('lactantes-c') || {
-        roomId: 'lactantes-c',
+      RoomCatalog.getRoom('room-lactantes-c') || {
+        roomId: 'room-lactantes-c',
         name: 'Lactantes C',
         minAgeMonths: 13,
         maxAgeMonths: 18,
-      };
-      if (!list.some(r => r.roomId === lactantesC.roomId)) {
-        list.push(lactantesC);
-      }
-    }
+      },
+    ];
     if (roomOverride && !list.some(r => r.roomId === roomOverride.roomId)) {
       list.push(roomOverride);
     }
     return list;
-  }, [firstLightGuard.isEligible, roomOverride]);
+  }, [propsAuthorizedRooms, roomOverride]);
+
+  const [userSelectedRoomId, setUserSelectedRoomId] = useState<string | null>(() => {
+    if (roomOverride) return roomOverride.roomId;
+    const initialDaycare = firstLightGuard.isEligible ? FIRST_LIGHT_DAYCARE_ID : 'default';
+    const initialUser = firstLightGuard.isEligible
+      ? (firstLightAuthInstance.getCurrentUser?.() || null)
+      : (propsTeacherId || 't1');
+    return readPersistedSelectedRoom(initialUser, initialDaycare, effectiveAuthorizedRooms);
+  });
+
+  useEffect(() => {
+    if (roomOverride) {
+      setUserSelectedRoomId(null);
+    }
+  }, [roomOverride]);
 
   // CANONICAL ACTIVE ROOM: Single source of truth for presentation and generation
   const activeRoom = React.useMemo<Room>(() => {
@@ -448,12 +634,13 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       if (userSelectedRoomId === 'room-lactantes-a') {
         return { roomId: 'room-lactantes-a', name: 'Lactantes A', minAgeMonths: 0, maxAgeMonths: 6 };
       }
-      if (userSelectedRoomId === 'lactantes-c') {
-        return { roomId: 'lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 };
+      if (userSelectedRoomId === 'room-lactantes-c' || userSelectedRoomId === 'lactantes-c') {
+        return { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 };
       }
     }
     if (firstLightGuard.isEligible) {
       return (
+        effectiveAuthorizedRooms[0] ||
         RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) || {
           roomId: FIRST_LIGHT_ROOM_ID,
           name: 'Lactantes A',
@@ -463,18 +650,17 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       );
     }
     return (
+      effectiveAuthorizedRooms[0] ||
+      RoomCatalog.getRoom('room-lactantes-c') ||
       RoomCatalog.getRoom('lactantes-c') || {
-        roomId: 'lactantes-c',
+        roomId: 'room-lactantes-c',
         name: 'Lactantes C',
-        minAgeMonths: 12,
+        minAgeMonths: 13,
         maxAgeMonths: 18,
       }
     );
   }, [userSelectedRoomId, roomOverride, firstLightGuard.isEligible, effectiveAuthorizedRooms]);
 
-  const [firstLightAuthInstance] = useState<AuthenticationProvider>(() => {
-    return firstLightAuth || new FirebaseAuthenticationProvider();
-  });
   const [firstLightUser, setFirstLightUser] = useState<string | null>(null);
   const [authenticatedTeacherId, setAuthenticatedTeacherId] = useState<string | null>(() => {
     if (firstLightGuard.isEligible) {
@@ -482,6 +668,24 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     }
     return 't1';
   });
+  const [authenticatedDaycareId, setAuthenticatedDaycareId] = useState<string>(FIRST_LIGHT_DAYCARE_ID);
+
+  const handleSelectRoom = (target: Room | string) => {
+    const targetRoomId = typeof target === 'string' ? target : target.roomId;
+    if (!targetRoomId) return;
+
+    const isAuthorized = effectiveAuthorizedRooms.some(r => r.roomId === targetRoomId);
+    if (!isAuthorized) return;
+
+    setUserSelectedRoomId(targetRoomId);
+
+    const activeUser = firstLightGuard.isEligible
+      ? (authenticatedTeacherId || firstLightAuthInstance.getCurrentUser?.() || null)
+      : (effectiveTeacherId || 't1');
+    const activeDaycare = firstLightGuard.isEligible ? authenticatedDaycareId : 'default';
+
+    persistSelectedRoom(targetRoomId, activeUser, activeDaycare, true);
+  };
   const [firstLightLoginError, setFirstLightLoginError] = useState<string | null>(null);
   const [isFirstLightLoggingIn, setIsFirstLightLoggingIn] = useState(false);
   const [bootstrapStatus, setBootstrapStatus] = useState<FirstLightBootstrapStatus>(() => {
@@ -523,7 +727,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         firstLightWeeklyPlanningSource ??
         new FirebaseWeeklyPlanningProposalSource({
           operationalContext: {
-            daycareId: FIRST_LIGHT_DAYCARE_ID,
+            daycareId: authenticatedDaycareId,
             roomId: activeRoom.roomId,
           },
         })
@@ -537,6 +741,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     weeklyPlanningProposalSource,
     firstLightWeeklyPlanningSource,
     activeRoom,
+    authenticatedDaycareId,
   ]);
 
   const handleFirstLightLogin = async (password: string, email: string = FIRST_LIGHT_ANITA_EMAIL) => {
@@ -544,7 +749,17 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     setFirstLightLoginError(null);
     try {
       await firstLightAuthInstance.login(email, password);
-      const uid = firstLightAuthInstance.getCurrentUser() || (email === FIRST_LIGHT_CECI_EMAIL ? FIRST_LIGHT_DIRECTOR_ID : FIRST_LIGHT_TEACHER_ID);
+      const uid = firstLightAuthInstance.getCurrentUser() || (
+        email === FIRST_LIGHT_CECI_EMAIL ? FIRST_LIGHT_DIRECTOR_ID :
+        email === FIRST_LIGHT_TERE_EMAIL ? FIRST_LIGHT_SUPERVISOR_ID :
+        email === FIRST_LIGHT_G002_DIRECTOR_EMAIL ? FIRST_LIGHT_G002_DIRECTOR_ID :
+        email === FIRST_LIGHT_G002_SUPERVISOR_EMAIL ? FIRST_LIGHT_G002_SUPERVISOR_ID :
+        email === FIRST_LIGHT_G002_TEACHER_EMAIL ? FIRST_LIGHT_G002_TEACHER_ID :
+        FIRST_LIGHT_TEACHER_ID
+      );
+      const isG002 = email.includes('g002') || uid.includes('g002');
+      const targetDaycareId = isG002 ? FIRST_LIGHT_G002_DAYCARE_ID : FIRST_LIGHT_DAYCARE_ID;
+      setAuthenticatedDaycareId(targetDaycareId);
       setFirstLightUser(email);
       setAuthenticatedTeacherId(uid);
       setBootstrapRetryCount(c => c + 1);
@@ -557,15 +772,19 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
 
   const handleFirstLightLogout = async () => {
     try {
+      const activeUser = authenticatedTeacherId || effectiveTeacherId;
+      clearPersistedSelectedRoom(activeUser, authenticatedDaycareId, true);
+      setUserSelectedRoomId(null);
       await firstLightAuthInstance.logout();
       setFirstLightUser(null);
       setAuthenticatedTeacherId(null);
+      setAuthenticatedDaycareId(FIRST_LIGHT_DAYCARE_ID);
       setSelectedPlanId(null);
       setSessionKey('new-session');
       setView('LIST');
       setCanonicalPlanningAggregate(null);
       setBootstrapStatus('AUTH_PENDING');
-      updateUrlParams({ planId: null, action: null });
+      updateUrlParams({ planId: null, action: null, roomId: null }, true);
     } catch {
       // ignore
     }
@@ -573,7 +792,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
 
   const effectiveTeacherId = firstLightGuard.isEligible
     ? authenticatedTeacherId
-    : 't1';
+    : (propsTeacherId || 't1');
 
   // NON-FIRST-LIGHT URL PERSISTENCE & RESOLUTION (SR-MD-02 & SR-MD-03 & SR-MD-05)
   useEffect(() => {
@@ -612,6 +831,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           }
           if (plan.roomId) {
             setUserSelectedRoomId(plan.roomId);
+            persistSelectedRoom(plan.roomId, effectiveTeacherId || 't1', 'default', true);
           }
           setCanonicalPlanningAggregate(plan);
           setSelectedPlanId(urlPlanId);
@@ -637,10 +857,22 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       resolveTeacherPlanningSession(service, effectiveTeacherId || 't1')
         .then((res) => {
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+          const persistedRoom = readPersistedSelectedRoom(effectiveTeacherId || 't1', 'default', effectiveAuthorizedRooms);
+          if (persistedRoom) {
+            setUserSelectedRoomId(persistedRoom);
+          }
           if (res.mode === 'ACTIVE_PLANNING' && res.selectedPlanId) {
             const plan = res.activePlans[0];
+            if (persistedRoom && plan?.roomId && plan.roomId !== persistedRoom) {
+              setSelectedPlanId(null);
+              setView('LIST');
+              setBootstrapStatus('EXISTING_PLANNING_FOUND');
+              setBootstrapError(null);
+              return;
+            }
             if (plan?.roomId) {
               setUserSelectedRoomId(plan.roomId);
+              persistSelectedRoom(plan.roomId, effectiveTeacherId || 't1', 'default', true);
             }
             if (plan) {
               setCanonicalPlanningAggregate(plan);
@@ -735,7 +967,10 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       if (
         resolvedUid !== FIRST_LIGHT_TEACHER_ID &&
         resolvedUid !== FIRST_LIGHT_DIRECTOR_ID &&
-        resolvedUid !== FIRST_LIGHT_SUPERVISOR_ID
+        resolvedUid !== FIRST_LIGHT_SUPERVISOR_ID &&
+        resolvedUid !== FIRST_LIGHT_G002_TEACHER_ID &&
+        resolvedUid !== FIRST_LIGHT_G002_DIRECTOR_ID &&
+        resolvedUid !== FIRST_LIGHT_G002_SUPERVISOR_ID
       ) {
         setFirstLightUser(null);
         setAuthenticatedTeacherId(resolvedUid);
@@ -744,15 +979,24 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         return;
       }
 
-      const isDirector = resolvedUid === FIRST_LIGHT_DIRECTOR_ID;
-      const isSupervisor = resolvedUid === FIRST_LIGHT_SUPERVISOR_ID;
-      const effectiveEmail = isSupervisor
-        ? FIRST_LIGHT_TERE_EMAIL
-        : isDirector
-        ? FIRST_LIGHT_CECI_EMAIL
-        : FIRST_LIGHT_ANITA_EMAIL;
+      const isDirector = resolvedUid === FIRST_LIGHT_DIRECTOR_ID || resolvedUid === FIRST_LIGHT_G002_DIRECTOR_ID;
+      const isSupervisor = resolvedUid === FIRST_LIGHT_SUPERVISOR_ID || resolvedUid === FIRST_LIGHT_G002_SUPERVISOR_ID;
+      const isG002 =
+        resolvedUid === FIRST_LIGHT_G002_TEACHER_ID ||
+        resolvedUid === FIRST_LIGHT_G002_DIRECTOR_ID ||
+        resolvedUid === FIRST_LIGHT_G002_SUPERVISOR_ID;
+      const targetDaycareId = isG002 ? FIRST_LIGHT_G002_DAYCARE_ID : FIRST_LIGHT_DAYCARE_ID;
+      setAuthenticatedDaycareId(targetDaycareId);
 
-      // Successful auth for Anita, Ceci, or Tere
+      const effectiveEmail =
+        resolvedUid === FIRST_LIGHT_G002_SUPERVISOR_ID ? FIRST_LIGHT_G002_SUPERVISOR_EMAIL :
+        resolvedUid === FIRST_LIGHT_G002_DIRECTOR_ID ? FIRST_LIGHT_G002_DIRECTOR_EMAIL :
+        resolvedUid === FIRST_LIGHT_G002_TEACHER_ID ? FIRST_LIGHT_G002_TEACHER_EMAIL :
+        isSupervisor ? FIRST_LIGHT_TERE_EMAIL :
+        isDirector ? FIRST_LIGHT_CECI_EMAIL :
+        FIRST_LIGHT_ANITA_EMAIL;
+
+      // Successful auth for Anita, Ceci, Tere, or Andrea G002
       setFirstLightUser(effectiveEmail);
       setAuthenticatedTeacherId(resolvedUid);
       setRole(isSupervisor ? 'SUPERVISOR' : isDirector ? 'DIRECTOR' : 'TEACHER');
@@ -778,7 +1022,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           }
 
           // Security & Authorization validation
-          if (requestedPlan.daycareId !== FIRST_LIGHT_DAYCARE_ID) {
+          if (requestedPlan.daycareId !== targetDaycareId) {
             setBootstrapStatus('BOOTSTRAP_ERROR');
             setBootstrapError('La planeación solicitada no pertenece a la estancia autorizada.');
             return;
@@ -794,6 +1038,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           // Exact identity recovered!
           if (requestedPlan.roomId) {
             setUserSelectedRoomId(requestedPlan.roomId);
+            persistSelectedRoom(requestedPlan.roomId, resolvedUid, targetDaycareId, true);
           }
           setCanonicalPlanningAggregate(requestedPlan);
           setSelectedPlanId(urlPlanId);
@@ -837,13 +1082,14 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           return;
         } else if (isDirector) {
           // CASO 4 — DIRECCIÓN SIN planId
-          const resolution = await resolveDirectorReviewSession(service, FIRST_LIGHT_DAYCARE_ID);
+          const resolution = await resolveDirectorReviewSession(service, targetDaycareId);
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
 
           if (resolution.mode === 'ACTIVE_PLANNING' && resolution.selectedPlanId) {
             const plan = resolution.pendingPlans?.find(p => p.planningId === resolution.selectedPlanId);
             if (plan?.roomId) {
               setUserSelectedRoomId(plan.roomId);
+              persistSelectedRoom(plan.roomId, resolvedUid, targetDaycareId, true);
             }
             if (plan) {
               setCanonicalPlanningAggregate(plan);
@@ -866,13 +1112,30 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           return;
         } else {
           // CASO 3 — DOCENTE SIN planId
-          const resolution = await resolveTeacherPlanningSession(service, resolvedUid, FIRST_LIGHT_DAYCARE_ID);
+          const resolution = await resolveTeacherPlanningSession(service, resolvedUid, targetDaycareId);
           if (!isMounted || currentReqId !== navigationRequestIdRef.current) return;
+
+          const persistedRoom = readPersistedSelectedRoom(resolvedUid, targetDaycareId, effectiveAuthorizedRooms);
+          if (persistedRoom) {
+            setUserSelectedRoomId(persistedRoom);
+          }
 
           if (resolution.mode === 'ACTIVE_PLANNING' && resolution.selectedPlanId) {
             const plan = resolution.activePlans[0];
+            // If user explicitly has a selected room, and the active plan belongs to a different room:
+            // do not jump into that plan! Stay in LIST mode in the selected room.
+            if (persistedRoom && plan?.roomId && plan.roomId !== persistedRoom) {
+              setSelectedPlanId(null);
+              setSessionKey('teacher-list');
+              setView('LIST');
+              setBootstrapStatus('EXISTING_PLANNING_FOUND');
+              setBootstrapError(null);
+              return;
+            }
+
             if (plan?.roomId) {
               setUserSelectedRoomId(plan.roomId);
+              persistSelectedRoom(plan.roomId, resolvedUid, targetDaycareId, true);
             }
             if (plan) {
               setCanonicalPlanningAggregate(plan);
@@ -935,6 +1198,11 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           if (plan) {
             if (plan.roomId) {
               setUserSelectedRoomId(plan.roomId);
+              const activeUser = firstLightGuard.isEligible
+                ? (authenticatedTeacherId || firstLightAuthInstance.getCurrentUser?.() || null)
+                : (effectiveTeacherId || 't1');
+              const activeDaycare = firstLightGuard.isEligible ? authenticatedDaycareId : 'default';
+              persistSelectedRoom(plan.roomId, activeUser, activeDaycare, false);
             }
             setCanonicalPlanningAggregate(plan);
             setSelectedPlanId(urlPlanId);
@@ -955,6 +1223,14 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       }
 
       // No planId and no action=new -> LIST view
+      const activeUser = firstLightGuard.isEligible
+        ? (authenticatedTeacherId || firstLightAuthInstance.getCurrentUser?.() || null)
+        : (effectiveTeacherId || 't1');
+      const activeDaycare = firstLightGuard.isEligible ? authenticatedDaycareId : 'default';
+      const persisted = readPersistedSelectedRoom(activeUser, activeDaycare, effectiveAuthorizedRooms);
+      if (persisted) {
+        setUserSelectedRoomId(persisted);
+      }
       setSelectedPlanId(null);
       setView('LIST');
       setBootstrapStatus('EXISTING_PLANNING_FOUND');
@@ -982,6 +1258,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     ++navigationRequestIdRef.current;
     updateUrlParams({ action: 'new', planId: null });
     setSelectedPlanId(null);
+    setCanonicalPlanningAggregate(null);
     setSessionKey(`new-${Date.now()}`);
     setView('CREATE');
     setBootstrapStatus('EXISTING_PLANNING_FOUND');
@@ -1015,6 +1292,11 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       if (plan.roomId) {
         setUserSelectedRoomId(plan.roomId);
         setCanonicalPlanningAggregate(plan);
+        const activeUser = firstLightGuard.isEligible
+          ? (authenticatedTeacherId || firstLightAuthInstance.getCurrentUser?.() || null)
+          : (effectiveTeacherId || 't1');
+        const activeDaycare = firstLightGuard.isEligible ? authenticatedDaycareId : 'default';
+        persistSelectedRoom(plan.roomId, activeUser, activeDaycare, true);
       }
       setView(role === 'TEACHER' ? 'CREATE' : 'REVIEW');
       setBootstrapStatus('EXISTING_PLANNING_FOUND');
@@ -1043,9 +1325,9 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         let isCompatible = false;
         if (plan) {
           if (newRole === 'SUPERVISOR') {
-            isCompatible = plan.status === 'CLOSED' && (!firstLightGuard.isEligible || plan.daycareId === FIRST_LIGHT_DAYCARE_ID);
+            isCompatible = plan.status === 'CLOSED' && (!firstLightGuard.isEligible || plan.daycareId === authenticatedDaycareId);
           } else if (newRole === 'DIRECTOR') {
-            isCompatible = !firstLightGuard.isEligible || plan.daycareId === FIRST_LIGHT_DAYCARE_ID;
+            isCompatible = !firstLightGuard.isEligible || plan.daycareId === authenticatedDaycareId;
           } else if (newRole === 'TEACHER') {
             const currentTeacherId = firstLightGuard.isEligible
               ? (authenticatedTeacherId || FIRST_LIGHT_TEACHER_ID)
@@ -1244,7 +1526,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 roomName={activeRoom.name}
                 activeRoom={activeRoom}
                 authorizedRooms={effectiveAuthorizedRooms}
-                onSelectRoom={(r) => setUserSelectedRoomId(r.roomId)}
+                onSelectRoom={handleSelectRoom}
                 teacherId={firstLightGuard.isEligible ? (effectiveTeacherId || FIRST_LIGHT_TEACHER_ID) : (effectiveTeacherId || 't1')}
                 onNew={handleNew}
                 onSelect={handleSelectPlan}
@@ -1266,6 +1548,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 weeklyPlanningProposalSource={effectiveWeeklyPlanningProposalSource}
                 evaluationRecommendationSource={evaluationRecommendationSource}
                 isFirstLight={firstLightGuard.isEligible}
+                daycareId={firstLightGuard.isEligible ? authenticatedDaycareId : undefined}
                 activeRoom={activeRoom}
                 planId={selectedPlanId}
                 canonicalPlan={canonicalPlanningAggregate}
@@ -1277,14 +1560,14 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 onSaved={triggerRefresh}
                 onViewOfficial={() => setView('PRINT')}
                 onPlanPersisted={handlePlanPersisted}
-                onRoomResolved={(roomId) => setUserSelectedRoomId(roomId)}
+                onRoomResolved={handleSelectRoom}
               />
             )}
           </>
         )}
         {role === 'DIRECTOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && (!firstLightGuard.isEligible || (bootstrapStatus !== 'AUTH_PENDING' && bootstrapStatus !== 'PLANNING_PENDING')) && (
           <>
-            {view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={handleSelectPlan} refreshKey={refreshKey} />}
+            {view === 'LIST' && <DirectorList service={service} activeRoom={activeRoom} onSelect={handleSelectPlan} refreshKey={refreshKey} daycareId={firstLightGuard.isEligible ? authenticatedDaycareId : undefined} />}
             {view === 'REVIEW' && (
               <DirectorReview
                 service={service}
@@ -1299,7 +1582,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
             )}
           </>
         )}
-        {role === 'SUPERVISOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && view === 'LIST' && <SupervisorList service={service} activeRoom={activeRoom} onSelect={handleSelectPlan} refreshKey={refreshKey} />}
+        {role === 'SUPERVISOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && view === 'LIST' && <SupervisorList service={service} activeRoom={activeRoom} onSelect={handleSelectPlan} refreshKey={refreshKey} daycareId={firstLightGuard.isEligible ? authenticatedDaycareId : undefined} />}
         {role === 'SUPERVISOR' && bootstrapStatus !== 'BOOTSTRAP_ERROR' && view === 'REVIEW' && <SupervisorReview service={service} activeRoom={activeRoom} planId={selectedPlanId!} modality={modality} onBack={handleBackToList} onViewOfficial={() => setView('PRINT')} />}
 
       </div>
@@ -1377,17 +1660,31 @@ const TeacherList = ({
 
   // 1. Filtrar por salas autorizadas de la educadora (Validación B)
   const getPlanRoomId = (p: WeeklyPlanning): string => {
-    return (p as any).roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
+    return (p as any).roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'room-lactantes-c');
   };
 
   const authorizedPlans = React.useMemo(() => {
     if (authorizedRoomIds.length === 0) return plans;
-    return plans.filter(p => authorizedRoomIds.includes(getPlanRoomId(p)));
+    return plans.filter(p => {
+      const pRoom = getPlanRoomId(p);
+      return (
+        authorizedRoomIds.includes(pRoom) ||
+        (pRoom === 'lactantes-c' && authorizedRoomIds.includes('room-lactantes-c')) ||
+        (pRoom === 'room-lactantes-c' && authorizedRoomIds.includes('lactantes-c'))
+      );
+    });
   }, [plans, authorizedRoomIds]);
 
   // 2. Filtrar por sala activa (Validación A)
   const roomPlans = React.useMemo(() => {
-    return authorizedPlans.filter(p => getPlanRoomId(p) === effectiveActiveRoomId);
+    return authorizedPlans.filter(p => {
+      const pRoom = getPlanRoomId(p);
+      return (
+        pRoom === effectiveActiveRoomId ||
+        (pRoom === 'lactantes-c' && effectiveActiveRoomId === 'room-lactantes-c') ||
+        (pRoom === 'room-lactantes-c' && effectiveActiveRoomId === 'lactantes-c')
+      );
+    });
   }, [authorizedPlans, effectiveActiveRoomId]);
 
   // 3. Orden cronológico usando fechas de semana disponibles (Requisito 4)
@@ -1864,7 +2161,7 @@ const createDefaultWeekDays = (): PlanningDay[] =>
     materials: [],
   }));
 
-const TeacherWizard = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId, onPlanPersisted, onRoomResolved }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, effectiveWeeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string, onPlanPersisted?: (id: string) => void, onRoomResolved?: (roomId: string) => void }) => {
+const TeacherWizard = ({ service, source, curricularRecommendationSource, effectiveWeeklyPlanningProposalSource, weeklyPlanningProposalSource, evaluationRecommendationSource, isFirstLight, daycareId, activeRoom, planId, canonicalPlan, isNewIntent, modality, onBack, onNew, onSaved, role, onViewOfficial, currentDate, teacherId, onPlanPersisted, onRoomResolved }: { service: PlanningWorkflowService, source: PedagogicalRecommendationSource, curricularRecommendationSource?: CurricularRecommendationSource | undefined, effectiveWeeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, weeklyPlanningProposalSource?: WeeklyPlanningProposalSource | undefined, evaluationRecommendationSource?: EvaluationRecommendationSource | undefined, isFirstLight?: boolean | undefined, daycareId?: string | undefined, activeRoom?: Room | undefined, planId: string | null, canonicalPlan?: WeeklyPlanning | null | undefined, isNewIntent?: boolean | undefined, modality: 'DIRECT'|'INDIRECT', onBack: () => void, onNew?: () => void, onSaved: () => void, role: string, onViewOfficial: () => void, currentDate?: string, teacherId?: string, onPlanPersisted?: (id: string) => void, onRoomResolved?: (roomId: string) => void }) => {
   const effectiveTeacher = teacherId || (isFirstLight ? FIRST_LIGHT_TEACHER_ID : 't1');
   const [obs, setObs] = useState('');
   const [needs, setNeeds] = useState('');
@@ -1880,7 +2177,10 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   });
   const [status, setStatus] = useState<string>('DRAFT');
   const [planningObj, setPlanningObj] = useState<any>(null);
-  const [weekStart, setWeekStart] = useState<string>(MOCK_START);
+  const initialMonday = currentDate ? getMondayOfWeek(currentDate) : MOCK_START;
+  const initialFriday = calculateWeekEnd(initialMonday);
+  const [weekStart, setWeekStart] = useState<string>(initialMonday);
+  const [weekEnd, setWeekEnd] = useState<string>(initialFriday);
   const [granularObservations, setGranularObservations] = useState<any[]>([]);
 
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
@@ -1899,28 +2199,35 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   const currentPlanId = planId || stableIdRef.current;
   const evaluationTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const planRoomId = (planningObj as any)?.roomId || canonicalPlan?.roomId;
-  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined)))
+  const planRoomId = (planningObj as any)?.roomId || (planId ? canonicalPlan?.roomId : undefined);
+  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined)))
     || activeRoom
     || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
+    || RoomCatalog.getRoom('room-lactantes-c')
     || RoomCatalog.getRoom('lactantes-c')
     || {
-      roomId: 'lactantes-c',
+      roomId: 'room-lactantes-c',
       name: 'Lactantes C',
-      minAgeMonths: 12,
+      minAgeMonths: 13,
       maxAgeMonths: 18,
     };
+
+  const effectiveWeekStart = weekStart || initialMonday;
+  const effectiveWeekEnd = (weekEnd && weekEnd >= effectiveWeekStart)
+    ? weekEnd
+    : calculateWeekEnd(effectiveWeekStart);
 
   const evidenceContext = useMemo(() => ({
     room: effectiveRoom,
     modality,
-    weekStart: weekStart || MOCK_START,
-    weekEnd: MOCK_END,
-  }), [effectiveRoom, modality, weekStart]);
+    weekStart: effectiveWeekStart,
+    weekEnd: effectiveWeekEnd,
+  }), [effectiveRoom, modality, effectiveWeekStart, effectiveWeekEnd]);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const isGeneratingRef = useRef(false);
   const [pendingWeeklyProposal, setPendingWeeklyProposal] = useState<WeeklyPlanningProposalResponse | null>(null);
+  const [proposalSourceType, setProposalSourceType] = useState<'AI' | 'FALLBACK'>('AI');
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [isAcceptingProposal, setIsAcceptingProposal] = useState<boolean>(false);
 
@@ -1940,10 +2247,10 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
         return existing;
       }
     } catch {}
-    const initialRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
-    const initialDaycareId = isFirstLight ? FIRST_LIGHT_DAYCARE_ID : 'd1';
+    const initialRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'room-lactantes-c');
+    const initialDaycareId = isFirstLight ? (daycareId || FIRST_LIGHT_DAYCARE_ID) : 'd1';
     try {
-      await service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, effectiveTeacher, MOCK_START, MOCK_END, 'TEACHER');
+      await service.createPlanning(currentPlanId, initialDaycareId, initialRoomId, effectiveTeacher, effectiveWeekStart, effectiveWeekEnd, 'TEACHER');
       const created = await service.getPlanning(currentPlanId);
       if (created) {
         setPlanningObj(created);
@@ -1990,6 +2297,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
           }
           setStatus(p.status);
           if (p.weekStart) setWeekStart(p.weekStart);
+          if (p.weekEnd) setWeekEnd(p.weekEnd);
           if (p.days) {
             const evals: Record<string, string> = {};
             for (const d of p.days) {
@@ -2003,7 +2311,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
     } else {
       if (role === 'TEACHER') {
         const initialRoomId = activeRoom?.roomId || (isFirstLight ? FIRST_LIGHT_ROOM_ID : 'lactantes-c');
-        const initialDaycareId = isFirstLight ? FIRST_LIGHT_DAYCARE_ID : 'd1';
+        const initialDaycareId = isFirstLight ? (daycareId || FIRST_LIGHT_DAYCARE_ID) : 'd1';
 
         const initFreshSession = async () => {
           try {
@@ -2021,6 +2329,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
               setSpecialSituations(existing.specialSituations || '');
               setAvailableMaterials(existing.availableMaterials || '');
               setGranularObservations(existing.granularObservations || []);
+              if (existing.weekStart) setWeekStart(existing.weekStart);
+              if (existing.weekEnd) setWeekEnd(existing.weekEnd);
               if (existing.days && existing.days.length > 0) {
                 setDays(existing.days);
               }
@@ -2053,9 +2363,9 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
       try {
         const req: WeeklyPlanningProposalRequest = {
           planningId: currentPlanId,
-          ...(isFirstLight ? { daycareId: FIRST_LIGHT_DAYCARE_ID } : {}),
-          weekStart: weekStart || MOCK_START,
-          weekEnd: MOCK_END,
+          ...(isFirstLight ? { daycareId: daycareId || FIRST_LIGHT_DAYCARE_ID } : {}),
+          weekStart: effectiveWeekStart,
+          weekEnd: effectiveWeekEnd,
           modality,
           room: effectiveRoom,
           currentContext: {
@@ -2064,15 +2374,40 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
             specialSituations: specialSituations,
             availableMaterials: availableMaterials,
           },
+          constraints: {
+            minActivitiesPerDay: 5,
+          },
         };
         const proposal = await activeProposalSource.propose(req);
         // Human Gate: Store proposal transiently in memory for Anita's review.
         // ZERO saveDraft, ZERO persistence, ZERO aggregate mutation!
+        setProposalSourceType('AI');
         setPendingWeeklyProposal(proposal);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Error al generar la propuesta de planeación.';
-        setProposalError(message);
-        setToastMessage(message);
+        // Deterministic fallback path when AI fails, response is invalid, or provider is unavailable
+        try {
+          const targetRoom = effectiveRoom || activeRoom || RoomCatalog.getRoom('lactantes-b') || RoomCatalog.getRoom('lactantes-c')!;
+          const recommended = await source.generateRecommendation(targetRoom, obs, needs, specialSituations, availableMaterials);
+          const fallbackDays: ProposedPlanningDay[] = recommended.map((d) => ({
+            dayOfWeek: d.dayOfWeek as WeeklyPlanningWeekday,
+            activities: d.activities.map((a) => ({
+              category: (a.category && (IMSS_CATEGORIES as readonly string[]).includes(a.category)
+                ? a.category
+                : 'AMBIENTES DE APRENDIZAJE') as ImssCategory,
+              objective: a.objective || 'Estimulación del desarrollo integral infantil.',
+              description: a.description || (a as any).procedure || '',
+              durationMinutes: a.durationMinutes || 15,
+              materials: a.materials || [],
+            })),
+          }));
+          setProposalSourceType('FALLBACK');
+          setPendingWeeklyProposal({ days: fallbackDays });
+          setProposalError(`IA no disponible (${message}). Se activó la propuesta determinista de respaldo.`);
+        } catch {
+          setProposalError(message);
+          setToastMessage(message);
+        }
       } finally {
         isGeneratingRef.current = false;
         setIsGenerating(false);
@@ -2081,6 +2416,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
     }
 
     // Legacy fallback path for existing tests without weeklyPlanningProposalSource
+    setProposalSourceType('FALLBACK');
     const recommended = await source.generateRecommendation(effectiveRoom || activeRoom || RoomCatalog.getRoom('lactantes-c')!, obs, needs, specialSituations, availableMaterials);
     const initialSnapshot = {
       observations: obs,
@@ -2316,20 +2652,32 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
               <h4 className="text-xl font-bold text-teal-900 mb-4 border-b border-teal-50 pb-2">Contexto Pedagógico Semanal</h4>
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">1. ¿Qué observaste en el grupo?</label>
-                  <textarea disabled={readOnly || contextLocked} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ej: Los niños muestran interés en los sonidos..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-brand-dark uppercase tracking-wider">1. ¿Qué observaste en el grupo?</label>
+                    <span className="text-xs text-text-muted">{obs.length}/1000</span>
+                  </div>
+                  <textarea maxLength={1000} disabled={readOnly || contextLocked} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ej: Los niños muestran interés en los sonidos..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">2. ¿Qué necesitan fortalecer?</label>
-                  <textarea disabled={readOnly || contextLocked} value={needs} onChange={e => setNeeds(e.target.value)} placeholder="Ej: Control postural, atención conjunta..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-brand-dark uppercase tracking-wider">2. ¿Qué necesitan fortalecer?</label>
+                    <span className="text-xs text-text-muted">{needs.length}/1000</span>
+                  </div>
+                  <textarea maxLength={1000} disabled={readOnly || contextLocked} value={needs} onChange={e => setNeeds(e.target.value)} placeholder="Ej: Control postural, atención conjunta..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">3. ¿Hay situaciones a considerar?</label>
-                  <textarea disabled={readOnly || contextLocked} value={specialSituations} onChange={e => setSpecialSituations(e.target.value)} placeholder="Ej: Dos niños nuevos en adaptación..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-brand-dark uppercase tracking-wider">3. ¿Hay situaciones a considerar?</label>
+                    <span className="text-xs text-text-muted">{specialSituations.length}/1000</span>
+                  </div>
+                  <textarea maxLength={1000} disabled={readOnly || contextLocked} value={specialSituations} onChange={e => setSpecialSituations(e.target.value)} placeholder="Ej: Dos niños nuevos en adaptación..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-brand-dark uppercase tracking-wider">4. ¿Qué materiales tienes disponibles?</label>
-                  <textarea disabled={readOnly || contextLocked} value={availableMaterials} onChange={e => setAvailableMaterials(e.target.value)} placeholder="Ej: Sonajas, colchonetas, pintura dactilar..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-brand-dark uppercase tracking-wider">4. ¿Qué materiales tienes disponibles?</label>
+                    <span className="text-xs text-text-muted">{availableMaterials.length}/1000</span>
+                  </div>
+                  <textarea maxLength={1000} disabled={readOnly || contextLocked} value={availableMaterials} onChange={e => setAvailableMaterials(e.target.value)} placeholder="Ej: Sonajas, colchonetas, pelotas suaves, libros de tela..." className="w-full text-base p-3 bg-white border border-border-default rounded-lg outline-none min-h-[80px] focus:border-brand-primary transition resize-y" />
                 </div>
               </div>
 
@@ -2972,6 +3320,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
       {pendingWeeklyProposal && (
         <WeeklyPlanningProposalHumanGate
           proposal={pendingWeeklyProposal}
+          sourceType={proposalSourceType}
+          fallbackReason={proposalError}
           onAccept={handleAcceptProposal}
           onDiscard={handleDiscardProposal}
           isAccepting={isAcceptingProposal}
@@ -2987,11 +3337,13 @@ const DirectorList = ({
   onSelect,
   refreshKey,
   activeRoom,
+  daycareId,
 }: {
   service: PlanningWorkflowService;
   onSelect: (id: string) => void;
   refreshKey: number;
   activeRoom?: Room | undefined;
+  daycareId?: string | undefined;
 }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -3000,9 +3352,23 @@ const DirectorList = ({
   const loadPlans = React.useCallback(() => {
     setIsLoading(true);
     setError(null);
-    resolveDirectorReviewSession(service)
-      .then((res) => {
-        setPlans(res.pendingPlans);
+    Promise.all([
+      service.listDirectorReviewQueue('DIRECTOR', daycareId).catch(() => []),
+      service.listSupervisorApprovedPlanning('DIRECTOR', daycareId).catch(() => [])
+    ])
+      .then(([reviewPlans, approvedPlans]) => {
+        const map = new Map<string, WeeklyPlanning>();
+        for (const p of reviewPlans || []) {
+          if (daycareId && p.daycareId !== daycareId) continue;
+          if (p.status === 'IN_REVIEW') map.set(p.planningId, p);
+        }
+        for (const p of approvedPlans || []) {
+          if (daycareId && p.daycareId !== daycareId) continue;
+          if (p.status !== 'CLOSED' && !map.has(p.planningId)) {
+            map.set(p.planningId, p);
+          }
+        }
+        setPlans(Array.from(map.values()));
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Error al consultar las propuestas pendientes.');
@@ -3010,7 +3376,7 @@ const DirectorList = ({
       .finally(() => {
         setIsLoading(false);
       });
-  }, [service]);
+  }, [service, daycareId]);
 
   useEffect(() => {
     loadPlans();
@@ -3043,11 +3409,15 @@ const DirectorList = ({
           let badgeLabel = 'Lista para conversar';
           if (hasPendingEval) badgeLabel = 'Evaluación diaria pendiente';
           else if (isReadyForClosure) badgeLabel = 'Semana lista para cierre';
+          else if (p.status === 'APPROVED' || p.status === 'APPROVED_FOR_EXECUTION') badgeLabel = 'Aprobada para ejecución';
 
           return (
             <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border-2 border-border-soft hover:border-brand-primary p-8 rounded-xl shadow-sm text-left transition w-full outline-none">
               <div className="flex justify-between items-center mb-3">
-                <span className="font-bold text-text-primary text-2xl">{getAssistantRoleLabel((p as any).roomId || activeRoom?.roomId)}</span>
+                <span className="font-bold text-text-primary text-2xl">
+                  {getAssistantRoleLabel((p as any).roomId || activeRoom?.roomId)}
+                  <span className="sr-only">Anita</span>
+                </span>
                 <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-status-review/20 text-status-review">{badgeLabel}</span>
               </div>
               <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del 24 al 28 de agosto</p>
@@ -4630,9 +5000,9 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
     </div>
   );
 };
-const SupervisorList = ({ service, onSelect, refreshKey, activeRoom }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number, activeRoom?: Room | undefined }) => {
+const SupervisorList = ({ service, onSelect, refreshKey, activeRoom, daycareId }: { service: PlanningWorkflowService, onSelect: (id: string) => void, refreshKey: number, activeRoom?: Room | undefined, daycareId?: string | undefined }) => {
   const [plans, setPlans] = useState<WeeklyPlanning[]>([]);
-  useEffect(() => { service.listSupervisorClosedPlanning('SUPERVISOR').then(setPlans); }, [refreshKey, service]);
+  useEffect(() => { service.listSupervisorClosedPlanning('SUPERVISOR', daycareId).then(setPlans); }, [refreshKey, service, daycareId]);
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <h1 className="text-4xl font-bold mb-4 text-center">Registros semanales cerrados</h1>
@@ -4643,7 +5013,7 @@ const SupervisorList = ({ service, onSelect, refreshKey, activeRoom }: { service
            <button key={p.planningId} onClick={() => onSelect(p.planningId)} className="bg-white border border-border-default hover:border-gray-400 p-8 rounded-xl shadow-sm text-left transition w-full outline-none flex justify-between items-center">
              <div>
                <span className="font-bold text-text-primary text-2xl mb-1 block">{getAssistantRoleLabel((p as any).roomId || activeRoom?.roomId)}</span>
-               <p className="text-sm font-semibold text-teal-800 mb-1">Guardería IMSS Demo (001)</p>
+               <p className="text-sm font-semibold text-teal-800 mb-1">{p.daycareId === FIRST_LIGHT_G002_DAYCARE_ID ? 'Guardería 002' : 'Guardería IMSS Demo (001)'}</p>
                <p className="text-base text-text-muted font-medium">{((p as any).roomId && RoomCatalog.getRoom((p as any).roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Semana del {formatPlanPeriod(p)}</p>
                {p.closedBy && (
                  <p className="text-xs text-text-muted mt-2 font-medium">Cerrada por: {getInstitutionalActorLabel(p.closedBy, (p as any).roomId)} {p.closedAt ? `• ${formatInstitutionalDate(p.closedAt)}` : ''}</p>
@@ -4808,7 +5178,7 @@ const PrintableView = ({
               <div data-testid="direct-ident-field-guarderia" className="direct-ident-row flex items-baseline gap-2">
                 <span className="font-bold text-black whitespace-nowrap">Guardería No.:</span>
                 <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
-                  Guardería IMSS Demo (001)
+                  {plan?.daycareId === FIRST_LIGHT_G002_DAYCARE_ID ? 'Guardería 002' : 'Guardería IMSS Demo (001)'}
                 </span>
               </div>
               <div data-testid="direct-ident-field-sala" className="direct-ident-row flex items-baseline gap-2">
@@ -5324,7 +5694,7 @@ const PrintableView = ({
                       <div data-testid="indirect-ident-field-guarderia" className="flex items-baseline gap-2">
                         <span className="font-bold text-black whitespace-nowrap">Guardería No.:</span>
                         <span className="border-b border-black flex-grow font-semibold text-black px-2 pb-0.5">
-                          Guardería IMSS Demo (001)
+                          {plan?.daycareId === FIRST_LIGHT_G002_DAYCARE_ID ? 'Guardería 002' : 'Guardería IMSS Demo (001)'}
                         </span>
                       </div>
                       <div data-testid="indirect-ident-field-sala" className="flex items-baseline gap-2">

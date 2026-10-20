@@ -17,6 +17,8 @@ export interface WeeklyPlanningProposalHumanGateProps {
   readonly isAccepting?: boolean;
   readonly isLabMode?: boolean;
   readonly evidenceContext?: WeeklyPlanningEvidenceContext;
+  readonly sourceType?: 'AI' | 'FALLBACK';
+  readonly fallbackReason?: string | null;
 }
 
 const WEEKDAY_SPANISH_NAMES: Readonly<Record<WeeklyPlanningWeekday, string>> = Object.freeze({
@@ -47,6 +49,8 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
   isAccepting = false,
   isLabMode = false,
   evidenceContext,
+  sourceType = 'AI',
+  fallbackReason,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -82,6 +86,13 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
     }
   };
 
+  const hasSubstitutedActivities = proposal?.days?.some((d) =>
+    d.activities?.some((a) =>
+      a.objective?.includes('[Propuesta IA sustituida por seguridad') ||
+      a.description?.includes('Sustitución preventiva automática por riesgo de seguridad')
+    )
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
@@ -105,6 +116,31 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
                   <span>🛡️</span>
                   <span>Tú decides qué usar.</span>
                 </div>
+                {sourceType === 'FALLBACK' ? (
+                  <div
+                    data-testid="proposal-source-indicator"
+                    className="inline-flex items-center gap-1.5 bg-amber-600/70 text-amber-100 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-amber-400/40"
+                  >
+                    <span>⚙️</span>
+                    <span>Propuesta determinista de respaldo (Fallback)</span>
+                  </div>
+                ) : hasSubstitutedActivities ? (
+                  <div
+                    data-testid="proposal-source-indicator"
+                    className="inline-flex items-center gap-1.5 bg-amber-600/70 text-amber-100 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-amber-400/40"
+                  >
+                    <span>⚠️</span>
+                    <span>Propuesta asistida por IA (con sustitución preventiva de seguridad)</span>
+                  </div>
+                ) : (
+                  <div
+                    data-testid="proposal-source-indicator"
+                    className="inline-flex items-center gap-1.5 bg-purple-700/60 text-purple-100 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-purple-400/40"
+                  >
+                    <span>✨</span>
+                    <span>Propuesta asistida por IA pedagógica</span>
+                  </div>
+                )}
                 {isLabMode && (
                   <button
                     type="button"
@@ -127,6 +163,23 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
             </button>
           </div>
         </div>
+
+        {/* Fallback diagnostic alert banner */}
+        {sourceType === 'FALLBACK' && (
+          <div
+            data-testid="proposal-fallback-reason-banner"
+            className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-start gap-3 text-amber-900 text-xs flex-shrink-0"
+          >
+            <span className="text-base flex-shrink-0">⚠️</span>
+            <div className="flex-1">
+              <p className="font-bold text-amber-950">Aviso sobre la generación asistida por IA:</p>
+              <p className="mt-0.5 text-amber-900 leading-relaxed">
+                {fallbackReason ||
+                  'No fue posible obtener una respuesta directa del servicio de IA. Se activó automáticamente la propuesta determinista de respaldo.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable content: complete 5-day schedule */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50/60">
@@ -167,6 +220,22 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
                           <span className="font-semibold text-teal-900">{act.durationMinutes} min</span>
                         </div>
                       </div>
+
+                      {(act.objective.includes('[Propuesta IA sustituida por seguridad') ||
+                        act.description.includes('Sustitución preventiva automática por riesgo de seguridad')) && (
+                        <div
+                          data-testid="activity-safety-substitution-notice"
+                          className="bg-amber-50 border border-amber-300 text-amber-950 px-3 py-2 rounded-lg text-xs font-medium flex items-start gap-2 shadow-sm"
+                        >
+                          <span className="text-base leading-none">⚠️</span>
+                          <div>
+                            <span className="font-bold block">Sustitución preventiva por seguridad infantil:</span>
+                            <span className="text-amber-900">
+                              Esta actividad sustituyó una propuesta original que contenía un riesgo de seguridad para Lactantes B. Revise y adapte el contenido antes de ejecutar.
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">

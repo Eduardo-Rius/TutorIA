@@ -18,6 +18,7 @@ export type FirebaseWeeklyPlanningErrorCode =
   | 'UNAUTHENTICATED'
   | 'PERMISSION_DENIED'
   | 'INVALID_REQUEST'
+  | 'FAILED_PRECONDITION'
   | 'TEMPORARILY_UNAVAILABLE'
   | 'RATE_LIMITED'
   | 'INVALID_RESPONSE'
@@ -31,6 +32,7 @@ export const SAFE_ERROR_MESSAGES: Readonly<Record<FirebaseWeeklyPlanningErrorCod
   UNAUTHENTICATED: 'Sesión no autenticada. Inicie sesión para solicitar propuestas pedagógicas.',
   PERMISSION_DENIED: 'No tiene permisos para solicitar propuestas de planeación en esta sala o guardería.',
   INVALID_REQUEST: 'La solicitud de propuesta contiene datos inválidos o incompletos.',
+  FAILED_PRECONDITION: 'La propuesta generada no cumple con las políticas pedagógicas o de seguridad requeridas para esta sala.',
   TEMPORARILY_UNAVAILABLE: 'El servicio de planeación inteligente no está disponible temporalmente. Intente más tarde.',
   RATE_LIMITED: 'Límite de solicitudes alcanzado. Por favor espere unos momentos antes de reintentar.',
   INVALID_RESPONSE: 'La respuesta del servidor no cumple con el formato de propuesta válido.',
@@ -217,6 +219,8 @@ export function mapFirebaseCallableError(err: unknown): FirebaseWeeklyPlanningTr
       code = 'PERMISSION_DENIED';
     } else if (rawCode === 'invalid-argument' || rawCode === 'functions/invalid-argument') {
       code = 'INVALID_REQUEST';
+    } else if (rawCode === 'failed-precondition' || rawCode === 'functions/failed-precondition') {
+      code = 'FAILED_PRECONDITION';
     } else if (
       rawCode === 'unavailable' ||
       rawCode === 'functions/unavailable' ||
@@ -231,8 +235,36 @@ export function mapFirebaseCallableError(err: unknown): FirebaseWeeklyPlanningTr
     }
   }
 
-  // Safe sanitized message - never contains raw server text or stack
-  const safeMessage = SAFE_ERROR_MESSAGES[code] || SAFE_ERROR_MESSAGES.UNKNOWN;
+  // Safe sanitized message - never contains raw server stacks or internal paths
+  let safeMessage = SAFE_ERROR_MESSAGES[code] || SAFE_ERROR_MESSAGES.UNKNOWN;
+  if (
+    (code === 'FAILED_PRECONDITION' || code === 'INVALID_REQUEST') &&
+    err &&
+    typeof err === 'object'
+  ) {
+    const rawMsg = String((err as Record<string, unknown>).message || '').trim();
+    if (
+      rawMsg &&
+      !rawMsg.includes('stack') &&
+      !rawMsg.includes('node_modules') &&
+      !rawMsg.includes('at ')
+    ) {
+      safeMessage = rawMsg;
+    }
+  }
+
+  // Diagnostic details from callable error in LAB
+  if (err && typeof err === 'object') {
+    const details = (err as Record<string, unknown>).details;
+    if (details && typeof details === 'object') {
+      const stage = (details as Record<string, unknown>).processingStage;
+      const failure = (details as Record<string, unknown>).failureCode;
+      if (typeof stage === 'string' && typeof failure === 'string') {
+        safeMessage = `${safeMessage} [LAB Diagnostic: ${stage} - ${failure}]`;
+      }
+    }
+  }
+
   return new FirebaseWeeklyPlanningTransportError(code, safeMessage, err);
 }
 
@@ -405,7 +437,8 @@ export class FirebaseWeeklyPlanningProposalSource implements WeeklyPlanningPropo
       ? this.config.callableFactory(functionsInstance, 'proposeWeeklyPlanning')
       : httpsCallable<ProposeWeeklyPlanningGatewayRequest, unknown>(
           functionsInstance,
-          'proposeWeeklyPlanning'
+          'proposeWeeklyPlanning',
+          { timeout: 120000 }
         );
 
     return callable(payload);

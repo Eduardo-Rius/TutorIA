@@ -118,8 +118,9 @@ describe('H1R11.8 — Anita Weekly Planning Human Review Gate', () => {
     }
 
     // Start week creation
+    const startBtn = await screen.findByText(/Comenzar nuestra semana/i);
     await act(async () => {
-      fireEvent.click(screen.getByText(/Comenzar nuestra semana/i));
+      fireEvent.click(startBtn);
     });
 
     // Enter observations
@@ -131,6 +132,7 @@ describe('H1R11.8 — Anita Weekly Planning Human Review Gate', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.pushState({}, '', '/');
   });
 
   // A. generation invokes WeeklyPlanningProposalSource exactly once
@@ -537,7 +539,7 @@ describe('H1R11.8 — Anita Weekly Planning Human Review Gate', () => {
     // Safe error message visible
     expect(
       screen.getAllByText(
-        'El servicio de planeación inteligente no está disponible temporalmente. Intente más tarde.'
+        /El servicio de planeación inteligente no está disponible temporalmente\. Intente más tarde\./i
       ).length
     ).toBeGreaterThanOrEqual(1);
 
@@ -569,5 +571,25 @@ describe('H1R11.8 — Anita Weekly Planning Human Review Gate', () => {
   // AQ, AR, AS, AT, AU, AV. zero real external calls, zero duplicate persistence, curricular separate
   it('AQ, AR, AS, AT, AU, AV. zero real network/OpenAI/Firebase calls, no duplicate saves, curricular separate', () => {
     expect(true).toBe(true);
+  });
+
+  // AW. renders fallback diagnostic banner with fallbackReason when sourceType is FALLBACK
+  it('AW. renders fallback diagnostic banner with fallbackReason when sourceType is FALLBACK', () => {
+    const proposal = createValidProposalResponse();
+    const reasonText = 'IA no disponible (La propuesta generada no superó la validación pedagógica). Se activó la propuesta determinista de respaldo.';
+
+    render(
+      <WeeklyPlanningProposalHumanGate
+        proposal={proposal}
+        onAccept={vi.fn()}
+        onDiscard={vi.fn()}
+        sourceType="FALLBACK"
+        fallbackReason={reasonText}
+      />
+    );
+
+    expect(screen.getByTestId('proposal-fallback-reason-banner')).toBeDefined();
+    expect(screen.getByText(reasonText)).toBeDefined();
+    expect(screen.getByText(/Aviso sobre la generación asistida por IA:/i)).toBeDefined();
   });
 });

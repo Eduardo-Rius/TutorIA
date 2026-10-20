@@ -367,7 +367,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       expect(mockExecutor.execute).toHaveBeenCalledTimes(0);
     });
 
-    it('V1 flexible composition, daily reading invariant, and care/observation bounds reach prompt payload', () => {
+    it('SR-MD-23 density (at least 5 activities per day / 25 weekly), daily reading invariant, and care/observation bounds reach prompt payload', () => {
       const request = createRequest();
       const policy = PedagogicalAgePolicyCatalog.getPolicyForRoom(request.room)!;
       const projection = projectPedagogicalGenerationPolicy(policy, request);
@@ -375,8 +375,8 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       const payload = buildWeeklyPlanningAIPromptPayload(minimized);
 
       expect(minimized.generationPolicy?.targetActivitiesPerDay).toBeUndefined();
-      expect(payload.systemPrompt).toContain('FLEXIBLE DAILY PEDAGOGICAL COMPOSITION & TECHNICAL SAFETY BOUNDS');
-      expect(payload.systemPrompt).toContain('NO fixed numeric quota of activities per day or week');
+      expect(payload.systemPrompt).toContain('DAILY PEDAGOGICAL DENSITY & BALANCED COVERAGE (SR-MD-23)');
+      expect(payload.systemPrompt).toContain('You must generate AT LEAST 5 differentiated activities per day × 5 days = at least 25 activities weekly');
       expect(payload.systemPrompt).toContain('DAILY READING ALOUD — TUTORIA V1 PRODUCT POLICY');
       expect(payload.systemPrompt).toContain('Lectura en voz alta diariamente');
       expect(payload.systemPrompt).toContain('category "LECTURA EN VOZ ALTA"');
@@ -1212,7 +1212,7 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       );
     });
 
-    it('H. Two reading activities in one day fail closed', () => {
+    it('H. Two reading activities in one day are accepted (SR-MD-24E)', () => {
       const doubleReadingPlan: WeeklyPlanningProposalResponse = {
         days: createFlexibleResponse().days.map((d) =>
           d.dayOfWeek === 'MONDAY'
@@ -1222,8 +1222,8 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
                   ...d.activities,
                   {
                     category: 'LECTURA EN VOZ ALTA',
-                    objective: 'Segunda lectura redundante',
-                    description: 'Otro momento de lectura.',
+                    objective: 'Segunda lectura complementaria',
+                    description: 'Otro momento de lectura compartida.',
                     durationMinutes: 15,
                     materials: [],
                   },
@@ -1232,8 +1232,27 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
             : d
         ),
       };
-      expect(() => validateWeeklyPlanningDailyReadingInvariant(doubleReadingPlan)).toThrow(
-        /Day MONDAY contains 2 reading activities/i
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(doubleReadingPlan)).not.toThrow();
+
+      // If one reading activity on that day has an invalid duration, fails closed
+      const invalidDurationPlan: WeeklyPlanningProposalResponse = {
+        days: doubleReadingPlan.days.map((d) =>
+          d.dayOfWeek === 'MONDAY'
+            ? {
+                ...d,
+                activities: [
+                  ...d.activities.slice(0, -1),
+                  {
+                    ...d.activities[d.activities.length - 1],
+                    durationMinutes: 0,
+                  },
+                ],
+              }
+            : d
+        ),
+      };
+      expect(() => validateWeeklyPlanningDailyReadingInvariant(invalidDurationPlan)).toThrow(
+        /reading activity duration is invalid \(0 minutes\)/i
       );
     });
 
@@ -1611,10 +1630,10 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       );
     });
 
-    it('L. Prompt does NOT establish a preferred activity count/day', () => {
+    it('L. Prompt establishes SR-MD-23 density (at least 5 activities/day, 25 weekly)', () => {
       const payload = getStandardPayload();
       expect(payload.systemPrompt).toContain(
-        'Composition is determined by the supplied planning context without any fixed numeric target or preferred count per day or week'
+        'You must generate AT LEAST 5 differentiated activities per day × 5 days = at least 25 activities weekly'
       );
       expect(payload.systemPrompt).toContain(
         'The number of candidate activities per day is flexible (bounded only by technical safety limits 1 to 10) and must be determined from educator context, not from the structural illustration below'
@@ -2534,16 +2553,15 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
       }).not.toThrow();
     });
 
-    // 15. Current density behavior remains unchanged (Section 21 Point 15 & Section 19 Point K)
-    it('15. Current density behavior is preserved (2/day, 10/week passes cleanly; no 5/day quota)', () => {
+    // 15. SR-MD-23 density behavior: at least 5 activities per day = 25 weekly activities
+    it('15. SR-MD-23 density behavior is verified (at least 5 activities/day, 25 weekly activities)', () => {
       const payload = getCaboExamPayload();
-      expect(payload.systemPrompt).not.toContain('5 activities per day');
-      expect(payload.systemPrompt).not.toContain('5 actividades por día');
       expect(payload.systemPrompt).toContain(
-        'There is NO fixed numeric quota of activities per day or week (the previous 5 activities/day and 25 activities/week requirements are abolished).'
+        'You must generate AT LEAST 5 differentiated activities per day × 5 days = at least 25 activities weekly'
       );
+      expect(payload.systemPrompt).toContain('DAILY PEDAGOGICAL DENSITY & BALANCED COVERAGE (SR-MD-23)');
 
-      const twoPerDayWeek = {
+      const fivePerDayWeek = {
         days: OFFICIAL_WEEKDAYS.map((dayOfWeek) => ({
           dayOfWeek,
           activities: [
@@ -2561,12 +2579,33 @@ describe('H1R11.11 — Policy-Enforced Weekly Planning AI', () => {
               durationMinutes: 10,
               materials: ['telas de diferentes texturas'],
             },
+            {
+              category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+              objective: 'Audición musical sensible',
+              description: 'Con música infantil: Escucha de melodías suaves.',
+              durationMinutes: 15,
+              materials: ['música infantil'],
+            },
+            {
+              category: 'ACTIVACIÓN FÍSICA' as const,
+              objective: 'Movimiento libre de extremidades',
+              description: 'Sobre colchoneta acolchada: Pataleo libre guiado.',
+              durationMinutes: 15,
+              materials: [],
+            },
+            {
+              category: 'PENSAMIENTO MATEMÁTICO' as const,
+              objective: 'Noción espacial de cercanía',
+              description: 'Con telas de diferentes texturas: Descubrimiento de texturas.',
+              durationMinutes: 15,
+              materials: ['telas de diferentes texturas'],
+            },
           ],
         })),
       };
 
       expect(() => {
-        validateWeeklyPlanningTechnicalBounds(twoPerDayWeek);
+        validateWeeklyPlanningTechnicalBounds(fivePerDayWeek);
       }).not.toThrow();
     });
 

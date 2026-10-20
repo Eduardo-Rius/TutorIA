@@ -19,7 +19,7 @@ import {
  * NOTE: These templates are technical baseline scaffolding to prove contract mechanics,
  * NOT institutional pedagogical mandates.
  */
-interface PedagogicalActivityTemplate {
+export interface PedagogicalActivityTemplate {
   readonly category: ImssCategory;
   readonly infantObjective: string;
   readonly infantDescription: string;
@@ -32,7 +32,7 @@ interface PedagogicalActivityTemplate {
  * Standard baseline activity templates mapped to each canonical IMSS category.
  * Explicitly differentiated by age group (infants <= 18 months vs toddlers > 18 months).
  */
-const BASELINE_TEMPLATES: readonly PedagogicalActivityTemplate[] = Object.freeze([
+export const BASELINE_TEMPLATES: readonly PedagogicalActivityTemplate[] = Object.freeze([
   {
     category: 'EXPERIENCIAS ARTÍSTICAS',
     infantObjective: 'Explorar texturas y sonoridades suaves con sonajas y telas en sala',
@@ -47,7 +47,7 @@ const BASELINE_TEMPLATES: readonly PedagogicalActivityTemplate[] = Object.freeze
     category: 'AMBIENTES DE APRENDIZAJE',
     infantObjective: 'Fomentar la exploración libre y segura del entorno inmediato en colchoneta',
     infantDescription:
-      'Se acondiciona el área con cojines y obstáculos suaves para motivar el gateo, la tracción y el desplazamiento autónomo con curiosidad espacial.',
+      'Se acondiciona el área con cojines y obstáculos suaves para motivar el gateo, el desplazamiento autónomo y la curiosidad espacial.',
     toddlerObjective: 'Construir estructuras sencillas fomentando la autonomía y cooperación en grupo',
     toddlerDescription:
       'Se organizan estaciones de ensamble con bloques grandes para que las niñas y niños colaboren en la creación de torres, caminos y figuras sencillas.',
@@ -119,8 +119,8 @@ export class DeterministicWeeklyPlanningProposalSource implements WeeklyPlanning
     // Fallback if none matched (prevented by validator, but fail-safe defensively)
     const effectiveTemplates = candidateTemplates.length > 0 ? candidateTemplates : BASELINE_TEMPLATES;
 
-    // 3. Resolve activity count per day
-    const minActs = request.constraints?.minActivitiesPerDay ?? 1;
+    // 3. Resolve activity count per day (SR-MD-23: minimum 5 activities per day = 25 weekly activities)
+    const minActs = request.constraints?.minActivitiesPerDay ?? 5;
     const maxActs = request.constraints?.maxActivitiesPerDay;
     let targetActsPerDay = minActs;
     if (maxActs !== undefined && targetActsPerDay > maxActs) {
@@ -157,7 +157,8 @@ export class DeterministicWeeklyPlanningProposalSource implements WeeklyPlanning
         const template = effectiveTemplates[templateIndex]!;
 
         const objective = isInfant ? template.infantObjective : template.toddlerObjective;
-        let description = isInfant ? template.infantDescription : template.toddlerDescription;
+        const centralAction = isInfant ? template.infantDescription : template.toddlerDescription;
+        let description = this.buildStructuredDescription(centralAction, request.room);
 
         // Contextually reflect identifiedNeeds if present without claiming institutional authority
         if (
@@ -165,7 +166,7 @@ export class DeterministicWeeklyPlanningProposalSource implements WeeklyPlanning
           request.currentContext.identifiedNeeds.trim().length > 0
         ) {
           const focusSnippet = request.currentContext.identifiedNeeds.trim().slice(0, 120);
-          description = `${description} [Enfoque de sala: ${focusSnippet}].`;
+          description = `${description}\n[Enfoque de sala: ${focusSnippet}]`;
         }
 
         // Combine extracted materials with template defaults, avoiding duplicate items
@@ -223,5 +224,48 @@ export class DeterministicWeeklyPlanningProposalSource implements WeeklyPlanning
 
     // Return unique items preserving order
     return Array.from(new Set(cleaned));
+  }
+
+  /**
+   * Structures activity description with Inicio, Desarrollo, Cierre, and Adaptaciones (SR-MD-23).
+   * For Lactantes A: preserves mandatory bimodal adaptations (43 días–3 meses and 4–6 meses).
+   * For Lactantes B: provides 7–12 meses adaptations with concrete affective closing.
+   * For other rooms: provides age-appropriate pedagogical structure and adaptations.
+   */
+  private buildStructuredDescription(
+    centralAction: string,
+    room: { minAgeMonths: number; maxAgeMonths: number; roomId?: string; name?: string }
+  ): string {
+    const isLactantesA = room.minAgeMonths === 0 && room.maxAgeMonths <= 6;
+    const isLactantesB =
+      (room.minAgeMonths >= 7 && room.maxAgeMonths <= 12) ||
+      (room.roomId?.toLowerCase().includes('lactantes-b') ?? false) ||
+      (room.name?.toLowerCase().includes('lactantes b') ?? false);
+
+    if (isLactantesA) {
+      return [
+        'Inicio: Se recibe con afecto al lactante en colchoneta limpia, modulando la voz en tono cálido y manteniendo contacto visual sensible.',
+        `Desarrollo: ${centralAction}`,
+        'Cierre: Se realiza un cierre afectivo con caricias suaves en brazos y una melodía de cuna para una transición tranquila.',
+        '• Adaptación 43 días a 3 meses: Interacción cercana en brazos con contención física amorosa, observando sus respuestas y respetando su ritmo.',
+        '• Adaptación 4 a 6 meses: Exploración guiada sobre colchoneta limpia facilitando el movimiento libre de extremidades y seguimiento visual.',
+      ].join('\n');
+    }
+
+    if (isLactantesB) {
+      return [
+        'Inicio: Se invita a los lactantes a reunirse sobre la colchoneta con música suave y contacto visual cariñoso.',
+        `Desarrollo: ${centralAction}`,
+        'Cierre: Se concluye la experiencia con una breve canción de despedida y reconocimiento gestual individual.',
+        'Adaptaciones: Adecuación para 7 a 12 meses ofreciendo apoyo en postura cómoda y motivando el gateo seguro a su propio ritmo.',
+      ].join('\n');
+    }
+
+    return [
+      'Inicio: Se presenta la experiencia con entusiasmo invitando a las niñas y niños a explorar el espacio en sala.',
+      `Desarrollo: ${centralAction}`,
+      'Cierre: Recogida compartida de materiales y reconocimiento verbal del esfuerzo y logros individuales.',
+      'Adaptaciones: Se ajusta la interacción según el nivel de desarrollo, motricidad y autonomía de cada niña o niño.',
+    ].join('\n');
   }
 }

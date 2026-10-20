@@ -4,3 +4,5 @@
 
 # Firebase Functions build artifacts
 tutoria-app/functions/lib/
+node_modules/
+

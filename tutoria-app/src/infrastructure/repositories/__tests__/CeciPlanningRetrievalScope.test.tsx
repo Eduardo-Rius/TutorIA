@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { FirestoreWeeklyPlanningRepository } from '../FirestoreWeeklyPlanningRepository';
 import { InMemoryWeeklyPlanningRepository } from '../InMemoryWeeklyPlanningRepository';
 import { WeeklyPlanning } from '../../../domain/planning/WeeklyPlanning';

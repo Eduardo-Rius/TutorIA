@@ -67,7 +67,10 @@ describe('H1R12.5-D.5.3 — Weekly Progression Semantic Quality Contract (Tests 
         {
           category: 'LECTURA EN VOZ ALTA',
           objective: 'Vínculo afectivo y estimulación auditiva',
-          proceduralAction: 'Leer narraciones rítmicas con voz suave observando mirada.',
+          proceduralAction:
+            dayIdx === 0
+              ? 'Leer narraciones rítmicas con voz suave observando mirada.\n• Adaptación 43 días a 3 meses: Contención física en brazos con modulación suave.\n• Adaptación 4 a 6 meses: Sobre superficie cómoda con exploración visual.'
+              : `Leer narraciones variando la entonación en día ${dayIdx + 1}.\n• Adaptación 43 días a 3 meses: Contención en brazos con nanas.\n• Adaptación 4 a 6 meses: Sobre superficie cómoda animando el seguimiento visual.`,
           durationMinutes: 15,
           materialRefs: [],
           progression: {
@@ -81,7 +84,8 @@ describe('H1R12.5-D.5.3 — Weekly Progression Semantic Quality Contract (Tests 
         {
           category: 'AMBIENTES DE APRENDIZAJE',
           objective: 'Exploración sensorial táctil acompañada',
-          proceduralAction: 'Ofrecer {material} para contacto suave sobre superficie limpia.',
+          proceduralAction:
+            'Ofrecer {material} para contacto suave sobre superficie limpia.\n• Adaptación 43 días a 3 meses: Sostén afectuoso en brazos brindando contención física y acompañamiento vocal.\n• Adaptación 4 a 6 meses: Exploración guiada sobre superficie acolchada animando el agarre.',
           durationMinutes: 10,
           materialRefs: ['MAT-01'],
           progression: {

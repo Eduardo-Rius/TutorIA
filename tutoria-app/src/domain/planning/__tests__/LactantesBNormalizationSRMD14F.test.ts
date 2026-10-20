@@ -218,36 +218,44 @@ describe('ORDEN SR-MD-14-F — Normalización Controlada del Catálogo: Lactante
   });
 
   // =========================================================================
-  // 5. Rechazo estricto de generación IA para Lactantes B (Fail-Closed)
+  // 5. Gobernanza de autorización IA bajo SR-MD-25 (Lactantes B y C autorizadas, Maternal A bloqueada)
   // =========================================================================
-  describe('5. Rechazo estricto de generación IA para Lactantes B (Fail-Closed)', () => {
-    it('resuelve LACTANTES_B_AGE_POLICY para room-lactantes-b y mantiene la compuerta de IA desautorizada', () => {
+  describe('5. Gobernanza de autorización IA bajo SR-MD-25 (Lactantes B y C autorizadas, Maternal A bloqueada)', () => {
+    it('resuelve LACTANTES_B_AGE_POLICY para room-lactantes-b y confirma autorización IA bajo SR-MD-25', () => {
       const lactantesBRoom = RoomCatalog.getRoom('room-lactantes-b')!;
       expect(lactantesBRoom).toBeDefined();
 
       const policy = PedagogicalAgePolicyCatalog.getPolicyForRoom(lactantesBRoom);
       expect(policy).toBe(LACTANTES_B_AGE_POLICY);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(true);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_A')).toBe(true);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(false);
     });
 
-    it('rechaza fail-closed con UnsupportedPedagogicalPolicyError y NUNCA ejecuta IA para Lactantes B', async () => {
-      const lactantesBRoom = RoomCatalog.getRoom('room-lactantes-b')!;
+    it('rechaza fail-closed con UnsupportedPedagogicalPolicyError y NUNCA ejecuta IA para salas no autorizadas (ej. Maternal A)', async () => {
+      const maternalARoom = {
+        roomId: 'room-maternal-a',
+        name: 'Maternal A',
+        minAgeMonths: 19,
+        maxAgeMonths: 24,
+      };
       const mockExecutor: WeeklyPlanningAIExecutor = {
         execute: vi.fn(),
       };
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
       const request: WeeklyPlanningProposalRequest = {
-        planningId: 'plan-lact-b-proposal-fail',
+        planningId: 'plan-mat-a-proposal-fail',
         weekStart: '2026-08-24',
         weekEnd: '2026-08-28',
         modality: 'DIRECT',
-        room: lactantesBRoom,
+        room: maternalARoom,
         currentContext: {
-          observations: 'Observaciones de desarrollo motriz para 7 a 12 meses.',
-          identifiedNeeds: 'Estimular gateo y gateo coordinado.',
+          observations: 'Observaciones de desarrollo motriz para 19 a 24 meses.',
+          identifiedNeeds: 'Lenguaje y autonomía.',
           specialSituations: '',
-          availableMaterials: 'Pelotas suaves, colchonetas.',
+          availableMaterials: 'Bloques de madera, cuentos ilustrados.',
         },
       };
 

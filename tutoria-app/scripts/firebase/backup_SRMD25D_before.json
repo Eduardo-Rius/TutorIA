@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-10-19T18:10:40.977Z",
+  "project": "tutoria-identity-lab",
+  "documents": {
+    "/authorizationContexts/lab-teacher-anita": {
+      "roomIds": [
+        "room-lactantes-a",
+        "room-lactantes-b"
+      ],
+      "active": true,
+      "institutionalRole": "TEACHER",
+      "personId": "10000000-0000-4000-8000-000000000001",
+      "assignmentId": "20000000-0000-4000-8000-000000000001",
+      "authUid": "lab-teacher-anita",
+      "authorizedDaycareIds": [
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "validTo": null,
+      "validFrom": {
+        "_seconds": 1790360786,
+        "_nanoseconds": 251000000
+      }
+    },
+    "/assignments/20000000-0000-4000-8000-000000000001": {
+      "roomIds": [
+        "room-lactantes-a",
+        "room-lactantes-b"
+      ],
+      "daycareId": "00000000-0000-4000-8000-000000000001",
+      "role": "TEACHER",
+      "personId": "10000000-0000-4000-8000-000000000001"
+    }
+  }
+}

@@ -177,8 +177,9 @@ export const LACTANTES_A_SAFETY_RULES: readonly PedagogicalSafetyRule[] = Object
       'frijol',
       'frijoles',
       'arroz',
-      'cuenta',
-      'cuentas',
+      'cuentas de ensartar',
+      'cuentas de collar',
+      'cuentas plásticas',
       'canica',
       'canicas',
       'grano',
@@ -382,8 +383,9 @@ export const LACTANTES_B_SAFETY_RULES: readonly PedagogicalSafetyRule[] = Object
       'frijol',
       'frijoles',
       'arroz',
-      'cuenta',
-      'cuentas',
+      'cuentas de ensartar',
+      'cuentas de collar',
+      'cuentas plásticas',
       'canica',
       'canicas',
       'botón',
@@ -400,8 +402,8 @@ export const LACTANTES_B_SAFETY_RULES: readonly PedagogicalSafetyRule[] = Object
       'cordones',
       'cuerda',
       'cuerdas',
-      'lazo',
-      'lazos',
+      'lazo de atar',
+      'lazos de atar',
       'mecate',
       'mecates',
       'listón largo',
@@ -453,29 +455,81 @@ export const LACTANTES_B_DEVELOPMENTAL_RULE: PedagogicalDevelopmentalRule = Obje
   supportedCapabilities: [
     'Sedestación con o sin apoyo sobre superficie acolchada o colchoneta',
     'Desplazamiento autónomo individual (arrastre, gateo espontáneo o giros según ritmo propio)',
-    'Manipulación bimanual exploratoria (sujetar, golpear suavemente, sacar y meter juguetes en recipientes)',
+    'Manipulación bimanual exploratoria (sujetar, golpear suavemente, soltar, pasar de mano a mano, explorar texturas)',
     'Balbuceo imitativo, trompetillas, vocalizaciones y respuesta comunicativa ante el educador y el espejo',
     'Revisión y manipulación de cuentos plastificados o de tela y muñecos seguros',
-    'Participación afectiva guiada en rutinas de aseo, cambio de ropa y guardado ordenado de materiales'
+    'Participación afectiva guiada en rutinas de aseo, cambio de ropa y guardado ordenado de materiales',
+    'Exploración y manipulación libre de cubos de tela o vinil (golpear suavemente entre sí, tirar, rodar o pasar de mano a mano, sin exigir apilamiento coordinado)',
+    'Contacto visual e interacción afectiva con láminas de cuentos o libros infantiles (mirar, tocar la página, balbucear, sin exigir señalamiento intencional con dedo índice)'
   ],
   excludedExpectations: [
     'Marcha erguida independiente obligatoria o en formación grupal',
     'Uso de herramientas de corte (tijeras) o manipulación de masas no ingeribles',
     'Control voluntario de esfínteres',
-    'Comprensión o ejecución de consignas conceptuales o narrativas complejas'
+    'Comprensión o ejecución de consignas conceptuales o narrativas complejas',
+    'Exigencia motriz de apilamiento coordinado de cubos o torres',
+    'Exigencia de señalamiento fino con dedo índice hacia ilustraciones como condición obligatoria de respuesta',
+    'Permanecer sentados por lapsos prolongados sin cambio postural',
+    'Imposición forzada de la postura sentada o uso artificial de apoyos/cojines para mantener la sedestación en lugar de permitir la movilidad espontánea y posturas libres (prono, supino o arrastre)',
+    'Recomendación universal de cojines o aditamentos de soporte postural',
+    'Asambleas verbales, diálogos reflexivos o cierres discursivos («hablar sobre lo que han visto») inadecuados para lactantes'
   ],
   excludedActionPatterns: [
     /\btijeras?\b/i,
     /\bmold(ear|eado)\s+(plastilina|arcilla|masa)\b/i,
-    /\bcontrol\s+de\s+esf[íi]nteres\b/i
+    /\bcontrol\s+de\s+esf[íi]nteres\b/i,
+    /\b(exigir|obligar|pedir\s+que|deben?).*?\b(apilar|hacer\s+torres?\b|construir\s+torres?\b|formar\s+torres?\b).*?\bcubos?\b/i,
+    /\b(exigir|obligar|deben?|condici[oó]n\s+obligatoria).*?\b(se[ñn]al(ar|e|en)|apunt(ar|e|en))\b.*?\b(dedo\s+[íi]ndice|im[áa]genes?|ilustraciones?|figuras?|personajes?|l[áa]minas?)\b/i,
+    /\b(apoyo|sost[eé]n|sujeci[oó]n|cojines?)\b.*?\bpara\s+mantener\s+(la\s+)?(posici[oó]n|postura)\s+sentada\b/i,
+    /\bmantener\s+(la\s+)?(posici[oó]n|postura)\s+sentada\s+(con\s+apoyo|con\s+cojines|forzad(a|amente))\b/i,
+    /\bforzar\s+(la\s+)?(sedestaci[oó]n|posici[oó]n\s+sentada)\b/i
   ],
   rationale:
-    'La atención en Lactantes B estimula el movimiento libre y gradual, la interacción comunicativa y los hábitos formativos respetando el ritmo individual de cada infante.'
+    'La atención en Lactantes B estimula el movimiento libre y gradual, la interacción comunicativa y los hábitos formativos respetando el ritmo individual de cada infante, sin forzar apilamiento de objetos, señalamiento rígido ni marchas erguidas.'
 });
+
+/**
+ * Approved safe daycare classroom fixtures and ambient containers/surfaces for Lactantes B.
+ */
+export const LACTANTES_B_APPROVED_ROOM_FIXTURES: readonly string[] = Object.freeze([
+  'colchoneta',
+  'colchonetas',
+  'colchoneta firme',
+  'colchonetas suaves',
+  'tapete',
+  'tapetes',
+  'tapetes suaves',
+  'tapete acolchado',
+  'tapete de estimulación',
+  'superficie acolchada',
+  'suelo acolchado',
+  'piso firme',
+  'alfombra de estimulación',
+  'suelo',
+  'espejo seguro',
+  'espejos seguros',
+  'canasta',
+  'canastas',
+  'caja',
+  'cajas',
+  'cesto',
+  'cestos',
+  'recipiente',
+  'recipientes',
+  'tina',
+  'tinas',
+  'mesa baja',
+  'mesa infantil',
+  'silla infantil',
+  'cojín',
+  'cojines',
+  'almohadón',
+  'cuna',
+  'banco bajo'
+]);
 
 export const LACTANTES_B_MATERIAL_POLICY: PedagogicalMaterialPolicy = Object.freeze({
   strictEnclosure: true,
-  // Educator-supplied materials remain authoritative; no unevidenced fixtures permit bypass
   approvedRoomFixtures: [],
   prohibitedMaterialCategories: [
     'semillas o partes pequeñas',
@@ -504,13 +558,198 @@ export const LACTANTES_B_AGE_POLICY: PedagogicalAgePolicy = Object.freeze({
 });
 
 // ============================================================================
+// CANONICAL POLICY DEFINITION: LACTANTES C (13–18 MONTHS)
+// ============================================================================
+
+export const LACTANTES_C_SAFETY_RULES: readonly PedagogicalSafetyRule[] = Object.freeze([
+  {
+    id: 'safe-lactantes-c-suffocation-head-covering',
+    name: 'Peligro de sofocación por cubrir cabeza o rostro con telas',
+    description: 'Prohíbe cubrir la cabeza, rostro o vías respiratorias del lactante con sábanas, telas o prendas.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'MASTER_ARB_TEMPORARY_SAFETY_RULE',
+    prohibitedActionPatterns: [
+      /\bcubr(ir|as|an|e|iendo)\b.*?\b(cabeza|rostro|cara)\b/i,
+      /\btap(ar|as|an|e|ando)\b.*?\b(cabeza|rostro|cara)\b/i,
+      /\bcabeza\s+de\s+un\s+(beb[ée]|lactante|niño)\s+adentro\b/i
+    ],
+    riskRationale:
+      'Cubrir la cabeza o vías respiratorias de un lactante de 13 a 18 meses genera riesgo inminente de sofocación transitoria, hipoxia y angustia extrema.'
+  },
+  {
+    id: 'safe-lactantes-c-forced-limb-traction',
+    name: 'Peligro de tracción o levantamiento forzado de extremidades',
+    description: 'Prohíbe jalar, traccionar o incorporar bruscamente al lactante por brazos o muñecas.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedActionPatterns: [
+      /\b(jal(ar|as|a|es|en|on|ón|ando)|tir(ar|as|a|es|en|on|ón|ando|ones))\b.*?\b(brazos?|manos?|mu[ñn]ecas?|piernas?|tobillos?|extremidades?)\b/i,
+      /\btracci[oó]n\s+forzada\b/i,
+      /\blevant(ar|es|en|ando)\s+(al\s+beb[ée]|al\s+lactante|al\s+niño)?\s*(del\s+suelo|de\s+la\s+colchoneta)?\s*por\s+los\s+brazos\b/i,
+      /\b(jal(ar|as|a|es|en|on|ón|ando)|tir(ar|as|a|es|en|on|ón|ando))\s+hacia\s+arriba\b/i
+    ],
+    riskRationale:
+      'La tracción intempestiva sobre extremidades superiores puede provocar subluxación de la cabeza del radio (pronación dolorosa o codo de niñera) o lesiones ligamentosas.'
+  },
+  {
+    id: 'safe-lactantes-c-choking-small-parts',
+    name: 'Peligro de asfixia o aspiración por objetos pequeños desprendibles',
+    description: 'Prohíbe semillas, cuentas, canicas u objetos desprendibles menores que presenten peligro de asfixia en lactantes de 13 a 18 meses.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedMaterials: [
+      'semilla',
+      'semillas',
+      'frijol',
+      'frijoles',
+      'arroz',
+      'cuentas de ensartar',
+      'cuentas de collar',
+      'cuentas plásticas',
+      'canica',
+      'canicas',
+      'botón',
+      'botones',
+      'moneda',
+      'monedas',
+      'globo',
+      'globos',
+      'lenteja',
+      'lentejas',
+      'chícharo',
+      'chícharos',
+      'maíz',
+      'maíces',
+      'garbanzo',
+      'garbanzos',
+      'clip',
+      'clips',
+      'alfiler',
+      'alfileres'
+    ],
+    riskRationale:
+      'A los 13 a 18 meses persiste la conducta de exploración oral activa; objetos pequeños o desprendibles representan riesgo de asfixia por aspiración o atragantamiento.'
+  },
+  {
+    id: 'safe-lactantes-c-plastic-bags-balloons',
+    name: 'Peligro de asfixia por bolsas plásticas o globos',
+    description: 'Prohíbe bolsas de plástico, globos de látex o membranas flexibles que puedan adherirse a la boca o nariz.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedMaterials: [
+      'bolsa de plástico',
+      'bolsas de plástico',
+      'bolsa plástica',
+      'bolsas plásticas',
+      'globo de látex',
+      'globos de látex',
+      'globo',
+      'globos'
+    ],
+    riskRationale:
+      'Las películas plásticas y globos de látex se adhieren con facilidad a la orofaringe y vías respiratorias, impidiendo la respiración de forma súbita.'
+  }
+]);
+
+export const LACTANTES_C_DEVELOPMENTAL_RULE: PedagogicalDevelopmentalRule = Object.freeze({
+  id: 'dev-lactantes-c-milestones',
+  name: 'Hitos del desarrollo y capacidades para Lactantes C (13 a 18 meses)',
+  description:
+    'Establece las capacidades esperadas y expectativas excluidas para lactantes de 13 a 18 meses conforme a los lineamientos pedagógicos institucionales IMSS.',
+  severity: 'DEVELOPMENTAL_MISMATCH',
+  provenance: 'CANONICAL_PRODUCT_RULE',
+  supportedCapabilities: [
+    'marcha independiente inicial o con apoyo seguro',
+    'desplazamiento activo por la sala y exploración de espacios',
+    'agacharse y ponerse de pie con autonomía creciente',
+    'empujar y jalar objetos grandes o cajas livianas',
+    'prensión en pinza fina y manipulación bimanual',
+    'apilamiento simple de 2 a 3 cubos o bloques',
+    'meter, sacar, llenar y vaciar recipientes seguros',
+    'hojear libros con páginas gruesas o de cartón',
+    'primeras palabras con significado y jerga expresiva con entonación',
+    'señalamiento con dedo índice para compartir atención o pedir objetos',
+    'comprensión de indicaciones sencillas de una sola acción',
+    'juego imitativo funcional y juego paralelo junto a pares',
+    'escucha atenta de lectura en voz alta y rimas cantadas con gestos'
+  ],
+  excludedExpectations: [
+    'marcha forzada o exigencia de caminar sin respetar pausas o gateo espontáneo',
+    'saltos con ambos pies o brincos continuos, inadecuados para la etapa de marcha inicial (13 a 18 meses)',
+    'imposición de posturas fijas o forzar la bipedestación cuando el niño prefiere descansar o gatear',
+    'trazos, letras, números abstractos o escolarización temprana formal',
+    'asambleas verbales reflexivas o preguntas metacognitivas discursivas',
+    'sedestación prolongada o inmovilidad obligatoria',
+    'inmovilización forzada o restricción del movimiento libre'
+  ],
+  excludedActionPatterns: [
+    /\b(?:saltar|brincar)\s+(?:con\s+ambos\s+pies|en\s+dos\s+pies|de\s+(?:un\s+)?escal[oó]n|hacia\s+abajo)\b/i,
+    /\b(?:pedir|pide|piden|animar|anima|animan|exigir|exige|exigen|invitar|invita|invitan|hacer|hace|hacen)\b.*?\b(?:saltar|brincar)\b/i,
+    /\b(pedir|exigir|solicitar)\b.*?\b(trazar|escribir|colorear\s+sin\s+salirse|hacer\s+letras)\b/i,
+    /\b(aprender|identificar)\b.*?\b(letras|abecedario|n[uú]meros\s+escritos)\b/i,
+    /\b(asamblea|c[ií]rculo)\s+de\s+(discusi[oó]n|debate|reflexi[oó]n|conversaci[oó]n)\b/i
+  ],
+  rationale:
+    'Lactantes de 13 a 18 meses consolidan la marcha y la exploración activa del entorno. No poseen lenguaje discursivo ni motricidad gráfica formal, por lo que las actividades deben centrarse en el juego libre, movimiento, exploración sensorial y sostenimiento afectivo.'
+});
+
+export const LACTANTES_C_APPROVED_ROOM_FIXTURES: readonly string[] = Object.freeze([
+  'colchoneta de sala',
+  'colchonetas de sala',
+  'colchoneta',
+  'colchonetas',
+  'tapete',
+  'tapete de gateo',
+  'tapetes',
+  'espejo fijo irrompible a nivel de suelo',
+  'espejo irrompible',
+  'espejo de sala',
+  'barra de apoyo',
+  'módulos psicomotrices de espuma',
+  'módulo de espuma',
+  'mueble bajo estable',
+  'muebles bajos de sala'
+]);
+
+export const LACTANTES_C_MATERIAL_POLICY: PedagogicalMaterialPolicy = Object.freeze({
+  strictEnclosure: true,
+  approvedRoomFixtures: [],
+  prohibitedMaterialCategories: [
+    'semillas o partes pequeñas',
+    'compuestos de modelado o plastilina no comestible',
+    'tijeras',
+    'objetos punzocortantes',
+    'sábanas o telas sobre la cabeza',
+    'globos de látex',
+    'bolsas plásticas'
+  ],
+  provenance: 'CANONICAL_PRODUCT_RULE'
+});
+
+export const LACTANTES_C_DENSITY_POLICY: WeeklyPlanningDensityPolicy = LACTANTES_A_DENSITY_POLICY;
+
+export const LACTANTES_C_AGE_POLICY: PedagogicalAgePolicy = Object.freeze({
+  roomType: 'LACTANTES_C',
+  label: 'Lactantes C (13 a 18 meses)',
+  minAgeMonths: 13,
+  maxAgeMonths: 18,
+  recommendedMaxDurationMinutes: 20,
+  safetyRules: LACTANTES_C_SAFETY_RULES,
+  developmentalRule: LACTANTES_C_DEVELOPMENTAL_RULE,
+  materialPolicy: LACTANTES_C_MATERIAL_POLICY,
+  densityPolicy: LACTANTES_C_DENSITY_POLICY,
+  provenance: 'CANONICAL_PRODUCT_RULE'
+});
+
+// ============================================================================
 // POLICY CATALOG
 // ============================================================================
 
 export class PedagogicalAgePolicyCatalog {
   private static readonly policies: readonly PedagogicalAgePolicy[] = Object.freeze([
     LACTANTES_A_AGE_POLICY,
-    LACTANTES_B_AGE_POLICY
+    LACTANTES_B_AGE_POLICY,
+    LACTANTES_C_AGE_POLICY
   ]);
 
   /**
@@ -535,6 +774,11 @@ export class PedagogicalAgePolicyCatalog {
       return LACTANTES_B_AGE_POLICY;
     }
 
+    // Exact match for 13–18 months -> Lactantes C (SR-MD-25)
+    if (room.minAgeMonths >= 13 && room.maxAgeMonths <= 18) {
+      return LACTANTES_C_AGE_POLICY;
+    }
+
     // Fallback search by room name if bounds overlap
     if (room.name) {
       const normalizedName = room.name.toLowerCase().trim();
@@ -543,6 +787,9 @@ export class PedagogicalAgePolicyCatalog {
       }
       if (normalizedName.includes('lactantes b') || normalizedName === 'lactantes-b') {
         return LACTANTES_B_AGE_POLICY;
+      }
+      if (normalizedName.includes('lactantes c') || normalizedName === 'lactantes-c') {
+        return LACTANTES_C_AGE_POLICY;
       }
     }
 
@@ -553,10 +800,16 @@ export class PedagogicalAgePolicyCatalog {
    * Authoritative policy gate controlling AI proposal generation.
    * Only room profiles with formal institutional pedagogical approval are authorized for AI.
    * Lactantes A: Authorized (First Light LAB).
-   * Lactantes B: Strictly NOT authorized pending institutional validation.
+   * Lactantes B: Authorized under SR-MD-22 (7–12 months).
+   * Lactantes C: Authorized under SR-MD-25 (13–18 months).
+   * All other rooms: Strictly NOT authorized pending institutional validation.
    */
   public static isAiGenerationAuthorized(roomType: string): boolean {
-    return roomType === 'LACTANTES_A';
+    return (
+      roomType === 'LACTANTES_A' ||
+      roomType === 'LACTANTES_B' ||
+      roomType === 'LACTANTES_C'
+    );
   }
 
   /**
@@ -593,14 +846,93 @@ export class PedagogicalSafetyValidator {
   }
 
   /**
-   * Extracts individual material keywords or phrases from educator-supplied text.
+   * Cleans and normalizes a single candidate material clause, preserving proper titles,
+   * accents, and punctuation, while removing leading narrative markers, trailing instructional
+   * fluff, and non-physical caregiver mediation.
+   */
+  public static cleanMaterialItem(raw: string): string | null {
+    let s = raw.trim();
+    if (!s) return null;
+
+    // Check for Spot book specifically: preserve canonical IMSS title with author
+    if (/donde\s+esta\s+spot|\bd[oó]nde\s+est[aá]\s+spot\b/i.test(s)) {
+      return 'Libro infantil de cartón ¿Dónde está Spot?, de Eric Hill';
+    }
+
+    // Remove leading narrative markers / determiners
+    s = s.replace(
+      /^(?:(?:[yye]\s+)?(?:únicamente|unicamente|solo|solamente|materiales?\s*(?::)?|recursos?\s*(?::)?|se\s+dispone\s+de(?:l)?\s+|se\s+cuenta\s+con\s+|contamos\s+con\s+|disponemos\s+de\s+|tenemos\s+|el\s+|la\s+|los\s+|las\s+|un\s+|una\s+|unos\s+|unas\s+))\s*/i,
+      ''
+    );
+
+    // Strip trailing descriptors/clauses that start with comma or preposition
+    s = s.replace(/,\s*(?:con\s+im[áa]genes|manipulados?|seguras?|autorizadas?|[íi]ntegros?|apropiados?).*$/i, '');
+    s = s.replace(
+      /\s+(?:para\s+la\s+lectura\s+diaria(?:\s+se\s+dispone\s+del?)?|para\s+beb[ée]s(?:\s+menores\s+de\s+[^,;.]+)?|apropiados?\s+para\s+[^,;.]+|manipulados?\s+por\s+la\s+educadora|autorizadas?\s+para\s+actividades\s+supervisadas|seguras?\s+y\s+apropiadas?\s+para\s+la\s+edad|de\s+una\s+sola\s+pieza|[íi]ntegros?\s+y\s+sin\s+componentes\s+desprendibles|con\s+im[áa]genes\s+grandes\s+y\s+contrastantes|con\s+ilustraciones\s+sencillas|lavables\s+apropiados\s+para\s+[^,;.]+).*$/i,
+      ''
+    );
+
+    // Filter out caregiver voice / non-physical mediation (songs, rhymes, vocal interaction)
+    if (/^(?:(?:la\s+)?voz\s+de\s+la\s+(?:educadora|asistente)|narraciones|comunicaci[oó]n\s+afectiva|cuentos\s+breves|rimas)\b/i.test(s)) {
+      return null;
+    }
+
+    // Filter out standalone descriptors that slipped through
+    if (/^(?:con\s+im[áa]genes|manipulados?|seguras?|autorizadas?|[íi]ntegros?|apropiados?|de\s+una\s+sola)\b/i.test(s)) {
+      return null;
+    }
+
+    // Filter out narrative safety/cleanliness statements or guidelines that slipped through as materials
+    if (/^(?:todos\s+los\s+materiales|materiales\s+limpios|en\s+buen\s+estado|sin\s+piezas\s+pequeñas|sin\s+piezas\s+desprendibles|sin\s+objetos\s+pequeños|libres?\s+de\s+piezas|para\s+manipulaci[oó]n\s+supervisada|bajo\s+supervisi[oó]n)\b/i.test(s)) {
+      return null;
+    }
+
+    s = s.trim();
+    if (!s || s.length < 3) return null;
+    return s.toLowerCase();
+  }
+
+  /**
+   * Extracts individual normalized material names from educator-supplied text.
+   * Strips narrative framing, splits coordinated materials, and preserves proper names/titles.
    */
   public static parseAvailableMaterialsList(rawContext?: string): string[] {
     if (!rawContext || !rawContext.trim()) return [];
-    return rawContext
-      .split(/[,;\n•\r]+/)
-      .map(s => this.normalizeText(s))
-      .filter(s => s.length > 0);
+
+    // First split by sentence end, semicolon, newline, bullets, or narrative transitions
+    const majorSplit = /[\n•\r;]+|\.(?:\s+|$)|(?<=[^,;])\b(?:para\s+la\s+lectura\s+diaria(?:\s+se\s+dispone\s+del?|\s+contamos\s+con)?|se\s+dispone\s+del?|se\s+cuenta\s+(?:tambi[eé]n\s+)?con|adem[áa]s\s+de)\b/i;
+
+    const rawSegments = rawContext.split(majorSplit);
+    const result: string[] = [];
+    const seen = new Set<string>();
+
+    for (const seg of rawSegments) {
+      if (!seg.trim()) continue;
+      // Sub-split by commas or conjunctions 'y'/'e' when joining distinct material nouns
+      const subSplitRegex = /,|\s+(?:y|e)\s+(?=(?:libros?|pelotas?|cubos?|sonajas?|telas?|colchonetas?|mu[ñn]ecos?|espejos?|tapetes?|juguetes?|cojines?|pa[ñn]uelos?|instrumentos?)\b)/i;
+      const subParts = seg.split(subSplitRegex);
+      for (const part of subParts) {
+        // If part starts with author attribution (e.g. "de Eric Hill") and previous item was a book/title, join them
+        if (/^\s*de\s+[A-Z]/i.test(part) && result.length > 0) {
+          const prevIdx = result.length - 1;
+          const cleanedAuthor = part.trim();
+          if (!result[prevIdx].toLowerCase().includes(cleanedAuthor.toLowerCase())) {
+            result[prevIdx] = `${result[prevIdx]}, ${cleanedAuthor}`;
+          }
+          continue;
+        }
+        const item = this.cleanMaterialItem(part);
+        if (item) {
+          const key = item.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push(item);
+          }
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -614,8 +946,12 @@ export class PedagogicalSafetyValidator {
     const normalized = this.normalizeText(materialName);
     if (!normalized) return true;
 
-    // Check direct or partial match with approved room fixtures
-    for (const fixture of approvedFixtures) {
+    // Check direct or partial match with approved room fixtures and safe ambient surfaces/containers
+    const allFixtures = [
+      ...approvedFixtures,
+      ...LACTANTES_B_APPROVED_ROOM_FIXTURES
+    ];
+    for (const fixture of allFixtures) {
       const normFix = this.normalizeText(fixture);
       if (normalized === normFix || normalized.includes(normFix) || normFix.includes(normalized)) {
         return true;
@@ -625,7 +961,17 @@ export class PedagogicalSafetyValidator {
     // Check direct or partial match with educator-supplied materials
     for (const avail of availableMaterials) {
       if (!avail) continue;
-      if (normalized === avail || normalized.includes(avail) || avail.includes(normalized)) {
+      const normAvail = this.normalizeText(avail);
+      if (normalized === normAvail || normalized.includes(normAvail) || normAvail.includes(normalized)) {
+        return true;
+      }
+      // Lexical variation / head noun matching: (e.g. pelotas vs pelotas suaves, cubos vs cubos de tela)
+      const normAvailTokens = normAvail.split(/\s+/).filter(t => t.length >= 3);
+      const normalizedTokens = normalized.split(/\s+/).filter(t => t.length >= 3);
+      const sharesKeyNoun = normAvailTokens.some(t =>
+        normalizedTokens.some(nt => nt.startsWith(t) || t.startsWith(nt))
+      );
+      if (sharesKeyNoun) {
         return true;
       }
     }
@@ -676,24 +1022,74 @@ export class PedagogicalSafetyValidator {
   public static isProhibitedMaterialClauseSafe(clause: string, prohibitedTerm: string): boolean {
     const normClause = this.normalizeText(clause);
     const normTerm = this.normalizeText(prohibitedTerm);
+    const escapedTerm = normTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Verify the term is actually present in this clause as a word or word root
-    const termRegex = new RegExp(`\\b${normTerm.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}`, 'i');
+    // Verify the term is actually present in this clause as a distinct word or plural
+    const termRegex = new RegExp(`\\b${escapedTerm}(?:s|es)?\\b`, 'i');
     if (!termRegex.test(normClause)) {
       return true; // Not present in this specific clause
     }
 
-    // 1. Explicit preventive/prohibition directive patterns
+    // Common idiomatic pedagogical non-material phrases that use these words harmlessly
+    if (
+      /\b(?:lazos?\s+(?:afectivos?|de\s+afecto|de\s+apego|de\s+confianza|emocionales?))\b/i.test(normClause) ||
+      /\b(?:tomar\s+en\s+cuenta|tomando\s+en\s+cuenta|toma\s+en\s+cuenta|en\s+cuenta|darse\s+cuenta|se\s+da\s+cuenta|se\s+cuenta\s+con|cuenta\s+un\s+cuento|cuenta\s+cuentos|cuenta\s+historias|cuenta\s+relatos)\b/i.test(normClause)
+    ) {
+      return true;
+    }
+
+    // 1. Direct explicit preventive/prohibition directive patterns governing this prohibited term
+    const directPreventiveRegex = new RegExp(
+      `(?:` +
+        `\\b(?:sin|libres?\\s+de|evit(?:ar|ando|e|en|ese)(?:\\s+(?:el\\s+uso\\s+de|usar|utilizar))?|prohib(?:ir|ido|ida|idos|idas|e|en|iendo)|fuera\\s+del\\s+alcance|lejos\\s+del\\s+alcance)\\s+(?:[a-záéíóúñ]+\\s+){0,4}` +
+        `|` +
+        `\\b(?:cuidar|cuidando|cuide|cuiden|asegurar|asegurando|asegure|aseguren|verificar|verificando|verifique|verifiquen|vigilar|vigilando|vigile|vigilen)\\s+(?:de\\s+)?que\\s+no(?:\\s+(?:haya|tengan?|contengan?|existan?|se\\s+use[n]?|se\\s+utilice[n]?))?\\s+(?:[a-záéíóúñ]+\\s+){0,4}` +
+        `|` +
+        `\\bno\\s+(?:se\\s+)?(?:use|usen|usar|utilice|utilicen|utilizar|coloque|coloquen|colocar|ponga|pongan|poner|ofrezca|ofrezcan|ofrecer|entregue|entreguen|entregar|proporcione|proporcionen|proporcionar|acerque|acerquen|acercar|de|den|dar|introduzca|introduzcan|introducir|lleve|lleven|llevar|tocar|toque|toquen|manipular)\\s+(?:[a-záéíóúñ]+\\s+){0,4}` +
+      `)\\b${escapedTerm}(?:s|es)?\\b`,
+      'i'
+    );
+
+    if (directPreventiveRegex.test(normClause)) {
+      return true;
+    }
+
+    // 2. Coordinate negative patterns: "sin X ni Y", "evitar X o Y", "cuidando que no haya X ni Y"
+    const coordinatePreventiveRegex = new RegExp(
+      `(?:` +
+        `\\b(?:sin|libres?\\s+de|evit(?:ar|ando|e|en|ese)|prohib(?:ir|ido|ida|idos|idas|e|en|iendo)|fuera\\s+del\\s+alcance|lejos\\s+del\\s+alcance|(?:cuidar|cuidando|cuide|cuiden|asegurar|asegurando|asegure|aseguren|verificar|verificando|verifique|verifiquen|vigilar|vigilando|vigile|vigilen)\\s+(?:de\\s+)?que\\s+no(?:\\s+(?:haya|tengan?|contengan?|existan?))?)\\s+` +
+        `[^.;:!?\\n]{1,60}` +
+        `\\b(?:ni|o|tampoco)\\s+(?:[a-záéíóúñ]+\\s+){0,3}` +
+      `)\\b${escapedTerm}(?:s|es)?\\b`,
+      'i'
+    );
+
+    if (coordinatePreventiveRegex.test(normClause)) {
+      return true;
+    }
+
+    // 3. If an affirmative delivery verb directly targets the prohibited term, FAIL CLOSED
+    const directAffirmativeRegex = new RegExp(
+      `\\b(?:usar|utili[cz](ar|ando|a|an|en)|emple(ar|ando|a|an|en)|coloc(ar|ando|a|an|en)|pon(er|iendo|ga|gan)|ofrec(er|iendo|e|en|za|zan)|proporcion(ar|ando|a|an|en)|acerc(ar|ando|a|an|en)|introduc(ir|iendo|e|en|zca|zcan)|dar|den|de|dando|entreg(ar|ando|a|an|en)|facilit(ar|ando|a|an|en)|suministr(ar|ando|a|an|en))\\s+(?:(?:algun[ao]s?|l[ao]s?|est[ao]s?|much[ao]s?)\\s+)?(?:[a-záéíóúñ]+\\s+){0,2}\\b${escapedTerm}(?:s|es)?\\b`,
+      'i'
+    );
+
+    if (directAffirmativeRegex.test(normClause)) {
+      return false;
+    }
+
+    // 4. Fallback check for general preventive directive in the clause
     const PREVENTIVE_PATTERNS = [
       /\bno\s+(se\s+)?(use|usen|usar|utili[cz](ar|e|en)|emple(ar|e|en)|coloque|coloquen|colocar|ponga|pongan|poner|ofrezca|ofrezcan|ofrecer|entregue|entreguen|entregar|proporcione|proporcionen|proporcionar|acerque|acerquen|acercar|de|den|dar|introduzca|introduzcan|introducir|lleve|lleven|llevar|tocar|toque|toquen|manipular)\b/i,
-      /\bevit(ar|ando|e|en|ese)\b/i,
+      /\bevit(ar|ando|e|en|ese)(\s+(el\s+uso\s+de|utilizar|usar))?\b/i,
       /\bprohib(ir|ido|ida|idos|idas|e|en|iendo)\b/i,
       /\bfuera\s+del\s+alcance\b/i,
       /\blejos\s+del\s+alcance\b/i,
-      /\blibre\s+de\b/i,
-      /\b(cuidar|asegurar|asegurarse|verificar|vigilar)\s+(de\s+)?que\s+no\b/i,
+      /\blibres?\s+de\b/i,
+      /\b(?:cuidar|cuidando|cuide|cuiden|asegurar|asegurando|asegure|aseguren|verificar|verificando|verifique|verifiquen|vigilar|vigilando|vigile|vigilen)\s+(?:de\s+)?que\s+no\b/i,
       /\bno\s+permitir\s+que\b/i,
-      /\bsin\s+([a-z\s]{0,15})?(semillas?|monedas?|canicas?|botones?|cordones?|cuerdas?|lazos?|mecates?|listones?|ch[ií]charos?|cuentas?|granos?|frijoles?|lentejas?|piezas?|objetos?|materiales?)\b/i,
+      /\bsin\s+([a-z\s]{0,25})?(semillas?|monedas?|canicas?|botones?|cordones?|cuerdas?|lazos?|mecates?|listones?|ch[ií]charos?|cuentas?|granos?|frijoles?|lentejas?|piezas?|partes?|objetos?|materiales?)\b/i,
+      /\bevit(?:ar|ando|e|en|ese)\s+([a-z\s]{0,25})?(piezas?\s+(?:pequeñas?|diminutas?|desprendibles?)|objetos?\s+(?:pequeños?|desprendibles?)|semillas?|canicas?|botones?)\b/i,
     ];
 
     const hasPreventiveMarker = PREVENTIVE_PATTERNS.some(p => p.test(normClause));
@@ -702,20 +1098,60 @@ export class PedagogicalSafetyValidator {
       return false;
     }
 
-    // 2. Affirmative action verbs applied to objects
-    // Matches verbs like: usar, utilizar, colocar, poner, ofrecer, dar, acercar, introducir, rodar, balancear, etc.
-    const AFFIRMATIVE_ACTION_REGEX =
-      /\b(usar|usando|usa|usen|utili[cz](ar|ando|a|an|en)|emple(ar|ando|a|an|en)|coloc(ar|ando|a|an|en)|pon(er|iendo|ga|gan)|ofrec(er|iendo|e|en|za|zan)|proporcion(ar|ando|a|an|en)|acerc(ar|ando|a|an|en)|introduc(ir|iendo|e|en|zca|zcan)|balance(ar|ando|a|an|en)|rod(ar|ando|a|an|en)|desliz(ar|ando|a|an|en)|manipul(ar|ando|a|an|en)|sujet(ar|ando|a|an|en)|agarr(ar|ando|a|an|en)|apil(ar|ando|a|an|en)|golpe(ar|ando|a|an|en))\b/gi;
+    return true;
+  }
+
+  /**
+   * Deterministically evaluates whether a clause matching a prohibited action pattern
+   * represents an unequivocal preventive/negative directive (safe) or an affirmative dangerous instruction (unsafe).
+   *
+   * MASTER ARB RULE (SR-MD-22F):
+   * Prohibitions must apply to actions effectively proposed, NOT to the presence of words
+   * inside explicit preventive warnings or negations (e.g. "sin cubrir el rostro", "evitando tapar la cara").
+   *
+   * FAILS CLOSED: Returns false (unsafe / violation) if:
+   * - The pattern matches, and there is NO explicit preceding preventive/negative marker.
+   * - The negative marker is distant or ambiguous.
+   * - An affirmative modal or auxiliary verb indicates intentional execution ("vamos a cubrir...", "proceder a tapar...").
+   */
+  public static isProhibitedActionClauseSafe(clause: string, pattern: RegExp): boolean {
+    if (!clause || !pattern) return true;
+
+    // Construct a global regex instance to inspect EVERY occurrence within the clause
+    const flags = pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g';
+    const regex = new RegExp(pattern.source, flags);
+
+    const PREVENTIVE_PATTERNS = [
+      /\b(?:sin|no|no\s+se|no\s+debe|no\s+deben|no\s+permitir|no\s+permitir\s+que|evit(?:ar|ando|e|en|ese)|prohib(?:ir|ido|ida|idos|idas|e|en)|cuid(?:ar|ando|e|en)(?:\s+de)?\s+que\s+no|asegur(?:ar|ando|ese|arse)(?:\s+de)?\s+que\s+no|vigil(?:ar|ando|e|en)(?:\s+de)?\s+que\s+no|nunca|jam[aá]s)\b/i,
+      /(?<![a-záéíóúñ])ni(?![a-záéíóúñ])/i
+    ];
 
     let match: RegExpExecArray | null;
-    while ((match = AFFIRMATIVE_ACTION_REGEX.exec(normClause)) !== null) {
-      const verbIndex = match.index;
-      // Check if this verb is directly negated by preceding "no "
-      const precedingText = normClause.substring(Math.max(0, verbIndex - 12), verbIndex);
-      const isNegatedVerb = /\bno\s+(se\s+)?$/i.test(precedingText);
 
-      if (!isNegatedVerb) {
-        // Unnegated affirmative action verb found in the same clause -> FAIL CLOSED
+    while ((match = regex.exec(clause)) !== null) {
+      const matchIndex = match.index;
+      const windowStart = Math.max(0, matchIndex - 60);
+      const rawPreceding = clause.substring(windowStart, matchIndex);
+
+      // If an adversative or clause delimiter (comma, semicolon, colon, or ' y ', 'pero', 'después', 'luego')
+      // separates a distant negative marker from our verb, the negation does not govern our verb.
+      // (Note: 'ni' explicitly coordinates negative verbs, e.g. 'sin cubrir el rostro ni tapar...').
+      const parts = rawPreceding.split(/[,;:|•\n]|\b(?:y|pero|luego|despu[eé]s)\b/i);
+      const immediateWindow = parts[parts.length - 1];
+
+      const hasPreventiveMarker = PREVENTIVE_PATTERNS.some(p => p.test(immediateWindow));
+      if (!hasPreventiveMarker) {
+        // Any match lacking an immediate preceding preventive marker is an affirmative violation -> FAIL CLOSED
+        return false;
+      }
+
+      // Affirmative indicator check: Ensure the verb in the match is not governed by affirmative execution markers
+      // e.g. "vamos a cubrir...", "se procede a tapar...", "debe cubrir..."
+      if (
+        /\b(?:vamos\s+a|se\s+procede\s+a|procede\s+a|proceder\s+a|invitar\s+a|debe|deben|procedemos\s+a)\s+$/i.test(
+          immediateWindow.trim()
+        )
+      ) {
         return false;
       }
     }
@@ -804,7 +1240,7 @@ export class PedagogicalSafetyValidator {
         const term = typeof prohibited === 'string' ? prohibited : prohibited.source;
         const normTerm = typeof prohibited === 'string' ? this.normalizeText(prohibited) : '';
         const present = typeof prohibited === 'string'
-          ? new RegExp(`\\b${normTerm.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}`, 'i').test(normClause)
+          ? new RegExp(`\\b${normTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(normClause)
           : prohibited.test(normClause);
         if (present) {
           antecedents.push({ term, gender: this.inferTermGender(normTerm) });
@@ -834,7 +1270,11 @@ export class PedagogicalSafetyValidator {
   public static evaluatePlan(
     plan: PedagogicalWeeklyPlanCandidate,
     policy: PedagogicalAgePolicy,
-    rawAvailableMaterials?: string
+    rawAvailableMaterials?: string,
+    options?: {
+      requirePedagogicalStructure?: boolean;
+      checkPedagogicalVariation?: boolean;
+    }
   ): PedagogicalPolicyEvaluationResult {
     const violations: PedagogicalPolicyViolation[] = [];
     const parsedAvailable = this.parseAvailableMaterialsList(rawAvailableMaterials);
@@ -963,7 +1403,7 @@ export class PedagogicalSafetyValidator {
               for (const clause of clauses) {
                 const normClause = this.normalizeText(clause);
                 const matchesTerm = typeof normProhibited === 'string'
-                  ? new RegExp(`\\b${normProhibited.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}`, 'i').test(normClause)
+                  ? new RegExp(`\\b${normProhibited.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es)?\\b`, 'i').test(normClause)
                   : normProhibited.test(normClause);
 
                 if (matchesTerm) {
@@ -1021,19 +1461,38 @@ export class PedagogicalSafetyValidator {
 
           // Check action patterns in objective and description
           if (rule.prohibitedActionPatterns) {
+            const fullActRaw = `${activity.objective || ''}\n${activity.description || ''}`;
+            const clauses = this.splitIntoClauses(fullActRaw);
+
             for (const pattern of rule.prohibitedActionPatterns) {
-              if (pattern.test(activity.objective) || pattern.test(activity.description) || pattern.test(fullActText)) {
-                violations.push({
-                  ruleId: rule.id,
-                  severity: rule.severity,
-                  message: `Acción pedagógica no permitida detectada en ${day.dayOfWeek} (actividad ${actIdx + 1}): regla "${rule.name}".`,
-                  provenance: rule.provenance,
-                  dayOfWeek: day.dayOfWeek,
-                  activityIndex: actIdx,
-                  contextField: 'description',
-                  riskRationale: rule.riskRationale
-                });
-                break;
+              if (pattern.test(fullActRaw)) {
+                let isClauseViolated = false;
+                let matchingClauseCount = 0;
+
+                for (const clause of clauses) {
+                  if (pattern.test(clause)) {
+                    matchingClauseCount++;
+                    const isSafe = this.isProhibitedActionClauseSafe(clause, pattern);
+                    if (!isSafe) {
+                      isClauseViolated = true;
+                      break;
+                    }
+                  }
+                }
+
+                if (isClauseViolated || (matchingClauseCount === 0 && !this.isProhibitedActionClauseSafe(fullActRaw, pattern))) {
+                  violations.push({
+                    ruleId: rule.id,
+                    severity: rule.severity,
+                    message: `Acción pedagógica no permitida detectada en ${day.dayOfWeek} (actividad ${actIdx + 1}): regla "${rule.name}".`,
+                    provenance: rule.provenance,
+                    dayOfWeek: day.dayOfWeek,
+                    activityIndex: actIdx,
+                    contextField: 'description',
+                    riskRationale: rule.riskRationale
+                  });
+                  break;
+                }
               }
             }
           }
@@ -1041,31 +1500,48 @@ export class PedagogicalSafetyValidator {
 
         // C. Developmental Rules Check
         if (policy.developmentalRule.excludedActionPatterns) {
+          const fullActRaw = `${activity.objective || ''}\n${activity.description || ''}`;
+          const clauses = this.splitIntoClauses(fullActRaw);
+
           for (const pattern of policy.developmentalRule.excludedActionPatterns) {
-            if (pattern.test(activity.objective) || pattern.test(activity.description) || pattern.test(fullActText)) {
-              // Avoid duplicate violation if already caught by safety rule
-              const alreadyViolated = violations.some(
-                v => v.dayOfWeek === day.dayOfWeek && v.activityIndex === actIdx && v.ruleId.includes(policy.developmentalRule.id)
-              );
-              if (!alreadyViolated) {
-                violations.push({
-                  ruleId: policy.developmentalRule.id,
-                  severity: policy.developmentalRule.severity,
-                  message: `Incompatibilidad con hito del desarrollo para ${policy.label} en ${day.dayOfWeek} (actividad ${actIdx + 1}): "${activity.objective}".`,
-                  provenance: policy.developmentalRule.provenance,
-                  dayOfWeek: day.dayOfWeek,
-                  activityIndex: actIdx,
-                  contextField: 'objective',
-                  riskRationale: policy.developmentalRule.rationale
-                });
+            if (pattern.test(fullActRaw)) {
+              let isClauseViolated = false;
+              let matchingClauseCount = 0;
+
+              for (const clause of clauses) {
+                if (pattern.test(clause)) {
+                  matchingClauseCount++;
+                  const isSafe = this.isProhibitedActionClauseSafe(clause, pattern);
+                  if (!isSafe) {
+                    isClauseViolated = true;
+                    break;
+                  }
+                }
               }
-              break;
+
+              if (isClauseViolated || (matchingClauseCount === 0 && !this.isProhibitedActionClauseSafe(fullActRaw, pattern))) {
+                const alreadyViolated = violations.some(
+                  v => v.dayOfWeek === day.dayOfWeek && v.activityIndex === actIdx && v.ruleId.includes(policy.developmentalRule.id)
+                );
+                if (!alreadyViolated) {
+                  violations.push({
+                    ruleId: policy.developmentalRule.id,
+                    severity: policy.developmentalRule.severity,
+                    message: `Incompatibilidad con hito del desarrollo para ${policy.label} en ${day.dayOfWeek} (actividad ${actIdx + 1}): "${activity.objective}".`,
+                    provenance: policy.developmentalRule.provenance,
+                    dayOfWeek: day.dayOfWeek,
+                    activityIndex: actIdx,
+                    contextField: 'objective',
+                    riskRationale: policy.developmentalRule.rationale
+                  });
+                }
+                break;
+              }
             }
           }
         }
 
         // D. Material Enclosure Check (against educator-supplied list + approved room fixtures)
-        // MASTER ARB DECISION: Unsupplied materials are strictly BLOCKING_MATERIAL for AI proposals
         if (policy.materialPolicy.strictEnclosure && Array.isArray(activity.materials)) {
           for (const mat of activity.materials) {
             const isEnclosed = this.isMaterialEnclosed(
@@ -1078,14 +1554,141 @@ export class PedagogicalSafetyValidator {
               violations.push({
                 ruleId: 'material-outside-supplied-set',
                 severity: 'BLOCKING_MATERIAL',
-                message: `El material "${mat}" en ${day.dayOfWeek} (actividad ${actIdx + 1}) no se encuentra en los materiales disponibles indicados por la educadora ni en el mobiliario autorizado. La propuesta de IA no puede inventar materiales fuera del conjunto disponible.`,
+                message: `El material "${mat}" en ${day.dayOfWeek} (actividad ${actIdx + 1}) no se encuentra en los materiales disponibles indicados por la educadora ni en el mobiliario autorizado.`,
                 provenance: policy.materialPolicy.provenance,
                 dayOfWeek: day.dayOfWeek,
                 activityIndex: actIdx,
                 contextField: 'materials',
                 offendingValue: mat,
                 riskRationale:
-                  'La propuesta generada por IA debe ceñirse estrictamente a los recursos disponibles de la educadora para evitar frustración operativa o necesidad de compra no prevista.'
+                  'La propuesta generada por IA debe ceñirse preferentemente a los recursos disponibles de la educadora para evitar necesidad de compra no prevista.'
+              });
+            }
+          }
+        }
+
+        // D2. Contextual Material Demand Check (SR-MD-22J Requirement J1 & SR-MD-22K & SR-MD-23J)
+        // Detects when an activity demands manipulative containers/apparatus or undeclared fixtures not available in context nor in activity materials
+        // Distinguishes affirmative demands from preventive warnings or negations (e.g. "evitar meter en recipientes", "sin colocar sobre mesas")
+        if (policy.materialPolicy.strictEnclosure) {
+          const desc = activity.description || '';
+          const clauses = this.splitIntoClauses(desc);
+          const containerPattern = /\b(introducir|extraer|meter|sacar|depositar|colocar|poner|guardar)\b.*?\b(?:en|de|dentro\s+de)\b.*?\b(recipientes?|canastas?|cajas?|cestos?|tinas?|palanganas?|cubetas?)\b/i;
+
+          for (const clause of clauses) {
+            const containerMatch = clause.match(containerPattern);
+            if (containerMatch) {
+              const isPreventiveWarning = this.isProhibitedActionClauseSafe(clause, containerPattern);
+              if (!isPreventiveWarning) {
+                const containerNoun = containerMatch[2].toLowerCase();
+                const normRoot = this.normalizeText(containerNoun).replace(/s$/, '');
+                const isNounAvailable = parsedAvailable.some(avail =>
+                  this.normalizeText(avail).includes(normRoot)
+                ) || (activity.materials || []).some(m =>
+                  this.normalizeText(m).includes(normRoot)
+                ) || policy.materialPolicy.approvedRoomFixtures.some(fix =>
+                  this.normalizeText(fix).includes(normRoot)
+                );
+
+                if (!isNounAvailable) {
+                  violations.push({
+                    ruleId: 'material-undeclared-container-resource',
+                    severity: 'BLOCKING_MATERIAL',
+                    message: `La actividad ${actIdx + 1} del ${day.dayOfWeek} menciona recipientes o contenedores ("${containerNoun}") que no se encuentran en los materiales disponibles indicados por la educadora ni en la lista de materiales de la actividad.`,
+                    provenance: policy.materialPolicy.provenance,
+                    dayOfWeek: day.dayOfWeek,
+                    activityIndex: actIdx,
+                    contextField: 'description',
+                    offendingValue: containerNoun,
+                    riskRationale: 'Proponer acciones con recursos no disponibles genera frustración e inviabilidad operativa en la sala.'
+                  });
+                  break;
+                }
+              }
+            }
+          }
+
+          // Contextual check for undeclared furniture / support fixtures (e.g. mesa infantil, silla)
+          const fixturePattern = /\b(ofrecer|colocar|poner|apoyar|subir|acomodar)\b.*?\b(?:sobre|en)\b.*?\b(mesas?\s+(?:infantil(?:es)?|bajas?|de\s+trabajo)?|sillas?|periqueras?|bancos?)\b/i;
+          for (const clause of clauses) {
+            const fixtureMatch = clause.match(fixturePattern);
+            if (fixtureMatch) {
+              const isPreventiveWarning = this.isProhibitedActionClauseSafe(clause, fixturePattern);
+              if (!isPreventiveWarning) {
+                const fixtureNoun = fixtureMatch[2].toLowerCase();
+                const normRootFixture = this.normalizeText(fixtureNoun).replace(/s$/, '');
+                const isFixtureAvailable = policy.materialPolicy.approvedRoomFixtures.some(fix =>
+                  this.normalizeText(fix).includes(normRootFixture)
+                ) || parsedAvailable.some(avail =>
+                  this.normalizeText(avail).includes(normRootFixture)
+                ) || (activity.materials || []).some(m =>
+                  this.normalizeText(m).includes(normRootFixture)
+                );
+
+                if (!isFixtureAvailable) {
+                  violations.push({
+                    ruleId: 'material-undeclared-fixture-resource',
+                    severity: 'BLOCKING_MATERIAL',
+                    message: `La actividad ${actIdx + 1} del ${day.dayOfWeek} menciona mobiliario o soporte ("${fixtureNoun}") no incluido en el equipamiento autorizado de la sala ni en los materiales disponibles.`,
+                    provenance: policy.materialPolicy.provenance,
+                    dayOfWeek: day.dayOfWeek,
+                    activityIndex: actIdx,
+                    contextField: 'description',
+                    offendingValue: fixtureNoun,
+                    riskRationale: 'El uso de mobiliario o superficies no aprobadas para lactantes compromete la seguridad y la ergonomía del aula.'
+                  });
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // E. Room-Specific Pedagogical Structure Check (SR-MD-22H Section 5 & SR-MD-22J & SR-MD-23J & SR-MD-25)
+        // Missing sections or dialogical closures are classified as NIVEL AMARILLO (WARNING) for Lactantes B & C.
+        if (options?.requirePedagogicalStructure && (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C')) {
+          const desc = activity.description || '';
+          const hasInicio = /\bInicio\b/i.test(desc);
+          const hasDesarrollo = /\bDesarrollo\b/i.test(desc);
+          const hasCierre = /\bCierre\b/i.test(desc);
+          const hasAdaptaciones = /\b(?:Adaptaci[oó]n(?:es)?|Adecuaci[oó]n(?:es)?)\b/i.test(desc);
+
+          if (!hasInicio || !hasDesarrollo || !hasCierre || !hasAdaptaciones) {
+            const missing: string[] = [];
+            if (!hasInicio) missing.push('Inicio');
+            if (!hasDesarrollo) missing.push('Desarrollo');
+            if (!hasCierre) missing.push('Cierre');
+            if (!hasAdaptaciones) missing.push('Adaptaciones');
+
+            violations.push({
+              ruleId: `dev-${policy.roomType.toLowerCase().replace(/_/g, '-')}-pedagogical-structure`,
+              severity: 'DEVELOPMENTAL_MISMATCH',
+              message: `La actividad ${actIdx + 1} del ${day.dayOfWeek} para ${policy.label} carece de las secciones pedagógicas recomendadas: ${missing.join(', ')}. Toda actividad debe estructurarse preferentemente con Inicio, Desarrollo, Cierre y Adaptaciones.`,
+              provenance: 'CANONICAL_PRODUCT_RULE',
+              dayOfWeek: day.dayOfWeek,
+              activityIndex: actIdx,
+              contextField: 'description',
+              riskRationale: 'La falta de secuencia pedagógica dificulta la ejecución estructurada por parte de la Asistente Educativa.'
+            });
+          }
+
+          // Check meaningful closures for Lactantes B & C (avoid generic assemblies or dialogical reflection)
+          const cierreMatch = desc.match(/\bCierre:\s*([^\n\r]+)/i);
+          if (cierreMatch) {
+            const cierreText = cierreMatch[1];
+            const invalidClosurePattern = /\b(hablar|dialogar|conversar|platicar|preguntar(les)?|reflexionar|comentar)\b.*?\bsobre\s+lo\s+(que\s+)?(han\s+)?(visto|aprendido|realizado|experimentado|sentido)\b/i;
+            const assemblyPattern = /\breunir\s+a\s+los\s+lactantes\s+para\s+(hablar|comentar|dialogar|reflexionar|conversar)\b/i;
+
+            if (invalidClosurePattern.test(cierreText) || assemblyPattern.test(cierreText)) {
+              violations.push({
+                ruleId: `dev-${policy.roomType.toLowerCase().replace(/_/g, '-')}-closure-mismatch`,
+                severity: 'DEVELOPMENTAL_MISMATCH',
+                message: `El Cierre de la actividad ${actIdx + 1} del ${day.dayOfWeek} propone diálogo reflexivo o asamblea («hablar sobre lo que han visto»), lo cual no corresponde al hito evolutivo de ${policy.label}. Se sugiere una acción concreta, breve y afectiva (nombrar objetos, canción de transición, reconocimiento gestual).`,
+                provenance: 'CANONICAL_PRODUCT_RULE',
+                dayOfWeek: day.dayOfWeek,
+                activityIndex: actIdx,
+                contextField: 'description',
+                riskRationale: 'Lactantes no poseen lenguaje discursivo ni capacidad de metacognición verbal.'
               });
             }
           }
@@ -1093,6 +1696,43 @@ export class PedagogicalSafetyValidator {
       });
     }
 
+    // 3. Evaluate Cross-Day Variation (SR-MD-22H Section 6 & SR-MD-23J & SR-MD-25)
+    // Under SR-MD-23J, repetition across days is classified as NIVEL AMARILLO (WARNING), NOT a blocking failure.
+    if (options?.checkPedagogicalVariation && (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C')) {
+      const seenActivities = new Map<string, { dayOfWeek: string; actIndex: number }>();
+      for (const day of plan.days) {
+        if (!day.activities) continue;
+        day.activities.forEach((activity: PedagogicalActivityCandidate, actIdx: number) => {
+          const textKey = (activity.description || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (textKey.length > 25) {
+            const prior = seenActivities.get(textKey);
+            if (prior) {
+              violations.push({
+                ruleId: 'progression-literal-repetition-without-variation',
+                severity: 'WARNING',
+                message: `La actividad ${actIdx + 1} del ${day.dayOfWeek} es una repetición de la actividad ${prior.actIndex + 1} del ${prior.dayOfWeek}. Se sugiere incorporar una variación observable en mediación, interacción o exploración.`,
+                provenance: 'CANONICAL_PRODUCT_RULE',
+                dayOfWeek: day.dayOfWeek,
+                activityIndex: actIdx,
+                contextField: 'description',
+                riskRationale: 'La repetición con variación favorece el desarrollo infantil y enriquece la experiencia en el aula.'
+              });
+            } else {
+              seenActivities.set(textKey, { dayOfWeek: day.dayOfWeek, actIndex: actIdx });
+            }
+          }
+        });
+      }
+    }
+
+    // 4. Classify Violations into Blocking vs Warnings
     const blockingViolations = violations.filter(
       v =>
         v.severity === 'BLOCKING_SAFETY' ||

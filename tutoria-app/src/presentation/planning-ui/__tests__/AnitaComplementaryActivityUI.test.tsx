@@ -14,6 +14,11 @@ describe("Anita Daily Complementary Activity Entry UI (H1R9-F.6.2)", () => {
   let source: DeterministicPedagogicalRecommendationSource;
 
   beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    if (typeof window !== "undefined" && window.history) {
+      window.history.replaceState({}, "", "/");
+    }
     repository = new InMemoryWeeklyPlanningRepository();
     service = new PlanningWorkflowService(repository);
     source = new DeterministicPedagogicalRecommendationSource();

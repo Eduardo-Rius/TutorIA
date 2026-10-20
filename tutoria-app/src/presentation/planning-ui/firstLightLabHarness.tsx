@@ -12,6 +12,15 @@ export const FIRST_LIGHT_DAYCARE_ID = "00000000-0000-4000-8000-000000000001";
 export const FIRST_LIGHT_ROOM_ID = "room-lactantes-a";
 export const FIRST_LIGHT_PLANNING_ID = "f1000000-0000-4000-8000-000000000001";
 
+// Guardería 002 (Piloto Andrea)
+export const FIRST_LIGHT_G002_DAYCARE_ID = "00000000-0000-4000-8000-000000000002";
+export const FIRST_LIGHT_G002_TEACHER_EMAIL = "asistente.g002@lab.tutoria.invalid";
+export const FIRST_LIGHT_G002_TEACHER_ID = "lab-g002-asistente";
+export const FIRST_LIGHT_G002_DIRECTOR_EMAIL = "educadora.g002@lab.tutoria.invalid";
+export const FIRST_LIGHT_G002_DIRECTOR_ID = "lab-g002-educadora";
+export const FIRST_LIGHT_G002_SUPERVISOR_EMAIL = "directora.g002@lab.tutoria.invalid";
+export const FIRST_LIGHT_G002_SUPERVISOR_ID = "lab-g002-directora";
+
 export interface FirstLightGuardResult {
   readonly isEligible: boolean;
   readonly error?: string | undefined;
@@ -57,6 +66,14 @@ export interface FirstLightLabBannerProps {
   loginError?: string | null | undefined;
 }
 
+export type FirstLightIdentityOption =
+  | "G002_TEACHER"
+  | "G002_DIRECTOR"
+  | "G002_SUPERVISOR"
+  | "TEACHER"
+  | "DIRECTOR"
+  | "SUPERVISOR";
+
 /**
  * Developer-only banner displayed when First-Light LAB harness is active or blocked.
  * Enforces zero-leak password handling: password is never logged, persisted in storage,
@@ -72,7 +89,7 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
   loginError = null,
 }) => {
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"TEACHER" | "DIRECTOR" | "SUPERVISOR">("TEACHER");
+  const [selectedRole, setSelectedRole] = useState<FirstLightIdentityOption>("TEACHER");
 
   if (guardError) {
     return (
@@ -98,7 +115,13 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
     const currentPassword = password;
     setPassword(""); // Immediately clear password from component state
     const targetEmail =
-      selectedRole === "SUPERVISOR"
+      selectedRole === "G002_SUPERVISOR"
+        ? FIRST_LIGHT_G002_SUPERVISOR_EMAIL
+        : selectedRole === "G002_DIRECTOR"
+        ? FIRST_LIGHT_G002_DIRECTOR_EMAIL
+        : selectedRole === "G002_TEACHER"
+        ? FIRST_LIGHT_G002_TEACHER_EMAIL
+        : selectedRole === "SUPERVISOR"
         ? FIRST_LIGHT_TERE_EMAIL
         : selectedRole === "DIRECTOR"
         ? FIRST_LIGHT_CECI_EMAIL
@@ -109,6 +132,9 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
   const isTere = authenticatedEmail === FIRST_LIGHT_TERE_EMAIL;
   const isCeci = authenticatedEmail === FIRST_LIGHT_CECI_EMAIL;
   const isAnita = authenticatedEmail === FIRST_LIGHT_ANITA_EMAIL;
+  const isG002Tere = authenticatedEmail === FIRST_LIGHT_G002_SUPERVISOR_EMAIL;
+  const isG002Ceci = authenticatedEmail === FIRST_LIGHT_G002_DIRECTOR_EMAIL;
+  const isG002Anita = authenticatedEmail === FIRST_LIGHT_G002_TEACHER_EMAIL;
 
   return (
     <div
@@ -128,7 +154,15 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
         {authenticatedEmail ? (
           <div className="flex items-center gap-2" data-testid="first-light-auth-status">
             <span className="text-emerald-700 font-bold flex items-center gap-1">
-              <span>✅</span> {isTere ? `Directora (${FIRST_LIGHT_TERE_EMAIL})` : isCeci ? `Educadora (${FIRST_LIGHT_CECI_EMAIL})` : isAnita ? `Asistente Educativa (${FIRST_LIGHT_ANITA_EMAIL})` : authenticatedEmail}
+              <span>✅</span> {
+                isTere ? `Directora (${FIRST_LIGHT_TERE_EMAIL})` :
+                isCeci ? `Educadora (${FIRST_LIGHT_CECI_EMAIL})` :
+                isAnita ? `Asistente Educativa (${FIRST_LIGHT_ANITA_EMAIL})` :
+                isG002Tere ? `Directora — G002 (${FIRST_LIGHT_G002_SUPERVISOR_EMAIL})` :
+                isG002Ceci ? `Educadora — G002 (${FIRST_LIGHT_G002_DIRECTOR_EMAIL})` :
+                isG002Anita ? `Asistente Educativa — G002 (${FIRST_LIGHT_G002_TEACHER_EMAIL})` :
+                authenticatedEmail
+              }
             </span>
             <button
               type="button"
@@ -149,13 +183,20 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 id="first-light-identity-select"
                 data-testid="first-light-identity-select"
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as "TEACHER" | "DIRECTOR" | "SUPERVISOR")}
+                onChange={(e) => setSelectedRole(e.target.value as FirstLightIdentityOption)}
                 disabled={isLoggingIn}
                 className="text-xs bg-white border border-amber-300 rounded px-1.5 py-0.5 font-semibold text-amber-900 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
               >
-                <option value="TEACHER">Asistente Educativa</option>
-                <option value="DIRECTOR">Educadora</option>
-                <option value="SUPERVISOR">Directora</option>
+                <optgroup label="Guardería 002 (Andrea)">
+                  <option value="G002_TEACHER">Asistente Educativa — G002</option>
+                  <option value="G002_DIRECTOR">Educadora — G002</option>
+                  <option value="G002_SUPERVISOR">Directora — G002</option>
+                </optgroup>
+                <optgroup label="Guardería 001 (LAB PO)">
+                  <option value="TEACHER">Asistente Educativa (Anita - G001)</option>
+                  <option value="DIRECTOR">Educadora (Ceci - G001)</option>
+                  <option value="SUPERVISOR">Directora (Tere - G001)</option>
+                </optgroup>
               </select>
             </div>
             <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
@@ -163,9 +204,9 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 type="password"
                 data-testid="first-light-password-input"
                 placeholder={
-                  selectedRole === "SUPERVISOR"
+                  selectedRole === "G002_SUPERVISOR" || selectedRole === "SUPERVISOR"
                     ? "Contraseña de Directora LAB"
-                    : selectedRole === "DIRECTOR"
+                    : selectedRole === "G002_DIRECTOR" || selectedRole === "DIRECTOR"
                     ? "Contraseña de Educadora LAB"
                     : "Contraseña de Asistente Educativa LAB"
                 }
