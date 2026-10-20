@@ -575,7 +575,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
   const firstLightGuard = React.useMemo(() => evaluateFirstLightLabGuard(firstLightEnv), [firstLightEnv]);
   const devRoleSwitchEnv = (firstLightEnv?.VITE_DEV_ROLE_SWITCH ?? (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DEV_ROLE_SWITCH)) as string | undefined;
   const loginScopeEnv = (firstLightEnv?.[TUTORIA_LOGIN_SCOPE_FLAG] ?? (typeof import.meta !== 'undefined' && import.meta.env?.[TUTORIA_LOGIN_SCOPE_FLAG])) as string | undefined;
-  const showDevRoleBar = devRoleSwitchEnv !== 'false' && loginScopeEnv !== 'G002';
+  const canSwitchRoleFreely = devRoleSwitchEnv !== 'false' && loginScopeEnv !== 'G002' && !firstLightGuard.isEligible;
 
   const [firstLightAuthInstance] = useState<AuthenticationProvider>(() => {
     return firstLightAuth || new FirebaseAuthenticationProvider();
@@ -654,7 +654,6 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       );
     }
     return (
-      effectiveAuthorizedRooms[0] ||
       RoomCatalog.getRoom('room-lactantes-c') ||
       RoomCatalog.getRoom('lactantes-c') || {
         roomId: 'room-lactantes-c',
@@ -1387,83 +1386,87 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           loginScope={loginScopeEnv}
         />
       )}
-      {showDevRoleBar && (
-        <div className="bg-[#f8f9fa] py-1.5 px-4 text-center text-xs print:hidden flex items-center justify-center gap-4 border-b border-gray-200/60">
-          <span className="font-medium text-gray-400 uppercase tracking-widest text-[10px]">Modo Demo</span>
-          <select value={modality} onChange={(e) => setModality(e.target.value as 'DIRECT' | 'INDIRECT')} className="text-xs bg-white border border-gray-300 rounded px-2 py-1 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary">
-            <option value="DIRECT">Prestación Directa (LAB)</option>
-            <option value="INDIRECT">Prestación Indirecta (LAB)</option>
-          </select>
-          <div className="flex items-center gap-1 text-[10px] text-gray-400 ml-2">
-            <span>Fecha Demo:</span>
-            <button onClick={() => setSimulatedDate('2026-08-23')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-23' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>23</button>
-            <button onClick={() => setSimulatedDate('2026-08-24')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-24' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>24 (L)</button>
-            <button onClick={() => setSimulatedDate('2026-08-25')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-25' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>25 (M)</button>
-            <button onClick={() => setSimulatedDate('2026-08-26')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-26' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>26 (X)</button>
-            <button onClick={() => setSimulatedDate('2026-08-27')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-27' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>27 (J)</button>
-            <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>28 (V)</button>
-          </div>
-          <button
-            data-testid="role-btn-teacher"
-            onClick={() => {
-              if (!firstLightGuard.isEligible) {
-                handleRoleChange('TEACHER');
-              }
-            }}
-            disabled={firstLightGuard.isEligible && role !== 'TEACHER'}
-            className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
-              role === 'TEACHER'
-                ? 'bg-role-teacher text-white shadow-sm'
-                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-            } ${firstLightGuard.isEligible && role !== 'TEACHER' ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <img src={personas.anita} alt="Asistente Educativa" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-            <span>Asistente Educativa</span>
-            <span className="sr-only">Anita (Pedagoga)</span>
-          </button>
-          <button
-            data-testid="role-btn-director"
-            onClick={() => {
-              if (!firstLightGuard.isEligible) {
-                handleRoleChange('DIRECTOR');
-              }
-            }}
-            disabled={firstLightGuard.isEligible && role !== 'DIRECTOR'}
-            className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
-              role === 'DIRECTOR'
-                ? 'bg-role-director text-white shadow-sm'
-                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-            } ${firstLightGuard.isEligible && role !== 'DIRECTOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <img src={personas.ceci} alt="Educadora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-            <span>Educadora</span>
-            <span className="sr-only">Ceci (Directora)</span>
-          </button>
-          <button
-            data-testid="role-btn-supervisor"
-            onClick={() => {
-              if (!firstLightGuard.isEligible) {
-                handleRoleChange('SUPERVISOR');
-              }
-            }}
-            disabled={firstLightGuard.isEligible && role !== 'SUPERVISOR'}
-            className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
-              role === 'SUPERVISOR'
-                ? 'bg-role-supervisor text-white shadow-sm'
-                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-            } ${firstLightGuard.isEligible && role !== 'SUPERVISOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <img src={personas.tere} alt="Directora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-            <span>Directora</span>
-            <span className="sr-only">Tere (Supervisora)</span>
-          </button>
+      <div data-testid="top-demo-bar" className="bg-[#f8f9fa] py-1.5 px-4 text-center text-xs print:hidden flex items-center justify-center gap-4 border-b border-gray-200/60">
+        <span className="font-medium text-gray-400 uppercase tracking-widest text-[10px]">Modo Demo</span>
+        <select
+          data-testid="modality-select"
+          aria-label="Modalidad de guardería"
+          value={modality}
+          onChange={(e) => setModality(e.target.value as 'DIRECT' | 'INDIRECT')}
+          className="text-xs bg-white border border-gray-300 rounded px-2 py-1 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+        >
+          <option value="DIRECT">Prestación Directa (LAB)</option>
+          <option value="INDIRECT">Prestación Indirecta (LAB)</option>
+        </select>
+        <div className="flex items-center gap-1 text-[10px] text-gray-400 ml-2">
+          <span>Fecha Demo:</span>
+          <button onClick={() => setSimulatedDate('2026-08-23')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-23' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>23</button>
+          <button onClick={() => setSimulatedDate('2026-08-24')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-24' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>24 (L)</button>
+          <button onClick={() => setSimulatedDate('2026-08-25')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-25' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>25 (M)</button>
+          <button onClick={() => setSimulatedDate('2026-08-26')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-26' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>26 (X)</button>
+          <button onClick={() => setSimulatedDate('2026-08-27')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-27' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>27 (J)</button>
+          <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>28 (V)</button>
         </div>
-      )}
+        <button
+          data-testid="role-btn-teacher"
+          onClick={() => {
+            if (canSwitchRoleFreely) {
+              handleRoleChange('TEACHER');
+            }
+          }}
+          disabled={!canSwitchRoleFreely && role !== 'TEACHER'}
+          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
+            role === 'TEACHER'
+              ? 'bg-role-teacher text-white shadow-sm'
+              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+          } ${!canSwitchRoleFreely && role !== 'TEACHER' ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          <img src={personas.anita} alt="Asistente Educativa" className="w-6 h-6 rounded-full object-cover bg-white/20" />
+          <span>Asistente Educativa</span>
+          <span className="sr-only">{loginScopeEnv === 'G002' ? 'Asistente Educativa' : 'Anita (Pedagoga)'}</span>
+        </button>
+        <button
+          data-testid="role-btn-director"
+          onClick={() => {
+            if (canSwitchRoleFreely) {
+              handleRoleChange('DIRECTOR');
+            }
+          }}
+          disabled={!canSwitchRoleFreely && role !== 'DIRECTOR'}
+          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
+            role === 'DIRECTOR'
+              ? 'bg-role-director text-white shadow-sm'
+              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+          } ${!canSwitchRoleFreely && role !== 'DIRECTOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          <img src={personas.ceci} alt="Educadora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
+          <span>Educadora</span>
+          <span className="sr-only">{loginScopeEnv === 'G002' ? 'Educadora' : 'Ceci (Directora)'}</span>
+        </button>
+        <button
+          data-testid="role-btn-supervisor"
+          onClick={() => {
+            if (canSwitchRoleFreely) {
+              handleRoleChange('SUPERVISOR');
+            }
+          }}
+          disabled={!canSwitchRoleFreely && role !== 'SUPERVISOR'}
+          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
+            role === 'SUPERVISOR'
+              ? 'bg-role-supervisor text-white shadow-sm'
+              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+          } ${!canSwitchRoleFreely && role !== 'SUPERVISOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          <img src={personas.tere} alt="Directora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
+          <span>Directora</span>
+          <span className="sr-only">{loginScopeEnv === 'G002' ? 'Directora' : 'Tere (Supervisora)'}</span>
+        </button>
+      </div>
 
       <div className="py-4 mb-8 bg-surface-warm print:hidden border-b border-border-soft relative">
         <div className="max-w-6xl mx-auto w-full px-4 flex flex-col md:flex-row items-center justify-between">
           <div className="w-full md:w-1/3 flex justify-start mb-4 md:mb-0">
-            <button onClick={() => window.location.href = '/workspace'} className="flex items-center gap-2 bg-[#f9f7f2] hover:bg-white border border-[#e8e4d9] hover:border-[#d6d1c4] px-4 py-2 rounded-xl text-[#524b42] hover:text-[#3d3730] transition-all shadow-sm hover:shadow text-sm font-medium">
+            <button onClick={() => window.location.href = loginScopeEnv === 'G002' ? '/' : '/workspace'} className="flex items-center gap-2 bg-[#f9f7f2] hover:bg-white border border-[#e8e4d9] hover:border-[#d6d1c4] px-4 py-2 rounded-xl text-[#524b42] hover:text-[#3d3730] transition-all shadow-sm hover:shadow text-sm font-medium">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><path d="m15 18-6-6 6-6"/></svg>
               Mi espacio
             </button>

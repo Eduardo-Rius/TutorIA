@@ -14,63 +14,84 @@ import { LoadingState } from './components/layouts';
 import { Stack } from './components/foundations';
 import { Heading, Text } from './components/primitives';
 
+import { evaluateFirstLightLabGuard, resolveLoginScope } from './presentation/planning-ui/firstLightLabHarness';
+
 const infra = createInfrastructure();
 const app = createApplication(infra);
 
-function App() {
+export interface AppProps {
+  env?: Record<string, any>;
+}
+
+export function App({ env }: AppProps = {}) {
+  const isFirstLightLab = evaluateFirstLightLabGuard(env).isEligible;
+  const isAndreaSite = isFirstLightLab && resolveLoginScope(undefined, env) === 'G002';
+
   return (
     <AppProviders infra={infra} app={app}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={
-            <AuthorizationBoundary
-              unauthorized={<LoginPage />}
-              loading={<LoadingState text="Validando sesión..." />}
-            >
-              <Navigate to="/workspace" replace />
-            </AuthorizationBoundary>
-          } />
-
-          <Route path="/workspace" element={
-            <AuthorizationBoundary
-              unauthorized={<Navigate to="/login" replace />}
-              loading={<LoadingState text="Cargando aplicación..." />}
-            >
-              <ContextBoundary
-                loading={<LoadingState text="Cargando contexto institucional..." />}
-                noMemberships={
-                  <Stack align="center" justify="center" className="min-h-screen bg-surface-base text-center p-6">
-                    <Heading as="h1" size="xl">Pendiente de Aprobación</Heading>
-                    <Text color="secondary">Tu cuenta no tiene centros asignados actualmente.</Text>
-                  </Stack>
-                }
-                selector={<ContextSelector />}
+        {isAndreaSite ? (
+          <Routes>
+            <Route path="/" element={<PlanningDashboard firstLightEnv={env} />} />
+            <Route path="/workspace/planning" element={<PlanningDashboard firstLightEnv={env} />} />
+            <Route path="/workspace/planning/new" element={<PlanningDashboard firstLightEnv={env} initialAction="new" />} />
+            <Route path="/workspace" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        ) : (
+          <Routes>
+            <Route path="/login" element={
+              <AuthorizationBoundary
+                unauthorized={<LoginPage />}
+                loading={<LoadingState text="Validando sesión..." />}
               >
-                <OperationalWorkspace />
-              </ContextBoundary>
-            </AuthorizationBoundary>
-          } />
+                <Navigate to="/workspace" replace />
+              </AuthorizationBoundary>
+            } />
 
-          <Route path="/workspace/planning" element={
-            <AuthorizationBoundary
-              unauthorized={<Navigate to="/login" replace />}
-              loading={<LoadingState text="Cargando aplicación..." />}
-            >
-              <ContextBoundary
-                loading={<LoadingState text="Cargando contexto institucional..." />}
-                noMemberships={<Navigate to="/workspace" replace />}
-                selector={<ContextSelector />}
+            <Route path="/workspace" element={
+              <AuthorizationBoundary
+                unauthorized={<Navigate to="/login" replace />}
+                loading={<LoadingState text="Cargando aplicación..." />}
               >
-                <PlanningDashboard />
-              </ContextBoundary>
-            </AuthorizationBoundary>
-          } />
+                <ContextBoundary
+                  loading={<LoadingState text="Cargando contexto institucional..." />}
+                  noMemberships={
+                    <Stack align="center" justify="center" className="min-h-screen bg-surface-base text-center p-6">
+                      <Heading as="h1" size="xl">Pendiente de Aprobación</Heading>
+                      <Text color="secondary">Tu cuenta no tiene centros asignados actualmente.</Text>
+                    </Stack>
+                  }
+                  selector={<ContextSelector />}
+                >
+                  <OperationalWorkspace />
+                </ContextBoundary>
+              </AuthorizationBoundary>
+            } />
 
-          <Route path="/workspace/planning/new" element={<Navigate to="/workspace/planning" replace />} />
+            <Route path="/workspace/planning" element={
+              <AuthorizationBoundary
+                unauthorized={<Navigate to="/login" replace />}
+                loading={<LoadingState text="Cargando aplicación..." />}
+              >
+                <ContextBoundary
+                  loading={<LoadingState text="Cargando contexto institucional..." />}
+                  noMemberships={<Navigate to="/workspace" replace />}
+                  selector={<ContextSelector />}
+                >
+                  <PlanningDashboard />
+                </ContextBoundary>
+              </AuthorizationBoundary>
+            } />
 
-          <Route path="/home" element={<Navigate to="/workspace" replace />} />
-          <Route path="/" element={<Navigate to="/workspace" replace />} />
-        </Routes>
+            <Route path="/workspace/planning/new" element={<Navigate to="/workspace/planning" replace />} />
+
+            <Route path="/home" element={<Navigate to="/workspace" replace />} />
+            <Route path="/" element={<Navigate to="/workspace" replace />} />
+          </Routes>
+        )}
       </BrowserRouter>
     </AppProviders>
   );

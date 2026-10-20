@@ -10,6 +10,7 @@ import {
   FIRST_LIGHT_PLANNING_ID,
   TUTORIA_LOGIN_SCOPE_FLAG,
   FIRST_LIGHT_G002_TEACHER_EMAIL,
+  FIRST_LIGHT_G002_TEACHER_ID,
   FIRST_LIGHT_G002_DIRECTOR_EMAIL,
   FIRST_LIGHT_G002_SUPERVISOR_EMAIL,
   FIRST_LIGHT_G002_DAYCARE_ID,
@@ -700,11 +701,11 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
       expect(queryByText(/G001/i)).toBeNull();
     });
 
-    it("6. Modo Demo bar is completely hidden when VITE_DEV_ROLE_SWITCH=false or loginScope=G002", () => {
+    it("6. SR-MD-26K: Modo Demo bar is visible in Netlify G002 with modality selector, demo dates, and secure disabled role indicators", () => {
       const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
       const source = new DeterministicPedagogicalRecommendationSource();
 
-      const { queryByText } = render(
+      const { getByText, getByTestId, queryByText } = render(
         <PlanningDemoApp
           service={service}
           source={source}
@@ -717,19 +718,37 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
         />
       );
 
-      // Verify Modo Demo bar does not exist in DOM
-      expect(queryByText("Modo Demo")).toBeNull();
-      expect(queryByText("Fecha Demo:")).toBeNull();
+      // Verify Modo Demo bar exists in DOM
+      expect(getByText("Modo Demo")).toBeTruthy();
+      expect(getByText("Fecha Demo:")).toBeTruthy();
+
+      // Verify Modality selector is present with both options
+      const modalitySelect = getByTestId("modality-select") as HTMLSelectElement;
+      expect(modalitySelect).toBeTruthy();
+      expect(modalitySelect.value).toBe("DIRECT");
+      expect(getByText("Prestación Directa (LAB)")).toBeTruthy();
+      expect(getByText("Prestación Indirecta (LAB)")).toBeTruthy();
+
+      // Verify G001 persona names are NOT in DOM (replaced by institutional labels)
       expect(queryByText("Anita (Pedagoga)")).toBeNull();
       expect(queryByText("Ceci (Directora)")).toBeNull();
       expect(queryByText("Tere (Supervisora)")).toBeNull();
+
+      // Verify role buttons are strictly non-interactive indicators
+      const directorBtn = getByTestId("role-btn-director") as HTMLButtonElement;
+      const supervisorBtn = getByTestId("role-btn-supervisor") as HTMLButtonElement;
+      expect(directorBtn.disabled).toBe(true);
+      expect(supervisorBtn.disabled).toBe(true);
+
+      fireEvent.click(directorBtn);
+      expect(directorBtn.disabled).toBe(true);
     });
 
     it("7. Modo Demo bar is visible for PO local environment when VITE_DEV_ROLE_SWITCH is not false", () => {
       const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
       const source = new DeterministicPedagogicalRecommendationSource();
 
-      const { getByText } = render(
+      const { getByText, getByTestId } = render(
         <PlanningDemoApp
           service={service}
           source={source}
@@ -744,6 +763,7 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
 
       expect(getByText("Modo Demo")).toBeTruthy();
       expect(getByText("Fecha Demo:")).toBeTruthy();
+      expect(getByTestId("modality-select")).toBeTruthy();
     });
 
     it("8. In First Light mode, role cannot be switched via demo buttons; logout is required", () => {
@@ -773,6 +793,50 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
       // Clicking does nothing
       fireEvent.click(directorBtn);
       expect(directorBtn.disabled).toBe(true);
+    });
+
+    it("9. SR-MD-26K: Changing modality in Modo Demo bar updates planning context and UI without resetting room selection", async () => {
+      const mockAuth: AuthenticationProvider = {
+        login: vi.fn().mockResolvedValue(undefined),
+        logout: vi.fn().mockResolvedValue(undefined),
+        restoreSession: vi.fn().mockResolvedValue(FIRST_LIGHT_G002_TEACHER_ID),
+        getCurrentUser: vi.fn().mockReturnValue(FIRST_LIGHT_G002_TEACHER_ID),
+      };
+
+      const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
+      const source = new DeterministicPedagogicalRecommendationSource();
+
+      const { getByTestId, findByText, getByText } = render(
+        <PlanningDemoApp
+          service={service}
+          source={source}
+          firstLightAuth={mockAuth}
+          firstLightEnv={{
+            [FIRST_LIGHT_LAB_FLAG]: "true",
+            VITE_FIREBASE_PROJECT_ID: FIRST_LIGHT_LAB_PROJECT_ID,
+            VITE_DEV_ROLE_SWITCH: "false",
+            [TUTORIA_LOGIN_SCOPE_FLAG]: "G002",
+          }}
+        />
+      );
+
+      const modalitySelect = getByTestId("modality-select") as HTMLSelectElement;
+      expect(modalitySelect.value).toBe("DIRECT");
+
+      // Initially displays Directa badge in list header once authenticated
+      expect(await findByText("Prestación Directa")).toBeTruthy();
+
+      // Switch to INDIRECT
+      fireEvent.change(modalitySelect, { target: { value: "INDIRECT" } });
+      expect(modalitySelect.value).toBe("INDIRECT");
+
+      // Verify UI reflects Indirecta badge
+      expect(getByText("Prestación Indirecta")).toBeTruthy();
+
+      // Switch back to DIRECT
+      fireEvent.change(modalitySelect, { target: { value: "DIRECT" } });
+      expect(modalitySelect.value).toBe("DIRECT");
+      expect(getByText("Prestación Directa")).toBeTruthy();
     });
   });
 });
