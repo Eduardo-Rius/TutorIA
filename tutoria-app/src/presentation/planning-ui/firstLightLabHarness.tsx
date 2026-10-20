@@ -21,6 +21,19 @@ export const FIRST_LIGHT_G002_DIRECTOR_ID = "lab-g002-educadora";
 export const FIRST_LIGHT_G002_SUPERVISOR_EMAIL = "directora.g002@lab.tutoria.invalid";
 export const FIRST_LIGHT_G002_SUPERVISOR_ID = "lab-g002-directora";
 
+export const TUTORIA_LOGIN_SCOPE_FLAG = "VITE_TUTORIA_LOGIN_SCOPE";
+export type TutoriaLoginScope = "G001" | "G002" | "ALL";
+
+export function resolveLoginScope(
+  propScope?: string,
+  env: Record<string, any> = (typeof import.meta !== "undefined" && import.meta.env) ? import.meta.env : {}
+): TutoriaLoginScope {
+  const raw = (propScope || env[TUTORIA_LOGIN_SCOPE_FLAG] || "").toUpperCase().trim();
+  if (raw === "G002") return "G002";
+  if (raw === "G001") return "G001";
+  return "ALL";
+}
+
 export interface FirstLightGuardResult {
   readonly isEligible: boolean;
   readonly error?: string | undefined;
@@ -64,6 +77,7 @@ export interface FirstLightLabBannerProps {
   onLogout: () => Promise<void>;
   isLoggingIn?: boolean | undefined;
   loginError?: string | null | undefined;
+  loginScope?: string | undefined;
 }
 
 export type FirstLightIdentityOption =
@@ -87,9 +101,13 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
   onLogout,
   isLoggingIn = false,
   loginError = null,
+  loginScope,
 }) => {
+  const effectiveScope = resolveLoginScope(loginScope);
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<FirstLightIdentityOption>("TEACHER");
+  const [selectedRole, setSelectedRole] = useState<FirstLightIdentityOption>(
+    effectiveScope === "G002" ? "G002_TEACHER" : "TEACHER"
+  );
 
   if (guardError) {
     return (
@@ -155,13 +173,20 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
           <div className="flex items-center gap-2" data-testid="first-light-auth-status">
             <span className="text-emerald-700 font-bold flex items-center gap-1">
               <span>✅</span> {
-                isTere ? `Directora (${FIRST_LIGHT_TERE_EMAIL})` :
-                isCeci ? `Educadora (${FIRST_LIGHT_CECI_EMAIL})` :
-                isAnita ? `Asistente Educativa (${FIRST_LIGHT_ANITA_EMAIL})` :
-                isG002Tere ? `Directora — G002 (${FIRST_LIGHT_G002_SUPERVISOR_EMAIL})` :
-                isG002Ceci ? `Educadora — G002 (${FIRST_LIGHT_G002_DIRECTOR_EMAIL})` :
-                isG002Anita ? `Asistente Educativa — G002 (${FIRST_LIGHT_G002_TEACHER_EMAIL})` :
-                authenticatedEmail
+                effectiveScope === "G002" ? (
+                  isG002Tere ? `Directora (${FIRST_LIGHT_G002_SUPERVISOR_EMAIL})` :
+                  isG002Ceci ? `Educadora (${FIRST_LIGHT_G002_DIRECTOR_EMAIL})` :
+                  isG002Anita ? `Asistente Educativa (${FIRST_LIGHT_G002_TEACHER_EMAIL})` :
+                  authenticatedEmail
+                ) : (
+                  isTere ? `Directora (${FIRST_LIGHT_TERE_EMAIL})` :
+                  isCeci ? `Educadora (${FIRST_LIGHT_CECI_EMAIL})` :
+                  isAnita ? `Asistente Educativa (${FIRST_LIGHT_ANITA_EMAIL})` :
+                  isG002Tere ? `Directora — G002 (${FIRST_LIGHT_G002_SUPERVISOR_EMAIL})` :
+                  isG002Ceci ? `Educadora — G002 (${FIRST_LIGHT_G002_DIRECTOR_EMAIL})` :
+                  isG002Anita ? `Asistente Educativa — G002 (${FIRST_LIGHT_G002_TEACHER_EMAIL})` :
+                  authenticatedEmail
+                )
               }
             </span>
             <button
@@ -187,16 +212,32 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 disabled={isLoggingIn}
                 className="text-xs bg-white border border-amber-300 rounded px-1.5 py-0.5 font-semibold text-amber-900 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
               >
-                <optgroup label="Guardería 002 (Andrea)">
-                  <option value="G002_TEACHER">Asistente Educativa — G002</option>
-                  <option value="G002_DIRECTOR">Educadora — G002</option>
-                  <option value="G002_SUPERVISOR">Directora — G002</option>
-                </optgroup>
-                <optgroup label="Guardería 001 (LAB PO)">
-                  <option value="TEACHER">Asistente Educativa (Anita - G001)</option>
-                  <option value="DIRECTOR">Educadora (Ceci - G001)</option>
-                  <option value="SUPERVISOR">Directora (Tere - G001)</option>
-                </optgroup>
+                {effectiveScope === "G002" ? (
+                  <>
+                    <option value="G002_TEACHER">Asistente Educativa</option>
+                    <option value="G002_DIRECTOR">Educadora</option>
+                    <option value="G002_SUPERVISOR">Directora</option>
+                  </>
+                ) : effectiveScope === "G001" ? (
+                  <>
+                    <option value="TEACHER">Asistente Educativa (Anita - G001)</option>
+                    <option value="DIRECTOR">Educadora (Ceci - G001)</option>
+                    <option value="SUPERVISOR">Directora (Tere - G001)</option>
+                  </>
+                ) : (
+                  <>
+                    <optgroup label="Guardería 002 (Andrea)">
+                      <option value="G002_TEACHER">Asistente Educativa — G002</option>
+                      <option value="G002_DIRECTOR">Educadora — G002</option>
+                      <option value="G002_SUPERVISOR">Directora — G002</option>
+                    </optgroup>
+                    <optgroup label="Guardería 001 (LAB PO)">
+                      <option value="TEACHER">Asistente Educativa (Anita - G001)</option>
+                      <option value="DIRECTOR">Educadora (Ceci - G001)</option>
+                      <option value="SUPERVISOR">Directora (Tere - G001)</option>
+                    </optgroup>
+                  </>
+                )}
               </select>
             </div>
             <form onSubmit={handleSubmit} className="flex items-center gap-1.5">

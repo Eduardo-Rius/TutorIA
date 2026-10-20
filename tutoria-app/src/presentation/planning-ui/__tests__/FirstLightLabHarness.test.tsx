@@ -8,6 +8,13 @@ import {
   FIRST_LIGHT_LAB_PROJECT_ID,
   FIRST_LIGHT_ANITA_EMAIL,
   FIRST_LIGHT_PLANNING_ID,
+  TUTORIA_LOGIN_SCOPE_FLAG,
+  FIRST_LIGHT_G002_TEACHER_EMAIL,
+  FIRST_LIGHT_G002_DIRECTOR_EMAIL,
+  FIRST_LIGHT_G002_SUPERVISOR_EMAIL,
+  FIRST_LIGHT_G002_DAYCARE_ID,
+  FIRST_LIGHT_DAYCARE_ID,
+  resolveLoginScope,
 } from "../firstLightLabHarness";
 import { PlanningDemoApp } from "../PlanningDemoApp";
 import { PlanningWorkflowService } from "../../../application/planning/PlanningWorkflowService";
@@ -590,4 +597,183 @@ describe("H1R10.10 — Controlled First-Light Client Harness", () => {
       expect(clientEnv.FIXTURE_PASSWORD).toBeUndefined();
     });
   });
+
+  // ==========================================
+  // SECTION 14: TESTS — DUAL LOGIN SCOPE & DEV ROLE BAR
+  // ==========================================
+  describe("Section 14 — SR-MD-26H: Dual Login Scope (G001 Local PO vs G002 Netlify Andrea) & Dev Role Bar Invariants", () => {
+    it("1. resolveLoginScope correctly resolves G002, G001, ALL, and defaults to ALL", () => {
+      expect(resolveLoginScope("G002")).toBe("G002");
+      expect(resolveLoginScope("g002")).toBe("G002");
+      expect(resolveLoginScope("G001")).toBe("G001");
+      expect(resolveLoginScope("ALL")).toBe("ALL");
+      expect(resolveLoginScope(undefined, { [TUTORIA_LOGIN_SCOPE_FLAG]: "G002" })).toBe("G002");
+      expect(resolveLoginScope(undefined, { [TUTORIA_LOGIN_SCOPE_FLAG]: "G001" })).toBe("G001");
+      expect(resolveLoginScope(undefined, {})).toBe("ALL");
+    });
+
+    it("2. In G002 scope, FirstLightLabBanner shows ONLY Andrea accounts and zero G001 references", () => {
+      const { getByTestId, queryByText } = render(
+        <FirstLightLabBanner
+          isEligible={true}
+          authenticatedEmail={null}
+          onLogin={vi.fn()}
+          onLogout={vi.fn()}
+          loginScope="G002"
+        />
+      );
+
+      const select = getByTestId("first-light-identity-select") as HTMLSelectElement;
+      const options = Array.from(select.options).map((o) => o.textContent);
+
+      // Verify exclusively 3 options: Asistente Educativa, Educadora, Directora
+      expect(options).toEqual(["Asistente Educativa", "Educadora", "Directora"]);
+
+      // Verify zero mention of G001 or Anita/Ceci/Tere
+      expect(queryByText(/Anita/i)).toBeNull();
+      expect(queryByText(/Ceci/i)).toBeNull();
+      expect(queryByText(/Tere/i)).toBeNull();
+      expect(queryByText(/G001/i)).toBeNull();
+    });
+
+    it("3. In G001 scope, FirstLightLabBanner shows ONLY G001 accounts", () => {
+      const { getByTestId, queryByText } = render(
+        <FirstLightLabBanner
+          isEligible={true}
+          authenticatedEmail={null}
+          onLogin={vi.fn()}
+          onLogout={vi.fn()}
+          loginScope="G001"
+        />
+      );
+
+      const select = getByTestId("first-light-identity-select") as HTMLSelectElement;
+      const options = Array.from(select.options).map((o) => o.textContent);
+
+      expect(options.some((o) => o?.includes("Anita"))).toBe(true);
+      expect(options.some((o) => o?.includes("Ceci"))).toBe(true);
+      expect(options.some((o) => o?.includes("Tere"))).toBe(true);
+      expect(queryByText(/Guardería 002/i)).toBeNull();
+    });
+
+    it("4. In G002 scope, default role is G002_TEACHER and authenticating passes G002 email", async () => {
+      const mockLogin = vi.fn().mockResolvedValue(undefined);
+      const { getByTestId } = render(
+        <FirstLightLabBanner
+          isEligible={true}
+          authenticatedEmail={null}
+          onLogin={mockLogin}
+          onLogout={vi.fn()}
+          loginScope="G002"
+        />
+      );
+
+      const passwordInput = getByTestId("first-light-password-input");
+      const submitBtn = getByTestId("first-light-login-btn");
+
+      fireEvent.change(passwordInput, { target: { value: "secret-g002-pass" } });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenCalledWith(
+          "secret-g002-pass",
+          FIRST_LIGHT_G002_TEACHER_EMAIL
+        );
+      });
+    });
+
+    it("5. In G002 authenticated state, display shows clean role title and G002 email without G001 contamination", () => {
+      const { getByTestId, queryByText } = render(
+        <FirstLightLabBanner
+          isEligible={true}
+          authenticatedEmail={FIRST_LIGHT_G002_DIRECTOR_EMAIL}
+          onLogin={vi.fn()}
+          onLogout={vi.fn()}
+          loginScope="G002"
+        />
+      );
+
+      const authStatus = getByTestId("first-light-auth-status");
+      expect(authStatus.textContent).toContain("Educadora");
+      expect(authStatus.textContent).toContain(FIRST_LIGHT_G002_DIRECTOR_EMAIL);
+      expect(queryByText(/Ceci/i)).toBeNull();
+      expect(queryByText(/G001/i)).toBeNull();
+    });
+
+    it("6. Modo Demo bar is completely hidden when VITE_DEV_ROLE_SWITCH=false or loginScope=G002", () => {
+      const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
+      const source = new DeterministicPedagogicalRecommendationSource();
+
+      const { queryByText } = render(
+        <PlanningDemoApp
+          service={service}
+          source={source}
+          firstLightEnv={{
+            [FIRST_LIGHT_LAB_FLAG]: "true",
+            VITE_FIREBASE_PROJECT_ID: FIRST_LIGHT_LAB_PROJECT_ID,
+            VITE_DEV_ROLE_SWITCH: "false",
+            [TUTORIA_LOGIN_SCOPE_FLAG]: "G002",
+          }}
+        />
+      );
+
+      // Verify Modo Demo bar does not exist in DOM
+      expect(queryByText("Modo Demo")).toBeNull();
+      expect(queryByText("Fecha Demo:")).toBeNull();
+      expect(queryByText("Anita (Pedagoga)")).toBeNull();
+      expect(queryByText("Ceci (Directora)")).toBeNull();
+      expect(queryByText("Tere (Supervisora)")).toBeNull();
+    });
+
+    it("7. Modo Demo bar is visible for PO local environment when VITE_DEV_ROLE_SWITCH is not false", () => {
+      const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
+      const source = new DeterministicPedagogicalRecommendationSource();
+
+      const { getByText } = render(
+        <PlanningDemoApp
+          service={service}
+          source={source}
+          firstLightEnv={{
+            [FIRST_LIGHT_LAB_FLAG]: "true",
+            VITE_FIREBASE_PROJECT_ID: FIRST_LIGHT_LAB_PROJECT_ID,
+            VITE_DEV_ROLE_SWITCH: "true",
+            [TUTORIA_LOGIN_SCOPE_FLAG]: "G001",
+          }}
+        />
+      );
+
+      expect(getByText("Modo Demo")).toBeTruthy();
+      expect(getByText("Fecha Demo:")).toBeTruthy();
+    });
+
+    it("8. In First Light mode, role cannot be switched via demo buttons; logout is required", () => {
+      const service = new PlanningWorkflowService(new InMemoryWeeklyPlanningRepository());
+      const source = new DeterministicPedagogicalRecommendationSource();
+
+      const { getByTestId } = render(
+        <PlanningDemoApp
+          service={service}
+          source={source}
+          firstLightEnv={{
+            [FIRST_LIGHT_LAB_FLAG]: "true",
+            VITE_FIREBASE_PROJECT_ID: FIRST_LIGHT_LAB_PROJECT_ID,
+            VITE_DEV_ROLE_SWITCH: "true",
+            [TUTORIA_LOGIN_SCOPE_FLAG]: "G001",
+          }}
+        />
+      );
+
+      const directorBtn = getByTestId("role-btn-director") as HTMLButtonElement;
+      const supervisorBtn = getByTestId("role-btn-supervisor") as HTMLButtonElement;
+
+      // Because First Light is active and initial role is TEACHER:
+      expect(directorBtn.disabled).toBe(true);
+      expect(supervisorBtn.disabled).toBe(true);
+
+      // Clicking does nothing
+      fireEvent.click(directorBtn);
+      expect(directorBtn.disabled).toBe(true);
+    });
+  });
 });
+
