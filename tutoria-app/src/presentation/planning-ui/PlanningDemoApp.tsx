@@ -132,6 +132,8 @@ export function getInstitutionalActorLabel(actor: string | undefined | null, roo
     a === 'Anita' ||
     a === FIRST_LIGHT_TEACHER_ID ||
     a === FIRST_LIGHT_ANITA_EMAIL ||
+    a === FIRST_LIGHT_G002_TEACHER_ID ||
+    a === FIRST_LIGHT_G002_TEACHER_EMAIL ||
     a === 'TEACHER'
   ) {
     return getAssistantRoleLabel(roomId);
@@ -141,7 +143,9 @@ export function getInstitutionalActorLabel(actor: string | undefined | null, roo
     a === 'Ceci' ||
     a === 'DIRECTOR' ||
     a === FIRST_LIGHT_DIRECTOR_ID ||
-    a === FIRST_LIGHT_CECI_EMAIL
+    a === FIRST_LIGHT_CECI_EMAIL ||
+    a === FIRST_LIGHT_G002_DIRECTOR_ID ||
+    a === FIRST_LIGHT_G002_DIRECTOR_EMAIL
   ) {
     return 'Educadora';
   }
@@ -150,7 +154,9 @@ export function getInstitutionalActorLabel(actor: string | undefined | null, roo
     a === 'Tere' ||
     a === 'SUPERVISOR' ||
     a === FIRST_LIGHT_SUPERVISOR_ID ||
-    a === FIRST_LIGHT_TERE_EMAIL
+    a === FIRST_LIGHT_TERE_EMAIL ||
+    a === FIRST_LIGHT_G002_SUPERVISOR_ID ||
+    a === FIRST_LIGHT_G002_SUPERVISOR_EMAIL
   ) {
     return 'Directora';
   }
@@ -1585,6 +1591,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                 planId={selectedPlanId!}
                 authenticatedDirectorId={firstLightGuard.isEligible ? authenticatedTeacherId : undefined}
                 isFirstLight={firstLightGuard.isEligible}
+                daycareId={firstLightGuard.isEligible ? authenticatedDaycareId : undefined}
                 onBack={handleBackToList}
                 onSaved={triggerRefresh}
                 onViewOfficial={() => setView('PRINT')}
@@ -3453,6 +3460,7 @@ const DirectorReview = ({
   activeRoom,
   authenticatedDirectorId,
   isFirstLight = false,
+  daycareId,
 }: {
   service: PlanningWorkflowService;
   planId: string;
@@ -3462,6 +3470,7 @@ const DirectorReview = ({
   activeRoom?: Room | undefined;
   authenticatedDirectorId?: string | null | undefined;
   isFirstLight?: boolean | undefined;
+  daycareId?: string | null | undefined;
 }) => {
   const [plan, setPlan] = useState<any>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(0);
@@ -3482,10 +3491,15 @@ const DirectorReview = ({
 
   const getEffectiveDirectorId = (): string => {
     if (authenticatedDirectorId && authenticatedDirectorId.trim()) {
-      if (isFirstLight && authenticatedDirectorId.trim() !== FIRST_LIGHT_DIRECTOR_ID) {
+      const trimmed = authenticatedDirectorId.trim();
+      if (
+        isFirstLight &&
+        trimmed !== FIRST_LIGHT_DIRECTOR_ID &&
+        trimmed !== FIRST_LIGHT_G002_DIRECTOR_ID
+      ) {
         throw new Error('Identidad de Dirección no autorizada en First Light LAB.');
       }
-      return authenticatedDirectorId.trim();
+      return trimmed;
     }
     if (isFirstLight) {
       throw new Error('No hay una identidad de Dirección autenticada en First Light LAB.');
@@ -3493,7 +3507,12 @@ const DirectorReview = ({
     return 'Ceci';
   };
 
-  if (isFirstLight && authenticatedDirectorId !== FIRST_LIGHT_DIRECTOR_ID) {
+  const isAuthorizedDirector =
+    !isFirstLight ||
+    authenticatedDirectorId === FIRST_LIGHT_DIRECTOR_ID ||
+    authenticatedDirectorId === FIRST_LIGHT_G002_DIRECTOR_ID;
+
+  if (!isAuthorizedDirector) {
     return (
       <div data-testid="director-auth-error" className="p-8 text-center text-red-600 bg-red-50 border border-red-200 rounded-xl my-8">
         <h3 className="text-lg font-bold mb-2">Acceso No Autorizado</h3>
@@ -3560,6 +3579,21 @@ const DirectorReview = ({
     }
   }, [planId, service]);
   if (!plan) return <p className="p-8 text-center text-xl">Leyendo la propuesta...</p>;
+
+  const expectedDaycareId =
+    daycareId ||
+    (authenticatedDirectorId === FIRST_LIGHT_G002_DIRECTOR_ID
+      ? FIRST_LIGHT_G002_DAYCARE_ID
+      : FIRST_LIGHT_DAYCARE_ID);
+
+  if (isFirstLight && plan.daycareId && plan.daycareId !== expectedDaycareId) {
+    return (
+      <div data-testid="director-auth-error" className="p-8 text-center text-red-600 bg-red-50 border border-red-200 rounded-xl my-8">
+        <h3 className="text-lg font-bold mb-2">Acceso No Autorizado</h3>
+        <p className="text-sm">La planeación solicitada no pertenece a la estancia autorizada.</p>
+      </div>
+    );
+  }
 
   // SR-MD-21 Phase 2: PERSIST DRAFT OBSERVATIONS TO INSTITUTIONAL REPOSITORY
   const handleSavePrepared = async (activityId: string) => {
@@ -3666,7 +3700,13 @@ const DirectorReview = ({
 
   const handleResolve = async (activityId: string) => {
     try {
-      await service.resolveGranularObservation(planId, activityId, "DIRECTOR", "Ceci");
+      let directorId = 'Ceci';
+      try {
+        directorId = getEffectiveDirectorId();
+      } catch {
+        // fallback
+      }
+      await service.resolveGranularObservation(planId, activityId, "DIRECTOR", directorId);
       const updatedPlan = await service.getPlanning(planId);
       if (updatedPlan) {
         setPlan(updatedPlan);
@@ -4488,7 +4528,13 @@ const DirectorReview = ({
                 <>
                   <button
                     onClick={async () => {
-                      await service.approve(planId, "DIRECTOR", "Ceci");
+                      let directorId = 'Ceci';
+                      try {
+                        directorId = getEffectiveDirectorId();
+                      } catch {
+                        // fallback
+                      }
+                      await service.approve(planId, "DIRECTOR", directorId);
                       const updated = await service.getPlanning(planId);
                       if (updated) setPlan(updated);
                       onSaved();
@@ -4549,7 +4595,7 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
       <div className="text-center mb-8">
         <h2 className="text-4xl font-bold mb-2">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
         <p className="text-text-muted font-bold text-xl uppercase tracking-widest">
-          Guardería IMSS Demo (001) • Sala: {((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Periodo: {formatPlanPeriod(plan)}
+          {((plan as any)?.daycareId === FIRST_LIGHT_G002_DAYCARE_ID ? 'Guardería 002' : 'Guardería IMSS Demo (001)')} • Sala: {((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Periodo: {formatPlanPeriod(plan)}
         </p>
         <div className="flex items-center justify-center gap-3 mt-3">
           <span className="text-sm font-bold text-teal-800 bg-teal-50 px-4 py-1.5 rounded-full border border-teal-200">
