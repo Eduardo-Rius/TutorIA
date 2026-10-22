@@ -5089,6 +5089,54 @@ const SupervisorList = ({ service, onSelect, refreshKey, activeRoom, daycareId }
 
 
 
+export const KNOWN_HISTORICAL_SUPERVISORY_INSTRUCTION =
+  'La evaluación describe adecuadamente las experiencias realizadas y las respuestas generales del grupo. Se solicita precisar qué indicadores observables permitieron identificar avances en la búsqueda de objetos parcialmente ocultos y en la comunicación gestual. Distinguir las respuestas de los bebés que participaron de manera autónoma de aquellos que necesitaron acompañamiento, evitando generalizaciones. Incorporar estos elementos en la continuidad pedagógica.';
+
+export function getApprovedEvaluationForPrint(day: any, plan?: any): string | null {
+  if (!day) return null;
+  if (day.evaluationStatus !== 'APPROVED') return null;
+  if (typeof day.evaluation !== 'string') return null;
+  const trimmed = day.evaluation.trim();
+  if (!trimmed) return null;
+
+  // 1. Structural defense intra-day: never print an Educadora observation as an evaluation
+  if (day.evaluationDirectorComment && trimmed === String(day.evaluationDirectorComment).trim()) {
+    return null;
+  }
+  if (Array.isArray(day.evaluationHistory)) {
+    for (const h of day.evaluationHistory) {
+      if (h?.directorComment && trimmed === String(h.directorComment).trim()) {
+        return null;
+      }
+    }
+  }
+
+  // 2. Cross-day structural defense within the same weekly planning:
+  // If the evaluation text matches any director comment issued anywhere in this plan
+  if (plan && Array.isArray(plan.days)) {
+    for (const otherDay of plan.days) {
+      if (otherDay?.evaluationDirectorComment && trimmed === String(otherDay.evaluationDirectorComment).trim()) {
+        return null;
+      }
+      if (Array.isArray(otherDay?.evaluationHistory)) {
+        for (const h of otherDay.evaluationHistory) {
+          if (h?.directorComment && trimmed === String(h.directorComment).trim()) {
+            return null;
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Exclusión exacta y verificable de la instrucción institucional histórica
+  // almacenada incorrectamente en los expedientes afectados de Lactantes B (SR-MD-27)
+  if (trimmed === KNOWN_HISTORICAL_SUPERVISORY_INSTRUCTION) {
+    return null;
+  }
+
+  return trimmed;
+}
+
 const PrintableView = ({
   service,
   planId,
@@ -5313,11 +5361,14 @@ const PrintableView = ({
               Evaluación:
             </h3>
             <div className="text-xs print:text-[9px] text-black leading-snug min-h-[24px] print:min-h-[16px]">
-              {d.evaluation ? (
-                <p className="whitespace-pre-wrap">{d.evaluation}</p>
-              ) : (
-                <p className="italic text-gray-700">Espacio para la evaluación posterior a la implementación.</p>
-              )}
+              {(() => {
+                const approvedEval = getApprovedEvaluationForPrint(d, plan);
+                return approvedEval ? (
+                  <p className="whitespace-pre-wrap">{approvedEval}</p>
+                ) : (
+                  <p className="italic text-gray-700">Espacio para la evaluación posterior a la implementación.</p>
+                );
+              })()}
             </div>
           </div>
         );
@@ -5881,11 +5932,14 @@ const PrintableView = ({
                       Evaluación:
                     </h3>
                     <div className="border border-black p-2 min-h-[50px] print:min-h-[35px] text-xs print:text-[9px] text-black">
-                      {d.evaluation ? (
-                        <p className="text-black">{d.evaluation}</p>
-                      ) : (
-                        <p className="italic text-gray-700">Espacio para la evaluación posterior a la implementación.</p>
-                      )}
+                      {(() => {
+                        const approvedEval = getApprovedEvaluationForPrint(d, plan);
+                        return approvedEval ? (
+                          <p className="text-black">{approvedEval}</p>
+                        ) : (
+                          <p className="italic text-gray-700">Espacio para la evaluación posterior a la implementación.</p>
+                        );
+                      })()}
                     </div>
                   </div>
 
