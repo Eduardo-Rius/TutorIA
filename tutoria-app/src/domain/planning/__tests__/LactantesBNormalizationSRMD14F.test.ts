@@ -65,11 +65,11 @@ describe('ORDEN SR-MD-14-F — Normalización Controlada del Catálogo: Lactante
       });
     });
 
-    it('el catálogo canónico contiene exactamente las 5 salas autorizadas sin duplicados (Lactantes A, B, C, Maternal A y Maternal B1 — SR-MD-29)', () => {
+    it('el catálogo canónico contiene exactamente las 6 salas autorizadas sin duplicados (Lactantes A, B, C, Maternal A, Maternal B1 y Maternal B2 — SR-MD-30)', () => {
       const allRooms = RoomCatalog.getAllRooms();
-      expect(allRooms).toHaveLength(5);
+      expect(allRooms).toHaveLength(6);
       const roomIds = allRooms.map(r => r.roomId);
-      expect(roomIds).toEqual(['lactantes-c', 'room-lactantes-a', 'room-lactantes-b', 'room-maternal-a', 'room-maternal-b1']);
+      expect(roomIds).toEqual(['lactantes-c', 'room-lactantes-a', 'room-lactantes-b', 'room-maternal-a', 'room-maternal-b1', 'room-maternal-b2']);
     });
   });
 

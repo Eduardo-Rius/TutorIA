@@ -40,6 +40,7 @@ import {
   LACTANTES_C_APPROVED_ROOM_FIXTURES,
   MATERNAL_A_APPROVED_ROOM_FIXTURES,
   MATERNAL_B1_APPROVED_ROOM_FIXTURES,
+  MATERNAL_B2_APPROVED_ROOM_FIXTURES,
 } from '../../domain/planning/PedagogicalAgePolicy';
 
 // Re-export typed errors and composition contract types for convenience
@@ -125,6 +126,8 @@ export function projectPedagogicalGenerationPolicy(
         ? Object.freeze([...policy.materialPolicy.approvedRoomFixtures, ...MATERNAL_A_APPROVED_ROOM_FIXTURES])
         : policy.roomType === 'MATERNAL_B1'
         ? Object.freeze([...policy.materialPolicy.approvedRoomFixtures, ...MATERNAL_B1_APPROVED_ROOM_FIXTURES])
+        : policy.roomType === 'MATERNAL_B2'
+        ? Object.freeze([...policy.materialPolicy.approvedRoomFixtures, ...MATERNAL_B2_APPROVED_ROOM_FIXTURES])
         : policy.materialPolicy.approvedRoomFixtures,
   });
 }
@@ -296,8 +299,8 @@ export function buildWeeklyPlanningJsonSchema(
                     description:
                       roomType === 'LACTANTES_A'
                         ? 'Procedural interaction in Spanish. In material-bearing activities, use {material}. For Lactantes A, MUST include central developmental action followed by explicit adaptations: "\\n• Adaptación 43 días a 3 meses: <acción>\\n• Adaptación 4 a 6 meses: <acción>".'
-                        : roomType === 'MATERNAL_B1'
-                        ? 'Procedural interaction in Spanish for Maternal B1 (25-30 months). Detail exactly four sections: Inicio: <preparación y presentación respetuosa usando directamente los materiales autorizados>, Desarrollo: <acciones específicas de mediación sensible con niñas y niños usando esos materiales; PROHIBIDO exigir saltar o mantener equilibrio>, Cierre: <acción docente concreta de orden cantando, aplausos afectivos o retorno a la calma; PROHIBIDO asambleas o preguntas de reflexión>, Adaptaciones: <apoyos contextualizados según observaciones reales: periodo de adaptación (contención afectiva), lenguaje emergente (onomatopeyas/señalamiento), diversidad motriz (marcha asistida a ras de suelo) y dificultades para compartir (juego paralelo, materiales duplicados); PROHIBIDO frases genéricas o la palabra lactante>. Redacta los materiales directamente en las oraciones sin usar {material} ni concatenaciones artificiales.'
+                        : (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2')
+                        ? `Procedural interaction in Spanish for ${roomType === 'MATERNAL_B2' ? 'Maternal B2 (31-36 months)' : 'Maternal B1 (25-30 months)'}. Detail exactly four sections: Inicio: <preparación y presentación respetuosa usando directamente los materiales autorizados>, Desarrollo: <acciones específicas de mediación sensible con niñas y niños usando esos materiales; PROHIBIDO exigir saltar o mantener equilibrio>, Cierre: <acción docente concreta de orden cantando, aplausos afectivos o retorno a la calma; PROHIBIDO asambleas o preguntas de reflexión>, Adaptaciones: <apoyos contextualizados según observaciones reales: periodo de adaptación (contención afectiva), lenguaje expresivo o emergente (preguntas abiertas, ampliación de frases), diversidad motriz (marcha a ras de suelo sin saltos) y resolución pacífica de conflictos / toma de turnos (juego paralelo, materiales duplicados); PROHIBIDO frases genéricas o la palabra lactante>. Redacta los materiales directamente en las oraciones sin usar {material} ni concatenaciones artificiales.`
                         : (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A')
                         ? `Procedural interaction in Spanish for ${roomType === 'MATERNAL_A' ? 'Maternal A (19-24 months)' : (roomType === 'LACTANTES_C' ? 'Lactantes C (13-18 months)' : 'Lactantes B (7-12 months)')}. Describe concrete pedagogical action with {material} when applicable, detailing Inicio, Desarrollo, Cierre, and Adaptaciones (e.g. Inicio: ..., Desarrollo: ..., Cierre: ..., Adaptaciones: ...).`
                         : 'Procedural interaction in Spanish. In material-bearing activities, use {material} for the resolved material.',
@@ -1031,6 +1034,58 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
         '       - NUNCA menciones nombres de materiales físicos en "objective" ni uses "{material}" en "objective".',
         '     * 8. DURACIONES ESTIMATIVAS (habitualmente 12 a 25 minutos según la experiencia, ej. 12, 15, 20 o 25 min).'
       );
+    } else if (policy.roomType === 'MATERNAL_B2') {
+      lines.push(
+        '   - POLÍTICA DE RAZONAMIENTO PEDAGÓGICO Y SEGURIDAD INFANTIL PARA MATERNAL B2 (31 A 36 MESES) — SR-MD-30:',
+        '     * 1. IDENTIDAD PEDAGÓGICA Y PRINCIPIO DE UNIDAD PEDAGÓGICA COHERENTE (EN ORIGEN):',
+        '       - Cada actividad debe concebirse como una UNIDAD PEDAGÓGICA COMPLETA, COHERENTE E INSEPARABLE: Objetivo observable del desarrollo → Materiales declarados en inventario → Inicio respetuoso nombrando materiales → Desarrollo mediador y activo → Cierre concreto afectivo o de orden → Adaptaciones contextualizadas.',
+        '       - Redacta las acciones nombrando los materiales autorizados directamente por su nombre de forma fluida y gramaticalmente natural. NUNCA uses "{material}" ni concatenaciones artificiales como "Con <materiales>:".',
+        '       - Enfoque pedagógico centrado en la consolidación del esquema corporal, lenguaje expresivo con oraciones completas y preguntas indagatorias («¿Por qué?», «¿Qué es?», «Mi dibujo es...»), juego simbólico con asunción de roles y guiñoles, hábitos de higiene y orden de sala («Ordeno la sala»), y expresión gráfico-plástica con trazos intencionados.',
+        '       - PROHIBICIÓN TERMINANTE DE VOCABULARIO: NUNCA utilices las palabras «lactante», «lactantes» ni la frase «cada lactante». En esta sala son «niñas y niños de Maternal B2».',
+        '       - CADA actividad debe ser auténticamente diseñada para 31 a 36 meses de edad según la normativa del proyecto (GT Económica págs. 78-88).',
+        '     * 2. COHERENCIA MATERIAL BIUNÍVOCA Y RIGUROSA (CERO MATERIALES INVENTADOS):',
+        '       - Cada recurso mencionado en Inicio, Desarrollo, Cierre o Adaptaciones DEBE corresponder ESTRICTAMENTE con el inventario proporcionado en este contexto o fixtures aprobados (MATERNAL_B2_APPROVED_ROOM_FIXTURES).',
+        '       - CERO MATERIALES INVENTADOS: Queda TERMINANTEMENTE PROHIBIDO inventar cojines, almohadas, mantas, conos, cuerdas, túneles, sillas, mesas, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música/grabadoras, cinta adhesiva, chinchetas u objetos de colores abstractos ausentes del inventario.',
+        '       - Si la actividad utiliza crayones y papel bond, DEBE incluir en "materialRefs" los identificadores de ambos (ej. ["MAT-01", "MAT-02"]). Queda TERMINANTEMENTE PROHIBIDO declarar "materialRefs": [] cuando la descripción mencione materiales físicos de sala.',
+        '       - Si "materialRefs" es [], la actividad debe basarse exclusivamente en mediación vocal, rítmica, corporal o diálogo guiado sin objetos físicos.',
+        '       - NO proponer materiales no inventariados (no inventar tijeras punzocortantes, pegamentos tóxicos, témperas ni masas no declaradas).',
+        '       - COHERENCIA MATERIALES–ACCIONES EN CLASIFICACIÓN: Identificar objetos manipulables disponibles (ej. «bloques grandes de plástico lavable») y contenedores reales («cajas de cartón limpias o sobre el tapete limpio»). PROHIBIDO aceptar «colores» abstractos como único material o inventar «bandejas».',
+        '     * 3. SEGURIDAD INFANTIL Y PSICOMOTRICIDAD SEGURA A RAS DE SUELO (31–36 MESES):',
+        '       - Todo movimiento debe basarse en desplazamientos a ras de suelo sobre colchonetas limpias dispuestas en el piso sin desniveles ni obstáculos.',
+        '       - CERO SALTOS DESDE ALTURAS O MUEBLES: PROHIBIDO subir a mesas, sillas o muebles, o saltar desde desniveles. Si hay saltos a ras de suelo (bipodal voluntario a nivel de piso), deben ser siempre opcionales y nunca desde alturas ni sobre obstáculos elevados.',
+        '       - CERO COMPETENCIA: Prohibidas carreras competitivas o para ver «quién llega primero». Fomentar el juego cooperativo.',
+        '       - Prohibidos objetos pequeños o desprendibles menores a 3 cm con riesgo de atragantamiento (semillas, cuentas, canicas, botones pequeños).',
+        '       - Prohibidas bolsas plásticas, globos de látex o materiales deteriorados.',
+        '       - Prohibida la tracción brusca de extremidades de niñas y niños durante rondas o juegos de movimiento.',
+        '       - Prohibida la escolarización formal (planas de trazo rígido, grafomotricidad formal con lápiz, letras o números abstractos).',
+        '       - Prohibido exigir control de esfínteres formal obligatorio o regaños por accidentes.',
+        '       - Prohibido dejar a niñas o niños sin supervisión directa en experiencias con agua o materiales.',
+        '     * 4. ESTRUCTURA PEDAGÓGICA Y ADAPTACIONES CONTEXTUALIZADAS:',
+        '       - En "proceduralAction", debes estructurar cada actividad con exactamente cuatro secciones observables:',
+        '       Inicio: <preparación respetuosa del entorno y presentación pausada nombrando directamente los materiales autorizados>',
+        '       Desarrollo: <secuencia de acciones pedagógicas específicas de la Asistente Educativa con preguntas abiertas («¿Qué hace el muñeco?», «¿Qué parte del cuerpo es?»), mediación sensible y juego exploratorio o cooperativo a ras de suelo>',
+        '       Cierre: <acción docente concreta, breve y auténtica vinculada a la experiencia: exponer sus trazos sobre el tapete a la altura de sus ojos, guardar materiales en cajas limpias a ras de suelo entonando una rima breve, despedir al títere con un gesto de la mano, relajación sobre colchonetas limpias. PROHIBIDO: asambleas discursivas o preguntas de reflexión filosófica inaccesibles para 31–36 meses>',
+        '       Adaptaciones: <apoyos CONCRETOS y VINCULADOS aprovechando las observaciones del grupo de 31–36 meses: a) proceso de adaptación (cercanía afectiva y participación gradual); b) lenguaje expresivo (expandir frases, motivar preguntas y validar expresiones orales); c) diversidad motriz (ofrecer apoyo de la mano y permitir desplazarse a ras de suelo sin saltos ni desniveles); d) toma de turnos y convivencia pacífica (brindar materiales duplicados, mediar la resolución de pequeños conflictos y modelar turnos breves). TERMINANTEMENTE PROHIBIDO frases genéricas vacías y CERO uso de la palabra «lactante»>',
+        '     * 5. DIVERSIFICACIÓN DIARIA Y PROGRESIÓN SEMANAL OBSERVABLE (LUNES A VIERNES):',
+        '       - CADA DÍA (Lunes a Viernes) DEBE presentar 5 actividades con objetivos y descripciones diferenciadas (25 ACTIVIDADES ÚNICAS en total).',
+        '       - PROHIBICIÓN ESTRICTA DE ACTIVIDADES IDÉNTICAS EN DÍAS CONSECUTIVOS O CLÓNICAS: Cada día debe tener su propia identidad, acción docente, vocabulario y desafío lúdico según la edad (31 a 36 meses).',
+        '       - En Pensamiento y Relaciones Espaciales: Lunes (exploración y construcción libre con bloques grandes), Martes (clasificación por color evidente en cajas de cartón limpias), Miércoles (correspondencia y seriación sencilla por tamaño grande/pequeño), Jueves (construcción de estructuras complejas: puentes y caminos a ras de suelo), Viernes (clasificación combinada y orden colaborativo en cajas limpias a ras de suelo).',
+        '       - En Esquema Corporal y Juego Simbólico: Lunes (identificación de partes del cuerpo señalando en sí mismos y en muñecos de tela), Martes (dramatización de roles cotidianos: cuidar y peinar al muñeco con cepillo limpio), Miércoles (juego con guiñoles o títeres explorando emociones y preguntas), Jueves (vestir y arropar al muñeco reconociendo prendas y partes del cuerpo), Viernes (ronda de juego cooperativo y convivencia afectiva en semicírculo).',
+        '       - En Expresión Artística y Gráfica: Lunes (garabateo circular espontáneo con crayones gruesos en papel amplio a ras de suelo), Martes (trazos dirigidos e intencionados nombrando lo dibujado: «Mi dibujo es...»), Miércoles (exploración de texturas y cambio autónomo de colores de crayón), Jueves (trazos rítmicos al compás del canto acapela de la Asistente), Viernes (mural colectivo extendido a ras de suelo sobre el tapete limpio, admirando los trabajos compartidos sin fijaciones en pared).',
+        '       - En Psicomotricidad y Movimiento: Lunes (marcha y cambio de ritmo a ras de suelo sobre colchonetas), Martes (trayectorias curvas y rectas siguiendo líneas del tapete), Miércoles (lanzar y atrapar pelotas ligeras en parejas sentados a ras de suelo), Jueves (desplazamientos de imitación motriz de animales a ras de suelo sin saltos bruscos), Viernes (circuito sereno en colchonetas con respiración pausada y transición al descanso).',
+        '       - En Hábitos, Higiene y Autonomía: Cuidado personal (lavado autónomo de manos, secado con toalla individual, peinarse con peine/cepillo) y hábito formativo de recoger y ordenar la sala («Ordeno la sala»).',
+        '     * 6. LECTURA EN VOZ ALTA DIARIA CON EL CUENTO DEL CONTEXTO (5 DINÁMICAS DIFERENCIADAS):',
+        '       - Lunes: Presentación de personajes, portada y primeras hipótesis orales («¿Quién será...?»).',
+        '       - Martes: Relectura participativa respondiendo a preguntas («¿Qué busca...?», «¿Dónde está...?») y solapas.',
+        '       - Miércoles: Expresión verbal enriquecida y diálogo sobre las acciones de los personajes.',
+        '       - Jueves: Dramatización lúdica de escenas del cuento con gestos y expresiones a ras de suelo.',
+        '       - Viernes: Recuento colectivo guiado por las niñas y niños de Maternal B2 compartiendo su momento favorito.',
+        '     * 7. CALIDAD TEXTUAL Y OBJETIVOS COMPLETOS:',
+        '       - El campo "objective" de CADA actividad debe ser una oración completa y gramaticalmente terminada (mínimo 6 palabras) en infinitivo que exprese una intención pedagógica concreta vinculada a Maternal B2.',
+        '       - TERMINANTEMENTE PROHIBIDO objetivos truncados o genéricos («Estimular.», «Favorecer.»).',
+        '       - NUNCA uses "lactante" ni "lactantes". NUNCA menciones materiales físicos en "objective".',
+        '     * 8. DURACIONES ESTIMATIVAS (habitualmente 15 a 25 minutos según la experiencia, ej. 15, 18, 20 o 25 min).'
+      );
     }
   }
 
@@ -1064,8 +1119,8 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
     '             "objective": "<objetivo específico coherente con el contexto proporcionado>",',
     policy?.roomType === 'LACTANTES_A'
       ? '             "proceduralAction": "<desarrollo central con {material} o mediación>\\n• Adaptación 43 días a 3 meses: <adecuación concreta en brazos con contención física>\\n• Adaptación 4 a 6 meses: <adecuación concreta sobre colchoneta con exploración activa>",'
-      : policy?.roomType === 'MATERNAL_B1'
-      ? '             "proceduralAction": "Inicio: <preparación del entorno afectivo y presentación de {material}>\\nDesarrollo: <secuencia de acciones de la asistente y mediación sensible con niñas y niños de Maternal B1>\\nCierre: <transición respetuosa, guardado y retorno a la calma>\\nAdaptaciones: <adecuaciones concretas vinculadas a lenguaje, motricidad o participación de niñas y niños de Maternal B1>",'
+      : (policy?.roomType === 'MATERNAL_B1' || policy?.roomType === 'MATERNAL_B2')
+      ? `             "proceduralAction": "Inicio: <preparación del entorno afectivo y presentación de {material}>\\nDesarrollo: <secuencia de acciones de la asistente y mediación sensible con niñas y niños de ${policy.roomType === 'MATERNAL_B2' ? 'Maternal B2' : 'Maternal B1'}>\\nCierre: <transición respetuosa, guardado y retorno a la calma>\\nAdaptaciones: <adecuaciones concretas vinculadas a lenguaje, motricidad o participación de niñas y niños de ${policy.roomType === 'MATERNAL_B2' ? 'Maternal B2' : 'Maternal B1'}>",`
       : (policy?.roomType === 'LACTANTES_B' || policy?.roomType === 'LACTANTES_C' || policy?.roomType === 'MATERNAL_A')
       ? '             "proceduralAction": "Inicio: <preparación del entorno afectivo y presentación de {material}>\\nDesarrollo: <secuencia de acciones de la asistente y exploración de los lactantes o maternales con {material}>\\nCierre: <transición tranquila, guardado de materiales y retorno a la calma>\\nAdaptaciones: <adecuación según autonomía motriz, juego y movilidad libre>",'
       : '             "proceduralAction": "<acción docente concreta sin materiales físicos coherente con el contexto proporcionado>",',
@@ -1241,6 +1296,40 @@ export function buildWeeklyPlanningAIUserPrompt(
       '   - CIERRES AUTÉNTICOS Y VARIADOS: Los cierres deben ser breves, de 25–30 meses y relacionados directamente con la experiencia: observar lo construido o dibujado, guardar materiales en cajas de cartón limpias a ras de suelo, despedir a los personajes, compartir un gesto afectivo o descansar serenamente en colchoneta. TERMINANTEMENTE PROHIBIDO repetir sistemáticamente «Aplaudir y cantar una rima breve de orden para guardar». PROHIBIDO asambleas o preguntas de reflexión verbal.',
       '   - PROGRESSION: Lunes (D1): "role": "EXPLORE", "revisitsSlot": null. Martes a Viernes (D2 a D5): si retoma una experiencia previa declara "role": "REVISIT" o "VARY" con "revisitsSlot" hacia la ranura correspondiente; si es nueva declara "role": "EXPLORE".',
       '   - El campo "objective" de cada actividad DEBE ser una oración completa y gramaticalmente terminada (mínimo 6 palabras) orientada al desarrollo infantil de Maternal B1 con intención pedagógica concreta. TERMINANTEMENTE PROHIBIDO objetivos truncados o de una sola palabra como «Estimular.». NUNCA menciones materiales físicos en "objective".'
+    );
+  } else if (input.generationPolicy?.roomType === 'MATERNAL_B2') {
+    sections.push(
+      '# MANDATORY PEDAGOGICAL QUALITY & DIVERSITY RULES FOR MATERNAL B2 (31 TO 36 MONTHS — SR-MD-30)',
+      '1. PROGRESIÓN AUTÉNTICA Y DIFERENCIACIÓN LUNES A VIERNES (CERO ACTIVIDADES IDÉNTICAS O CLÓNICAS):',
+      '   - Debes generar exactamente 25 actividades (5 por día, Lunes a Viernes).',
+      '   - PROHIBIDO GENERAR ACTIVIDADES IDÉNTICAS O REPETITIVAS: Cada día y cada actividad deben tener su propia identidad formativa según la edad de 31 a 36 meses (GT Económica págs. 78-88).',
+      '   - PROGRESIÓN OBLIGATORIA POR DÍAS EN CADA EJE FORMATIVO:',
+      '     * PENSAMIENTO Y EXPLORACIÓN: Lunes (exploración y construcción libre con bloques grandes), Martes (clasificación por color notorio en cajas de cartón limpias o tapete), Miércoles (correspondencia y seriación por tamaño grande/pequeño), Jueves (construcción de estructuras complejas: puentes y caminos a ras de suelo), Viernes (clasificación combinada y orden colaborativo en cajas limpias a ras de suelo).',
+      '     * ESQUEMA CORPORAL Y JUEGO SIMBÓLICO: Lunes (reconocimiento de partes del cuerpo señalando en sí mismos y en muñecos de tela), Martes (roles cotidianos de cuidado: peinar al muñeco con cepillo limpio o asearlo), Miércoles (juego con títeres/guiñoles explorando emociones y preguntas), Jueves (vestir y arropar al muñeco reconociendo prendas), Viernes (ronda de convivencia y juego cooperativo en semicírculo).',
+      '     * EXPRESIÓN GRÁFICO-PLÁSTICA: Lunes (garabateo circular espontáneo en papel amplio a ras de suelo), Martes (trazos dirigidos e intencionados nombrando lo dibujado: «Mi dibujo es...»), Miércoles (exploración de texturas y cambio autónomo de colores de crayón), Jueves (trazos rítmicos guiados por el canto acapela de la Asistente), Viernes (mural colectivo extendido a ras de suelo sobre el tapete limpio, sin fijaciones en pared ni cinta).',
+      '     * ACTIVACIÓN FÍSICA Y PSICOMOTRICIDAD: Lunes (marcha y cambio de ritmo a ras de suelo sobre colchonetas), Martes (trayectorias curvas y rectas siguiendo líneas del tapete), Miércoles (lanzar y atrapar pelotas ligeras en parejas sentados en colchoneta), Jueves (desplazamientos de imitación de animales a ras de suelo sin saltos bruscos), Viernes (circuito sereno en colchonetas con respiración y descanso).',
+      '     * LECTURA EN VOZ ALTA (5 DINÁMICAS PROGRESIVAS): Lunes (presentación de personajes, portada y preguntas abiertas), Martes (relectura interactiva con solapas e hipótesis orales), Miércoles (diálogo verbal enriquecido y expresión de ideas), Jueves (dramatización gestual a ras de suelo de escenas del cuento), Viernes (recuento compartido y valoración de momentos favoritos).',
+      '     * HÁBITOS, HIGIENE Y AUTONOMÍA: Cuidado personal autónomo (lavado de manos, secado con toalla individual, peinarse con cepillo) y dinámicas de orden de la sala («Ordeno la sala»).',
+      '2. COHERENCIA MATERIAL Y UNIDAD PEDAGÓGICA (CERO MATERIALES INVENTADOS):',
+      '   - Concebir cada actividad como una UNIDAD PEDAGÓGICA COHERENTE: Objetivo observable → Materiales declarados → Inicio → Desarrollo → Cierre concreto → Adaptaciones contextuales.',
+      '   - Nombra los materiales directamente por su nombre en Inicio, Desarrollo y Cierre de forma fluida. NUNCA uses "{material}" ni concatenaciones como "Con <materiales>:".',
+      '   - CERO MATERIALES INVENTADOS: Queda TERMINANTEMENTE PROHIBIDO inventar cojines, almohadas, mantas, conos, cuerdas, túneles, sillas, mesas, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música, cinta adhesiva, chinchetas u objetos de colores abstractos ausentes del inventario.',
+      '   - Declara en "materialRefs" los identificadores de los materiales usados. Si no requiere objetos físicos, declara "materialRefs": [].',
+      '3. SEGURIDAD MOTRIZ PARA 31–36 MESES (CERO SALTOS DESDE MUEBLES O ALTURAS, CERO COMPETENCIA):',
+      '   - Queda TERMINANTEMENTE PROHIBIDO saltar desde sillas, mesas, muebles o desniveles. Todo desplazamiento debe ser a ras de suelo sobre colchonetas limpias sin obstáculos.',
+      '   - Si hay saltos a ras de suelo (bipodal voluntario a nivel de piso), deben ser siempre opcionales y nunca desde alturas.',
+      '   - PROHIBIDAS carreras competitivas o para ver «quién llega primero».',
+      '4. ADAPTACIONES CONTEXTUALIZADAS VINCULADAS A LAS OBSERVACIONES REALES DEL GRUPO:',
+      '   - Las adaptaciones de CADA actividad deben responder a las realidades de la sala Maternal B2 (31 a 36 meses):',
+      '     a) Periodo de adaptación: brindar cercanía afectiva y permitir incorporarse gradualmente a la actividad.',
+      '     b) Lenguaje en desarrollo: estimular con preguntas abiertas («¿Por qué?», «¿Qué crees que pase?») y expandir frases sin corrección tajante.',
+      '     c) Diversidad motriz en piso: ofrecer apoyo de la mano y permitir desplazarse a ras de suelo a su ritmo sin saltos forzados ni desniveles.',
+      '     d) Resolución pacífica de conflictos y toma de turnos: disponer de materiales duplicados y modelar turnos breves en juegos cooperativos.',
+      '   - PROHIBIDO TERMINANTEMENTE escribir frases genéricas vacías como «se respeta el ritmo individual».',
+      '   - TERMINOLOGÍA: NUNCA utilices «lactante» ni «lactantes». En esta sala son «niñas y niños de Maternal B2».',
+      '5. CIERRES AUTÉNTICOS, DIVERSIFICADOS Y OBJETIVOS COMPLETOS:',
+      '   - Los cierres deben ser auténticos, breves y variados para 31–36 meses: admirar los trazos o construcciones, guardar en cajas de cartón limpias a ras de suelo cantando una rima breve, despedir al títere con afecto o relajarse en colchoneta. PROHIBIDO: asambleas discursivas o preguntas reflexivas inaccesibles para esta edad.',
+      '   - El campo "objective" de cada actividad DEBE ser una oración completa y terminada (mínimo 6 palabras) en infinitivo orientada al desarrollo infantil de Maternal B2. NUNCA uses objetivos truncados como «Estimular.». NUNCA menciones materiales en "objective".'
     );
   }
 
@@ -1840,24 +1929,27 @@ export function sanitizeMaternalAMaterialActionCoherence(
  */
 export function sanitizeMaternalB1PedagogicalFidelity(
   act: ProposedActivity,
-  table: RequestScopedMaterialTable
+  table: RequestScopedMaterialTable,
+  roomType?: string
 ): ProposedActivity {
   let materials = [...act.materials];
   let objective = act.objective;
   let description = act.description;
 
+  const roomLabel = roomType === 'MATERNAL_B2' ? 'Maternal B2' : 'Maternal B1';
+
   // 1. Defecto 3: Eliminar 'lactante' / 'lactantes' y 'cada lactante'
   const purgeLactante = (str: string): string => {
     return str
-      .replace(/Se respeta el ritmo individual de exploración y movilidad de cada lactante\.?/gi, 'Adecuar la mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños de Maternal B1.')
-      .replace(/Se respeta el ritmo de cada lactante\.?/gi, 'Adecuar el nivel de apoyo y participación según el ritmo de cada niña y niño de Maternal B1.')
-      .replace(/\bcada\s+lactante\b/gi, 'cada niña y niño de Maternal B1')
-      .replace(/\blos\s+lactantes\b/gi, 'las niñas y niños de Maternal B1')
-      .replace(/\bal\s+lactante\b/gi, 'a las niñas y niños de Maternal B1')
-      .replace(/\bel\s+lactante\b/gi, 'la niña o el niño de Maternal B1')
-      .replace(/\bun\s+lactante\b/gi, 'una niña o niño de Maternal B1')
-      .replace(/\blactantes\b/gi, 'niñas y niños de Maternal B1')
-      .replace(/\blactante\b/gi, 'niña o niño de Maternal B1');
+      .replace(/Se respeta el ritmo individual de exploración y movilidad de cada lactante\.?/gi, `Adecuar la mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños de ${roomLabel}.`)
+      .replace(/Se respeta el ritmo de cada lactante\.?/gi, `Adecuar el nivel de apoyo y participación según el ritmo de cada niña y niño de ${roomLabel}.`)
+      .replace(/\bcada\s+lactante\b/gi, `cada niña y niño de ${roomLabel}`)
+      .replace(/\blos\s+lactantes\b/gi, `las niñas y niños de ${roomLabel}`)
+      .replace(/\bal\s+lactante\b/gi, `a las niñas y niños de ${roomLabel}`)
+      .replace(/\bel\s+lactante\b/gi, `la niña o el niño de ${roomLabel}`)
+      .replace(/\bun\s+lactante\b/gi, `una niña o niño de ${roomLabel}`)
+      .replace(/\blactantes\b/gi, `niñas y niños de ${roomLabel}`)
+      .replace(/\blactante\b/gi, `niña o niño de ${roomLabel}`);
   };
 
   description = purgeLactante(description);
@@ -1883,7 +1975,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     } else if (/\b(?:muñec|beb[eé]|arrull|cuid|roles)\b/i.test(descLower)) {
       objective = 'Desarrollar la empatía y la imitación de roles afectivos cuidando y meciendo a los muñecos de tela con ternura.';
     } else {
-      objective = 'Promover el desarrollo de habilidades motrices, perceptuales y de comunicación en las niñas y niños de Maternal B1.';
+      objective = `Promover el desarrollo de habilidades motrices, perceptuales y de comunicación en las niñas y niños de ${roomLabel}.`;
     }
   }
 
@@ -2276,7 +2368,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       isTrivialFormula;
 
     if (isGeneric) {
-      let specificAdapt = 'Atender a las diferencias de adaptación, lenguaje emergente y autonomía motriz de las niñas y niños de Maternal B1.';
+      let specificAdapt = `Atender a las diferencias de adaptación, lenguaje emergente y autonomía motriz de las niñas y niños de ${roomLabel}.`;
       const descLower = description.toLowerCase();
       if (/\b(?:cuento|libro|lectura|narraci[oó]n|solapa|p[aá]gina)\b/i.test(descLower) || act.category === 'LECTURA EN VOZ ALTA') {
         specificAdapt = 'Para niños en periodo de adaptación, permitir observar la lectura sentados junto a la Asistente; validar señalamientos y onomatopeyas si aún no nombran con frases completas, modulando preguntas sencillas.';
@@ -2320,7 +2412,7 @@ export function enrichMaternalARepeatedRoutines(
   days: ProposedPlanningDay[],
   roomType?: string
 ): ProposedPlanningDay[] {
-  if (roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1') {
+  if (roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1' && roomType !== 'MATERNAL_B2') {
     return days;
   }
 
@@ -2556,7 +2648,7 @@ export function enrichMaternalB1WeeklyProgression(
   days: ProposedPlanningDay[],
   roomType?: string
 ): ProposedPlanningDay[] {
-  if (roomType !== 'MATERNAL_B1') {
+  if (roomType !== 'MATERNAL_B1' && roomType !== 'MATERNAL_B2') {
     return days;
   }
 
@@ -3327,17 +3419,18 @@ export function normalizeLactantesBDescriptionStructure(text: string, roomType?:
   const hasAdaptaciones = /\b(?:Adaptaci[oó]n(?:es)?|Adecuaci[oó]n(?:es)?)\b/i.test(cleaned);
 
   if (hasInicio && hasDesarrollo && hasCierre && hasAdaptaciones) {
-    if (roomType === 'MATERNAL_B1') {
+    if (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
+      const roomLabel = roomType === 'MATERNAL_B2' ? 'Maternal B2' : 'Maternal B1';
       return cleaned
-        .replace(/Se respeta el ritmo individual de exploración y movilidad de cada lactante\.?/gi, 'Adecuar la mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños de Maternal B1.')
-        .replace(/Se respeta el ritmo de cada lactante\.?/gi, 'Adecuar el nivel de apoyo y participación según el ritmo de cada niña y niño de Maternal B1.')
-        .replace(/\bcada\s+lactante\b/gi, 'cada niña y niño de Maternal B1')
-        .replace(/\blos\s+lactantes\b/gi, 'las niñas y niños de Maternal B1')
-        .replace(/\bal\s+lactante\b/gi, 'a las niñas y niños de Maternal B1')
-        .replace(/\bel\s+lactante\b/gi, 'la niña o el niño de Maternal B1')
-        .replace(/\bun\s+lactante\b/gi, 'una niña o niño de Maternal B1')
-        .replace(/\blactantes\b/gi, 'niñas y niños de Maternal B1')
-        .replace(/\blactante\b/gi, 'niña o niño de Maternal B1');
+        .replace(/Se respeta el ritmo individual de exploración y movilidad de cada lactante\.?/gi, `Adecuar la mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños de ${roomLabel}.`)
+        .replace(/Se respeta el ritmo de cada lactante\.?/gi, `Adecuar el nivel de apoyo y participación según el ritmo de cada niña y niño de ${roomLabel}.`)
+        .replace(/\bcada\s+lactante\b/gi, `cada niña y niño de ${roomLabel}`)
+        .replace(/\blos\s+lactantes\b/gi, `las niñas y niños de ${roomLabel}`)
+        .replace(/\bal\s+lactante\b/gi, `a las niñas y niños de ${roomLabel}`)
+        .replace(/\bel\s+lactante\b/gi, `la niña o el niño de ${roomLabel}`)
+        .replace(/\bun\s+lactante\b/gi, `una niña o niño de ${roomLabel}`)
+        .replace(/\blactantes\b/gi, `niñas y niños de ${roomLabel}`)
+        .replace(/\blactante\b/gi, `niña o niño de ${roomLabel}`);
     }
     return cleaned;
   }
@@ -3347,18 +3440,19 @@ export function normalizeLactantesBDescriptionStructure(text: string, roomType?:
     structured = `Inicio: Se dispone el espacio en colchoneta de forma cálida y segura.\nDesarrollo: ${structured}`;
   }
   if (!hasCierre) {
-    structured = (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_A')
+    structured = (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2' || roomType === 'MATERNAL_A')
       ? `${structured}\nCierre: Transición afectiva y respetuosa, nombrando los materiales explorados y acompañando a las niñas y niños.`
       : `${structured}\nCierre: Transición afectiva suave, nombrando los objetos y acompañando al lactante.`;
   }
   if (!hasAdaptaciones) {
-    structured = (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_A')
-      ? `${structured}\nAdaptaciones: Adecuar el apoyo y mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños.`
+    const defaultSuffix = roomType === 'MATERNAL_B2' ? ' de Maternal B2' : (roomType === 'MATERNAL_B1' ? ' de Maternal B1' : ' de Maternal A');
+    structured = (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2' || roomType === 'MATERNAL_A')
+      ? `${structured}\nAdaptaciones: Adecuar el apoyo y mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños${defaultSuffix}.`
       : `${structured}\nAdaptaciones: Se respeta el ritmo individual de exploración y movilidad de cada lactante.`;
   }
 
-  if (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_A') {
-    const ageSuffix = roomType === 'MATERNAL_B1' ? ' de Maternal B1' : ' de Maternal A';
+  if (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2' || roomType === 'MATERNAL_A') {
+    const ageSuffix = roomType === 'MATERNAL_B2' ? ' de Maternal B2' : (roomType === 'MATERNAL_B1' ? ' de Maternal B1' : ' de Maternal A');
     structured = structured
       .replace(/Se respeta el ritmo individual de exploración y movilidad de cada lactante\.?/gi, `Adecuar la mediación según diferencias de lenguaje, autonomía motriz y ritmo de adaptación de las niñas y niños${ageSuffix}.`)
       .replace(/Se respeta el ritmo de cada lactante\.?/gi, `Adecuar el nivel de apoyo y participación según el ritmo de cada niña y niño${ageSuffix}.`)
@@ -3401,7 +3495,7 @@ export function projectInternalActivityToCanonical(
 
   // Strict Provider-Internal Contract: category, objective, proceduralAction, materialRefs, durationMinutes, progression
   const allowedKeys = new Set(
-    roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1'
+    roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2'
       ? [
           'category',
           'objective',
@@ -3433,7 +3527,7 @@ export function projectInternalActivityToCanonical(
 
   for (const key of Object.keys(rawAct)) {
     if (!allowedKeys.has(key)) {
-      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
         continue;
       }
       throw new InvalidWeeklyPlanningProposalError(
@@ -3451,7 +3545,7 @@ export function projectInternalActivityToCanonical(
     'durationMinutes',
   ]) {
     if (rawAct[reqKey] === undefined || rawAct[reqKey] === null) {
-      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+      if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
         if (reqKey === 'proceduralAction' && rawAct['description'] !== undefined && rawAct['description'] !== null) {
           continue;
         }
@@ -3477,7 +3571,7 @@ export function projectInternalActivityToCanonical(
   const category: ImssCategory = (
     rawAct['category'] !== undefined && rawAct['category'] !== null
       ? (rawAct['category'] as ImssCategory)
-      : (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' ? 'AMBIENTES DE APRENDIZAJE' : (rawAct['category'] as unknown as ImssCategory))
+      : (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2' ? 'AMBIENTES DE APRENDIZAJE' : (rawAct['category'] as unknown as ImssCategory))
   );
   const rawObjective = rawAct['objective'] ?? rawAct['goal'];
   const rawProceduralAction = rawAct['proceduralAction'] ?? rawAct['description'] ?? rawAct['action'];
@@ -3492,7 +3586,7 @@ export function projectInternalActivityToCanonical(
     const parsed = parseInt(durationMinutes, 10);
     durationMinutes = isNaN(parsed) ? 15 : parsed;
   } else if (typeof durationMinutes !== 'number' || durationMinutes < 1) {
-    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
       durationMinutes = 15;
     } else {
       throw new InvalidWeeklyPlanningProposalError(
@@ -3502,7 +3596,7 @@ export function projectInternalActivityToCanonical(
   }
 
   if (typeof rawObjective !== 'string' || !rawObjective.trim()) {
-    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
       rawAct['objective'] = 'Exploración sensoriomotora y afectiva';
     } else {
       throw new InvalidWeeklyPlanningProposalError(
@@ -3512,7 +3606,7 @@ export function projectInternalActivityToCanonical(
   }
 
   if (typeof rawProceduralAction !== 'string' || !rawProceduralAction.trim()) {
-    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+    if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
       rawAct['proceduralAction'] = 'Inicio: Se dispone el espacio en colchoneta.\nDesarrollo: Exploración de materiales.\nCierre: Transición afectiva.\nAdaptaciones: Respeto al ritmo individual.';
     } else {
       throw new InvalidWeeklyPlanningProposalError(
@@ -3526,7 +3620,7 @@ export function projectInternalActivityToCanonical(
 
   // Normalize objective deterministically without generic template replacement
   objective = normalizeObjectiveForMaterialAgnosticism(objective, table);
-  if (roomType !== 'LACTANTES_B' && roomType !== 'LACTANTES_C' && roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1') {
+  if (roomType !== 'LACTANTES_B' && roomType !== 'LACTANTES_C' && roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1' && roomType !== 'MATERNAL_B2') {
     validateObjectiveForMaterialAgnosticism(objective, table);
   }
 
@@ -3555,7 +3649,7 @@ export function projectInternalActivityToCanonical(
         });
       if (entryByName && !resolvedMaterials.includes(entryByName.displayName)) {
         resolvedMaterials.push(entryByName.displayName);
-      } else if (roomType !== 'LACTANTES_B' && roomType !== 'LACTANTES_C' && roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1') {
+      } else if (roomType !== 'LACTANTES_B' && roomType !== 'LACTANTES_C' && roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1' && roomType !== 'MATERNAL_B2') {
         throw new InvalidWeeklyPlanningProposalError(
           `Unknown material ref '${ref}' at day index ${dayIndex}, activity index ${actIndex}. Must be within request-scoped allowed set.`
         );
@@ -3606,7 +3700,7 @@ export function projectInternalActivityToCanonical(
   finalDescription = cleanDuplicatePedagogicalPhrases(finalDescription);
   objective = cleanDuplicatePedagogicalPhrases(objective);
 
-  if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+  if (roomType === 'LACTANTES_B' || roomType === 'LACTANTES_C' || roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
     finalDescription = normalizeLactantesBDescriptionStructure(finalDescription, roomType);
   }
 
@@ -3618,12 +3712,12 @@ export function projectInternalActivityToCanonical(
     materials: Object.freeze(resolvedMaterials),
   };
 
-  if (roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1') {
+  if (roomType === 'MATERNAL_A' || roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
     canonicalActResult = sanitizeMaternalAMaterialActionCoherence(canonicalActResult, table);
   }
 
-  if (roomType === 'MATERNAL_B1') {
-    canonicalActResult = sanitizeMaternalB1PedagogicalFidelity(canonicalActResult, table);
+  if (roomType === 'MATERNAL_B1' || roomType === 'MATERNAL_B2') {
+    canonicalActResult = sanitizeMaternalB1PedagogicalFidelity(canonicalActResult, table, roomType);
   }
 
   return canonicalActResult;
@@ -4125,7 +4219,7 @@ export function diversifyUniformDurations(
   days: ProposedPlanningDay[],
   roomType?: string
 ): ProposedPlanningDay[] {
-  if (roomType !== 'LACTANTES_C' && roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1') {
+  if (roomType !== 'LACTANTES_C' && roomType !== 'MATERNAL_A' && roomType !== 'MATERNAL_B1' && roomType !== 'MATERNAL_B2') {
     return days;
   }
 
@@ -4439,7 +4533,7 @@ export function parseAndAllowlistUntrustedProposal(
           options?.roomType
         );
       } catch (err: unknown) {
-        if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+        if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
           // Minimal non-destructive preservation of authentic OpenAI content:
           const rawObj = typeof actObj['objective'] === 'string' && actObj['objective'].trim()
             ? actObj['objective'].trim()
@@ -4567,7 +4661,7 @@ export function parseAndAllowlistUntrustedProposal(
         const rawSlot = expObj['revisitsSlot'];
 
         if (rawRole === 'EXPLORE') {
-          if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+          if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
             // For Lactantes B, C and Maternal A: heal EXPLORE if provider supplied extraneous revisit fields
             canonicalRevisitsId = undefined;
             canonicalRepetitionPurpose = undefined;
@@ -4613,9 +4707,9 @@ export function parseAndAllowlistUntrustedProposal(
             }
           }
 
-          // SR-MD-28O / SR-MD-29 Pedagogical alignment verification for Maternal A and B1:
+          // SR-MD-28O / SR-MD-29 / SR-MD-30 Pedagogical alignment verification for Maternal rooms:
           // Ensure validPriorSlot points to an activity that is GENUINELY pedagogically related
-          if (validPriorSlot !== null && (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1')) {
+          if (validPriorSlot !== null && (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2')) {
             const candidatePriorAct = (rawDays[validPriorSlot.targetDayIndex] as any)?.activities?.[validPriorSlot.targetActIndex];
             if (!areActivitiesPedagogicallyRelated(candidatePriorAct, actObj)) {
               // The declared slot does NOT match pedagogically (e.g. blocks claiming to revisit telas).
@@ -4652,9 +4746,10 @@ export function parseAndAllowlistUntrustedProposal(
             (options?.roomType === 'LACTANTES_B' ||
               options?.roomType === 'LACTANTES_C' ||
               options?.roomType === 'MATERNAL_A' ||
-              options?.roomType === 'MATERNAL_B1')
+              options?.roomType === 'MATERNAL_B1' ||
+              options?.roomType === 'MATERNAL_B2')
           ) {
-            // For Maternal A/B1 and Lactantes B/C: if provider specified a progression role on days 2-5
+            // For Maternal A/B1/B2 and Lactantes B/C: if provider specified a progression role on days 2-5
             // search earlier days for a pedagogically related activity
             let foundRelatedSlot: { targetDayIndex: number; targetActIndex: number } | null = null;
             for (let d = dayIndex - 1; d >= 0; d--) {
@@ -4672,7 +4767,7 @@ export function parseAndAllowlistUntrustedProposal(
 
             if (foundRelatedSlot) {
               validPriorSlot = foundRelatedSlot;
-            } else if (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+            } else if (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
               role = 'EXPLORE';
             } else {
               const targetDay = 0;
@@ -4713,7 +4808,7 @@ export function parseAndAllowlistUntrustedProposal(
                     )
                 : [];
               if (validDims.length === 0) {
-                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
                   canonicalVariationDimensions = ['SENSORY_EXPERIENCE'];
                 } else {
                   throw new InvalidWeeklyPlanningProposalError(
@@ -4735,7 +4830,7 @@ export function parseAndAllowlistUntrustedProposal(
                     )
                 : [];
               if (validDims.length === 0) {
-                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+                if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
                   canonicalVariationDimensions = ['CHILD_AGENCY'];
                 } else {
                   throw new InvalidWeeklyPlanningProposalError(
@@ -4749,14 +4844,14 @@ export function parseAndAllowlistUntrustedProposal(
 
               if (expObj['repetitionPurpose'] && INTENTIONAL_REPETITION_PURPOSES.includes(expObj['repetitionPurpose'] as any)) {
                 canonicalRepetitionPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
-              } else if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+              } else if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
                 canonicalRepetitionPurpose = 'VARIATION';
               }
             } else {
               // DEEPEN_OR_ADAPT or OBSERVE_OR_CONSOLIDATE
               if (expObj['repetitionPurpose'] && INTENTIONAL_REPETITION_PURPOSES.includes(expObj['repetitionPurpose'] as any)) {
                 canonicalRepetitionPurpose = expObj['repetitionPurpose'] as IntentionalRepetitionPurpose;
-              } else if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+              } else if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
                 canonicalRepetitionPurpose = role === 'OBSERVE_OR_CONSOLIDATE' ? 'RESPONSE_OBSERVATION' : 'PROGRESSION';
               }
               if (Array.isArray(expObj['variationDimensions'])) {
@@ -4769,7 +4864,7 @@ export function parseAndAllowlistUntrustedProposal(
                   canonicalVariationDimensions = validDims;
                 }
               }
-              if (!canonicalVariationDimensions && (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1')) {
+              if (!canonicalVariationDimensions && (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2')) {
                 canonicalVariationDimensions = role === 'OBSERVE_OR_CONSOLIDATE' ? ['OBSERVATION_FOCUS'] : ['CHILD_AGENCY'];
               }
             }
@@ -4777,7 +4872,7 @@ export function parseAndAllowlistUntrustedProposal(
             // No valid earlier slot reference exists (rawSlot is null/missing/empty or invalid)
             const isDependent = isActivityDependentOnPriorExperience(actObj, expObj);
 
-            if ((role === 'REVISIT' || isDependent) && options?.roomType !== 'LACTANTES_B' && options?.roomType !== 'LACTANTES_C' && options?.roomType !== 'MATERNAL_A' && options?.roomType !== 'MATERNAL_B1') {
+            if ((role === 'REVISIT' || isDependent) && options?.roomType !== 'LACTANTES_B' && options?.roomType !== 'LACTANTES_C' && options?.roomType !== 'MATERNAL_A' && options?.roomType !== 'MATERNAL_B1' && options?.roomType !== 'MATERNAL_B2') {
               if (slotResolutionError) {
                 throw slotResolutionError;
               }
@@ -4815,8 +4910,8 @@ export function parseAndAllowlistUntrustedProposal(
             /(?:ya (?:domina|aprendi[oó]|logr[oó]|alcanz[oó])|(?:el|la) (?:niñ[oa]|lactante|bebé) (?:logr[oó]|adquiri[oó]|aprendi[oó]|mejor[oó]|domin[oó]|alcanz[oó])|cumpli[oó] con éxito|resultado:|se alcanz[oó] el objetivo)/i;
 
           if (FORBIDDEN_COMPLETED_OUTCOME_REGEX.test(cleanTarget)) {
-            if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
-              cleanTarget = (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1')
+            if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
+              cleanTarget = (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2')
                 ? 'Observar la participación activa, desplazamiento y respuesta de las niñas y niños.'
                 : 'Observar la respuesta motriz y sensorial espontánea del lactante.';
             } else {
@@ -4875,8 +4970,8 @@ export function parseAndAllowlistUntrustedProposal(
   let projectedProgression: WeeklyPedagogicalProgression | undefined;
   if (hasProgression) {
     let experiencesToProject = canonicalExperiences;
-    if (options?.roomType === 'MATERNAL_B1') {
-      // SR-MD-29M / SR-MD-29O / SR-MD-29Q: Synchronize projected progression experiences with effectively generated activities
+    if (options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
+      // SR-MD-29M / SR-MD-29O / SR-MD-29Q / SR-MD-30: Synchronize projected progression experiences with effectively generated activities
       // across Monday through Friday so progression roles, references, and observation targets authentically match the developmental tracks.
       let expCounter = 0;
       const synchronizedExperiences: typeof canonicalExperiences = [];
@@ -4976,9 +5071,9 @@ export function parseAndAllowlistUntrustedProposal(
       // Run existing 1:1 activity ↔ progression correspondence validation
       validateActivityProgressionCorrespondence(effectiveDays as any, projectedProgression);
     } catch (progErr: unknown) {
-      if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+      if (options?.roomType === 'LACTANTES_B' || options?.roomType === 'LACTANTES_C' || options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
         let healedExperiences: typeof canonicalExperiences;
-        if (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1') {
+        if (options?.roomType === 'MATERNAL_A' || options?.roomType === 'MATERNAL_B1' || options?.roomType === 'MATERNAL_B2') {
           // Construct pedagogical progression arc across the 5 days
           const roleByDay: readonly ('EXPLORE' | 'REVISIT' | 'VARY' | 'OBSERVE_OR_CONSOLIDATE')[] = [
             'EXPLORE',
@@ -5073,7 +5168,9 @@ export function parseAndAllowlistUntrustedProposal(
         projectedProgression = {
           weeklyFocus:
             projectedProgression.weeklyFocus ||
-            (options?.roomType === 'MATERNAL_B1'
+            (options?.roomType === 'MATERNAL_B2'
+              ? 'Desarrollo del lenguaje expresivo, esquema corporal, hábitos y juego simbólico en Maternal B2'
+              : options?.roomType === 'MATERNAL_B1'
               ? 'Desarrollo del lenguaje, motricidad gruesa, hábitos y juego simbólico en Maternal B1'
               : options?.roomType === 'MATERNAL_A'
               ? 'Desarrollo psicomotriz, hábitos y juego simbólico en Maternal A'
@@ -5294,7 +5391,7 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       materialTable,
       {
         requireProgression: true,
-        roomType: (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1') ? policy.roomType : undefined,
+        roomType: (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2') ? policy.roomType : undefined,
       }
     );
 
@@ -5350,6 +5447,17 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
             ],
           },
         }
+      : policy.roomType === 'MATERNAL_B2'
+      ? {
+          ...policy,
+          materialPolicy: {
+            ...policy.materialPolicy,
+            approvedRoomFixtures: [
+              ...policy.materialPolicy.approvedRoomFixtures,
+              ...MATERNAL_B2_APPROVED_ROOM_FIXTURES,
+            ],
+          },
+        }
       : policy;
 
     const evaluation = PedagogicalSafetyValidator.evaluatePlan(
@@ -5357,12 +5465,12 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
       effectivePolicyForEval,
       request.currentContext.availableMaterials,
       {
-        requirePedagogicalStructure: policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1',
-        checkPedagogicalVariation: policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1',
+        requirePedagogicalStructure: policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2',
+        checkPedagogicalVariation: policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2',
       }
     );
 
-    if (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1') {
+    if (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2') {
       // NIVEL ROJO — SEGURIDAD REAL: BLOCKING_SAFETY violations & forced motor postures
       const redViolations = evaluation.violations.filter(
         (v) =>
@@ -5370,7 +5478,8 @@ export class AIWeeklyPlanningProposalSource implements WeeklyPlanningProposalSou
           v.ruleId === 'safe-lactantes-b-unsupported-standing-march' ||
           v.ruleId === 'safe-lactantes-b-forced-limb-traction' ||
           v.ruleId === 'safe-lactantes-c-forced-limb-traction' ||
-          v.ruleId === 'safe-maternal-b1-forced-limb-traction'
+          v.ruleId === 'safe-maternal-b1-forced-limb-traction' ||
+          v.ruleId === 'safe-maternal-b2-forced-limb-traction'
       );
       if (redViolations.length > 0) {
         // If 100% of activities violate safety, fail closed (no valid proposal to recover)

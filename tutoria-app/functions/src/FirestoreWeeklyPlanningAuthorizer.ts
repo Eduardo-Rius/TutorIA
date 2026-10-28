@@ -141,7 +141,9 @@ export class FirestoreWeeklyPlanningAuthorizer {
           (targetRoom === 'room-maternal-a' && doc.roomIds.includes('maternal-a')) ||
           (targetRoom === 'maternal-a' && doc.roomIds.includes('room-maternal-a')) ||
           (targetRoom === 'room-maternal-b1' && doc.roomIds.includes('maternal-b1')) ||
-          (targetRoom === 'maternal-b1' && doc.roomIds.includes('room-maternal-b1'));
+          (targetRoom === 'maternal-b1' && doc.roomIds.includes('room-maternal-b1')) ||
+          (targetRoom === 'room-maternal-b2' && doc.roomIds.includes('maternal-b2')) ||
+          (targetRoom === 'maternal-b2' && doc.roomIds.includes('room-maternal-b2'));
         if (!isAuthorizedRoom) {
           return {
             authorized: false,
