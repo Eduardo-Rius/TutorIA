@@ -132,11 +132,11 @@ describe('SR-MD-23 — Ampliación pedagógica: mínimo cinco actividades diaria
       }
     });
 
-    it('1.3. La IA no se activa en salas no autorizadas (autorizadas: Lactantes A, B y C)', () => {
+    it('1.3. La IA no se activa en salas no autorizadas (autorizadas: Lactantes A, B, C y Maternal A bajo SR-MD-28)', () => {
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNALES_A')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNALES_B')).toBe(false);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('PREESCOLAR_1')).toBe(false);
     });

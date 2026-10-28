@@ -153,10 +153,10 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
       expect(policyByName).toBe(LACTANTES_B_AGE_POLICY);
     });
 
-    it('el catálogo contiene exactamente las políticas autorizadas de Lactantes A, Lactantes B y Lactantes C', () => {
+    it('el catálogo contiene las políticas autorizadas de Lactantes A, Lactantes B, Lactantes C, Maternal A y Maternal B1 (SR-MD-29)', () => {
       const allPolicies = PedagogicalAgePolicyCatalog.getAllPolicies();
-      expect(allPolicies).toHaveLength(3);
-      expect(allPolicies.map(p => p.roomType)).toEqual(['LACTANTES_A', 'LACTANTES_B', 'LACTANTES_C']);
+      expect(allPolicies).toHaveLength(5);
+      expect(allPolicies.map(p => p.roomType)).toEqual(['LACTANTES_A', 'LACTANTES_B', 'LACTANTES_C', 'MATERNAL_A', 'MATERNAL_B1']);
     });
   });
 
@@ -960,16 +960,17 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
   // =========================================================================
   // 5. GOBERNANZA Y AUTORIZACIÓN SOBERANA DE IA (SR-MD-22)
   // =========================================================================
-  describe('5. Gobernanza estricta: Autorización controlada de IA bajo SR-MD-22', () => {
-    it('PedagogicalAgePolicyCatalog autoriza IA para LACTANTES_A, LACTANTES_B y LACTANTES_C, pero RECHAZA MATERNAL_A y UNKNOWN', () => {
+  describe('5. Gobernanza estricta: Autorización controlada de IA bajo SR-MD-22 / SR-MD-28', () => {
+    it('PedagogicalAgePolicyCatalog autoriza IA para LACTANTES_A, LACTANTES_B, LACTANTES_C y MATERNAL_A, pero RECHAZA MATERNAL_B y UNKNOWN', () => {
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B')).toBe(false);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('UNKNOWN')).toBe(false);
     });
 
-    it('AIWeeklyPlanningProposalSource bloquea salas no autorizadas (ej. Maternal A) con UnsupportedPedagogicalPolicyError ANTES del ejecutor', async () => {
+    it('AIWeeklyPlanningProposalSource bloquea salas no autorizadas (ej. Maternal B) con UnsupportedPedagogicalPolicyError ANTES del ejecutor', async () => {
       const mockExecutor: WeeklyPlanningAIExecutor = {
         execute: vi.fn(),
       };
@@ -981,10 +982,10 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
         weekEnd: '2026-08-28',
         modality: 'DIRECT',
         room: {
-          roomId: 'room-maternal-a',
-          name: 'Maternal A',
-          minAgeMonths: 19,
-          maxAgeMonths: 24,
+          roomId: 'room-maternal-b',
+          name: 'Maternal B',
+          minAgeMonths: 25,
+          maxAgeMonths: 36,
         },
         currentContext: {
           observations: 'Maternales explorando.',

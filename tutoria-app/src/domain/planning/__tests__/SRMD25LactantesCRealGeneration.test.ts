@@ -293,8 +293,8 @@ describe('MASTER ARB — SR-MD-25: Lactantes C con IA Real y Protección de Lact
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(true);
     });
 
-    it('Maternales permanecen estrictamente desautorizadas para IA', () => {
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(false);
+    it('Maternal A queda autorizada bajo SR-MD-28, mientras Maternal B y Preescolar 1 permanecen estrictamente desautorizadas para IA', () => {
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B')).toBe(false);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('PREESCOLAR_1')).toBe(false);
     });

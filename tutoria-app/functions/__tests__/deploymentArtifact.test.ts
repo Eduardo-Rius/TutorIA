@@ -62,7 +62,7 @@ describe("H1R9-F.8.3.4.2 — Deployment Artifact Self-Containment Regression", (
     expect(typeof bundledModule.defaultProductionAuthorizer).toBe("function");
     expect(typeof bundledModule.defaultProductionExecutor).toBe("function");
     expect(bundledModule.MAX_PAYLOAD_BYTES).toBe(10240);
-    expect(bundledModule.MAX_TEXT_FIELD_LENGTH).toBe(500);
+    expect(bundledModule.MAX_TEXT_FIELD_LENGTH).toBe(1000);
 
     // Verify expected exports for proposeWeeklyPlanning (H1R11.5)
     expect(bundledModule.proposeWeeklyPlanning).toBeDefined();

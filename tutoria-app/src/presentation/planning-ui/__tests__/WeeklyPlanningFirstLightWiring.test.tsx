@@ -560,8 +560,8 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
     expect(screen.getByText('Revisar propuesta de TutorIA')).toBeDefined();
   });
 
-  // Proof Y: Unauthorized rooms (e.g. Maternal A) remain without AI authorization and execute legacy fallback
-  it('Y. SR-MD-18-C / SR-MD-25: Maternal A remains without AI authorization and executes legacy fallback', async () => {
+  // Proof Y: Unauthorized rooms (e.g. Maternal B) remain without AI authorization and execute legacy fallback
+  it('Y. SR-MD-18-C / SR-MD-25 / SR-MD-28: Maternal B remains without AI authorization and executes legacy fallback', async () => {
     const generateSpy = vi.spyOn(pedSource, 'generateRecommendation');
 
     render(
@@ -572,10 +572,10 @@ describe('H1R11.9A — Weekly Planning First Light Runtime Source Wiring', () =>
         firstLightAuth={mockAuth}
         initialAction="new"
         roomOverride={{
-          roomId: 'room-maternal-a',
-          name: 'Maternal A',
-          minAgeMonths: 19,
-          maxAgeMonths: 24,
+          roomId: 'room-maternal-b',
+          name: 'Maternal B',
+          minAgeMonths: 25,
+          maxAgeMonths: 36,
         }}
       />
     );

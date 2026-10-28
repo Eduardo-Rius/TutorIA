@@ -37,6 +37,12 @@ describe('SR-MD-22 — Integración de IA Pedagógica para Lactantes B (7–12 m
     minAgeMonths: 19,
     maxAgeMonths: 24,
   };
+  const roomMaternalB: Room = {
+    roomId: 'room-maternal-b',
+    name: 'Maternal B',
+    minAgeMonths: 25,
+    maxAgeMonths: 36,
+  };
 
   const sampleAvailableMaterials = 'Colchonetas, cubos medianos de vinil, sonajas, libros de tela con textura, muñecos de tela';
 
@@ -296,10 +302,10 @@ describe('SR-MD-22 — Integración de IA Pedagógica para Lactantes B (7–12 m
     expect(mondayReading.description).toContain('Cierre:');
   });
 
-  // 3. Maternales permanecen bloqueadas para IA
-  it('3. Maternales permanecen bloqueadas para IA con UnsupportedPedagogicalPolicyError sin invocar ejecutor', async () => {
+  // 3. Maternal A autorizada bajo SR-MD-28, Maternal B permanece bloqueada para IA
+  it('3. Maternal B permanece bloqueada para IA con UnsupportedPedagogicalPolicyError sin invocar ejecutor', async () => {
     expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
-    expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(false);
+    expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
     expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B')).toBe(false);
 
     const mockExecutor: WeeklyPlanningAIExecutor = {
@@ -307,21 +313,21 @@ describe('SR-MD-22 — Integración de IA Pedagógica para Lactantes B (7–12 m
     };
     const source = new AIWeeklyPlanningProposalSource(mockExecutor);
 
-    // Intento con Maternal A
-    const reqMatA: WeeklyPlanningProposalRequest = {
-      planningId: 'plan-mat-a',
+    // Intento con Maternal B
+    const reqMatB: WeeklyPlanningProposalRequest = {
+      planningId: 'plan-mat-b',
       weekStart: '2026-08-24',
       weekEnd: '2026-08-28',
       modality: 'DIRECT',
-      room: roomMaternalA,
+      room: roomMaternalB,
       currentContext: {
-        observations: '19 a 24 meses',
+        observations: '25 a 36 meses',
         identifiedNeeds: 'Lenguaje',
         specialSituations: '',
         availableMaterials: sampleAvailableMaterials,
       },
     };
-    await expect(source.propose(reqMatA)).rejects.toThrow(UnsupportedPedagogicalPolicyError);
+    await expect(source.propose(reqMatB)).rejects.toThrow(UnsupportedPedagogicalPolicyError);
 
     // Cero llamadas al ejecutor
     expect(mockExecutor.execute).toHaveBeenCalledTimes(0);

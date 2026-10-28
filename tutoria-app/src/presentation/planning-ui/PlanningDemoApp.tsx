@@ -46,6 +46,7 @@ import type {
 } from '../../application/planning/WeeklyPlanningProposalSource';
 import { IMSS_CATEGORIES, type ImssCategory } from '../../constants/imssCategories';
 import { WeeklyPlanningProposalHumanGate } from './WeeklyPlanningProposalHumanGate';
+import { WeeklyPlanningAILoadingProgress } from './WeeklyPlanningAILoadingProgress';
 import { DailyEvaluationHumanGate, type HumanEvidenceInputs } from './DailyEvaluationHumanGate';
 import type { EvaluationRecommendationSource } from '../../infrastructure/ai/FirebaseEvaluationRecommendationSource';
 
@@ -321,7 +322,15 @@ export function readPersistedSelectedRoom(
   if (!candidate) return null;
 
   if (authorizedRooms && authorizedRooms.length > 0) {
-    const isAuthorized = authorizedRooms.some(r => r.roomId === candidate || (candidate === 'lactantes-c' && r.roomId === 'room-lactantes-c') || (candidate === 'room-lactantes-c' && r.roomId === 'lactantes-c'));
+    const isAuthorized = authorizedRooms.some(r =>
+      r.roomId === candidate ||
+      (candidate === 'lactantes-c' && r.roomId === 'room-lactantes-c') ||
+      (candidate === 'room-lactantes-c' && r.roomId === 'lactantes-c') ||
+      (candidate === 'maternal-a' && r.roomId === 'room-maternal-a') ||
+      (candidate === 'room-maternal-a' && r.roomId === 'maternal-a') ||
+      (candidate === 'maternal-b1' && r.roomId === 'room-maternal-b1') ||
+      (candidate === 'room-maternal-b1' && r.roomId === 'maternal-b1')
+    );
     if (!isAuthorized) {
       clearPersistedSelectedRoom(userId, daycareId);
       if (urlRoomId === candidate) {
@@ -333,6 +342,12 @@ export function readPersistedSelectedRoom(
 
   if (candidate === 'lactantes-c' && authorizedRooms?.some(r => r.roomId === 'room-lactantes-c')) {
     return 'room-lactantes-c';
+  }
+  if (candidate === 'maternal-a' && authorizedRooms?.some(r => r.roomId === 'room-maternal-a')) {
+    return 'room-maternal-a';
+  }
+  if (candidate === 'maternal-b1' && authorizedRooms?.some(r => r.roomId === 'room-maternal-b1')) {
+    return 'room-maternal-b1';
   }
 
   return candidate;
@@ -610,6 +625,18 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         minAgeMonths: 13,
         maxAgeMonths: 18,
       },
+      RoomCatalog.getRoom('room-maternal-a') || {
+        roomId: 'room-maternal-a',
+        name: 'Maternal A',
+        minAgeMonths: 19,
+        maxAgeMonths: 24,
+      },
+      RoomCatalog.getRoom('room-maternal-b1') || {
+        roomId: 'room-maternal-b1',
+        name: 'Maternal B1',
+        minAgeMonths: 25,
+        maxAgeMonths: 30,
+      },
     ];
     if (roomOverride && !list.some(r => r.roomId === roomOverride.roomId)) {
       list.push(roomOverride);
@@ -647,6 +674,12 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       if (userSelectedRoomId === 'room-lactantes-c' || userSelectedRoomId === 'lactantes-c') {
         return { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 };
       }
+      if (userSelectedRoomId === 'room-maternal-a' || userSelectedRoomId === 'maternal-a') {
+        return { roomId: 'room-maternal-a', name: 'Maternal A', minAgeMonths: 19, maxAgeMonths: 24 };
+      }
+      if (userSelectedRoomId === 'room-maternal-b1' || userSelectedRoomId === 'maternal-b1') {
+        return { roomId: 'room-maternal-b1', name: 'Maternal B1', minAgeMonths: 25, maxAgeMonths: 30 };
+      }
     }
     if (firstLightGuard.isEligible) {
       return (
@@ -660,6 +693,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       );
     }
     return (
+      effectiveAuthorizedRooms[0] ||
       RoomCatalog.getRoom('room-lactantes-c') ||
       RoomCatalog.getRoom('lactantes-c') || {
         roomId: 'room-lactantes-c',
@@ -683,7 +717,15 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
     const targetRoomId = typeof target === 'string' ? target : target.roomId;
     if (!targetRoomId) return;
 
-    const isAuthorized = effectiveAuthorizedRooms.some(r => r.roomId === targetRoomId);
+    const isAuthorized = effectiveAuthorizedRooms.some(r =>
+      r.roomId === targetRoomId ||
+      (targetRoomId === 'room-lactantes-c' && r.roomId === 'lactantes-c') ||
+      (targetRoomId === 'lactantes-c' && r.roomId === 'room-lactantes-c') ||
+      (targetRoomId === 'room-maternal-a' && r.roomId === 'maternal-a') ||
+      (targetRoomId === 'maternal-a' && r.roomId === 'room-maternal-a') ||
+      (targetRoomId === 'room-maternal-b1' && r.roomId === 'maternal-b1') ||
+      (targetRoomId === 'maternal-b1' && r.roomId === 'room-maternal-b1')
+    );
     if (!isAuthorized) return;
 
     setUserSelectedRoomId(targetRoomId);
@@ -2217,7 +2259,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   const evaluationTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const planRoomId = (planningObj as any)?.roomId || (planId ? canonicalPlan?.roomId : undefined);
-  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined)))
+  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined) || (planRoomId === 'room-maternal-a' || planRoomId === 'maternal-a' ? { roomId: 'room-maternal-a', name: 'Maternal A', minAgeMonths: 19, maxAgeMonths: 24 } : undefined) || (planRoomId === 'room-maternal-b1' || planRoomId === 'maternal-b1' ? { roomId: 'room-maternal-b1', name: 'Maternal B1', minAgeMonths: 25, maxAgeMonths: 30 } : undefined)))
     || activeRoom
     || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
     || RoomCatalog.getRoom('room-lactantes-c')
@@ -2243,6 +2285,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
 
   const [isGenerating, setIsGenerating] = useState(false);
   const isGeneratingRef = useRef(false);
+  const [isProposalCompleted, setIsProposalCompleted] = useState(false);
   const [pendingWeeklyProposal, setPendingWeeklyProposal] = useState<WeeklyPlanningProposalResponse | null>(null);
   const [proposalSourceType, setProposalSourceType] = useState<'AI' | 'FALLBACK'>('AI');
   const [proposalError, setProposalError] = useState<string | null>(null);
@@ -2371,6 +2414,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
     if (isGeneratingRef.current || isGenerating) return;
     isGeneratingRef.current = true;
     setIsGenerating(true);
+    setIsProposalCompleted(false);
     setProposalError(null);
 
     const activeProposalSource = effectiveWeeklyPlanningProposalSource ?? weeklyPlanningProposalSource;
@@ -2399,6 +2443,10 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
         // Human Gate: Store proposal transiently in memory for Anita's review.
         // ZERO saveDraft, ZERO persistence, ZERO aggregate mutation!
         setProposalSourceType('AI');
+        setIsProposalCompleted(true);
+        if (process.env.NODE_ENV !== 'test') {
+          await new Promise((resolve) => setTimeout(resolve, 450));
+        }
         setPendingWeeklyProposal(proposal);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Error al generar la propuesta de planeación.';
@@ -2428,6 +2476,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
       } finally {
         isGeneratingRef.current = false;
         setIsGenerating(false);
+        setIsProposalCompleted(false);
       }
       return;
     }
@@ -2712,18 +2761,24 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                 </div>
               )}
 
-              {!days.some(d => d.activities && d.activities.length > 0) && !isGenerating && !readOnly && (
+              {!days.some(d => d.activities && d.activities.length > 0) && !readOnly && (
                 <div className="text-center mt-8 pt-6 border-t border-teal-100">
-                  <button onClick={handleGenerateWeek} disabled={!obs || readOnly || isGenerating} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
-                    {isGenerating ? 'Preparando propuesta semanal…' : '✨ Ayúdame con TutorIA (Generar Semana)'}
-                  </button>
-                  <p className="text-xs text-text-muted mt-3 uppercase tracking-wider font-bold">Generará los 5 días basándose en este contexto</p>
-                </div>
-              )}
-
-              {proposalError && (
-                <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm max-w-md mx-auto text-center" role="alert">
-                  {proposalError}
+                  {isGenerating || isProposalCompleted || proposalError ? (
+                    <WeeklyPlanningAILoadingProgress
+                      isGenerating={isGenerating}
+                      isCompleted={isProposalCompleted}
+                      roomName={effectiveRoom?.name || activeRoom?.name}
+                      error={proposalError}
+                      onRetry={handleGenerateWeek}
+                    />
+                  ) : (
+                    <>
+                      <button onClick={handleGenerateWeek} disabled={!obs || readOnly || isGenerating} className="bg-brand-primary hover:bg-brand-dark focus:ring-4 focus:ring-brand-primary/30 text-white font-bold text-xl px-8 py-4 rounded-full shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-3 w-full max-w-md mx-auto">
+                        ✨ Ayúdame con TutorIA (Generar Semana)
+                      </button>
+                      <p className="text-xs text-text-muted mt-3 uppercase tracking-wider font-bold">Generará los 5 días basándose en este contexto</p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -2788,8 +2843,8 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                     </div>
                   )}
                   {isGenerating && (
-                    <div className="mt-12 text-center text-brand-primary font-bold text-xl animate-pulse">
-                      Preparando propuesta semanal…
+                    <div className="mt-12 text-center text-brand-primary/70 font-semibold text-base animate-pulse">
+                      Generando experiencias pedagógicas…
                     </div>
                   )}
 

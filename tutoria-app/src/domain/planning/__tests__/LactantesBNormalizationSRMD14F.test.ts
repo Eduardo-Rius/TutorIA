@@ -65,11 +65,11 @@ describe('ORDEN SR-MD-14-F — Normalización Controlada del Catálogo: Lactante
       });
     });
 
-    it('el catálogo canónico contiene exactamente las 3 salas sin duplicados', () => {
+    it('el catálogo canónico contiene exactamente las 5 salas autorizadas sin duplicados (Lactantes A, B, C, Maternal A y Maternal B1 — SR-MD-29)', () => {
       const allRooms = RoomCatalog.getAllRooms();
-      expect(allRooms).toHaveLength(3);
+      expect(allRooms).toHaveLength(5);
       const roomIds = allRooms.map(r => r.roomId);
-      expect(roomIds).toEqual(['lactantes-c', 'room-lactantes-a', 'room-lactantes-b']);
+      expect(roomIds).toEqual(['lactantes-c', 'room-lactantes-a', 'room-lactantes-b', 'room-maternal-a', 'room-maternal-b1']);
     });
   });
 
@@ -218,10 +218,10 @@ describe('ORDEN SR-MD-14-F — Normalización Controlada del Catálogo: Lactante
   });
 
   // =========================================================================
-  // 5. Gobernanza de autorización IA bajo SR-MD-25 (Lactantes B y C autorizadas, Maternal A bloqueada)
+  // 5. Gobernanza de autorización IA bajo SR-MD-28 (Lactantes A/B/C y Maternal A autorizadas, Maternal B bloqueada)
   // =========================================================================
-  describe('5. Gobernanza de autorización IA bajo SR-MD-25 (Lactantes B y C autorizadas, Maternal A bloqueada)', () => {
-    it('resuelve LACTANTES_B_AGE_POLICY para room-lactantes-b y confirma autorización IA bajo SR-MD-25', () => {
+  describe('5. Gobernanza de autorización IA bajo SR-MD-28 (Lactantes A/B/C y Maternal A autorizadas, Maternal B bloqueada)', () => {
+    it('resuelve LACTANTES_B_AGE_POLICY para room-lactantes-b y confirma autorización IA bajo SR-MD-28', () => {
       const lactantesBRoom = RoomCatalog.getRoom('room-lactantes-b')!;
       expect(lactantesBRoom).toBeDefined();
 
@@ -230,15 +230,16 @@ describe('ORDEN SR-MD-14-F — Normalización Controlada del Catálogo: Lactante
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_B')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B')).toBe(false);
     });
 
-    it('rechaza fail-closed con UnsupportedPedagogicalPolicyError y NUNCA ejecuta IA para salas no autorizadas (ej. Maternal A)', async () => {
-      const maternalARoom = {
-        roomId: 'room-maternal-a',
-        name: 'Maternal A',
-        minAgeMonths: 19,
-        maxAgeMonths: 24,
+    it('rechaza fail-closed con UnsupportedPedagogicalPolicyError y NUNCA ejecuta IA para salas no autorizadas (ej. Maternal B)', async () => {
+      const maternalBRoom = {
+        roomId: 'room-maternal-b',
+        name: 'Maternal B',
+        minAgeMonths: 25,
+        maxAgeMonths: 36,
       };
       const mockExecutor: WeeklyPlanningAIExecutor = {
         execute: vi.fn(),
@@ -246,13 +247,13 @@ describe('ORDEN SR-MD-14-F — Normalización Controlada del Catálogo: Lactante
       const provider = new AIWeeklyPlanningProposalSource(mockExecutor);
 
       const request: WeeklyPlanningProposalRequest = {
-        planningId: 'plan-mat-a-proposal-fail',
+        planningId: 'plan-mat-b-proposal-fail',
         weekStart: '2026-08-24',
         weekEnd: '2026-08-28',
         modality: 'DIRECT',
-        room: maternalARoom,
+        room: maternalBRoom,
         currentContext: {
-          observations: 'Observaciones de desarrollo motriz para 19 a 24 meses.',
+          observations: 'Observaciones de desarrollo motriz para 25 a 36 meses.',
           identifiedNeeds: 'Lenguaje y autonomía.',
           specialSituations: '',
           availableMaterials: 'Bloques de madera, cuentos ilustrados.',
