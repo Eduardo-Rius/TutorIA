@@ -1489,5 +1489,226 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       expect(artClosure).not.toBe(motorClosure);
     });
   });
+
+  // =========================================================================
+  // 10. Corrección Puntual de Coherencia Maternal C1 (SR-MD-31G)
+  // =========================================================================
+  describe('10. Corrección Puntual de Coherencia Maternal C1 (SR-MD-31G)', () => {
+    const table = createRequestScopedMaterialTable(
+      sampleAvailableMaterials,
+      MATERNAL_C1_APPROVED_ROOM_FIXTURES
+    );
+
+    // P0 — Coherencia categoría–objetivo–desarrollo–materiales en Viernes EXP-D5-A1
+    it('P0: preserva la lectura en voz alta diaria en viernes EXP-D5-A1 sin sustituir su objetivo por correspondencia matemática ni bloques', () => {
+      const fridayPlanWithReadingAndMath = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Consolidar el goce literario y la iniciativa lectora mediante la relectura dialogada de pasajes favoritos.',
+              description:
+                'Inicio: La Asistente agrupa a las niñas y niños sobre las colchonetas limpias en semicírculo para contar el cuento «¿Dónde está Spot?» de Eric Hill.\nDesarrollo: En la lectura dialogada, la Asistente hojea el cuento y los niños buscan a Spot que está adentro de la canasta, levantando las solapas con entusiasmo.\nCierre: Cerrar el libro con cariño, despedir a los personajes con un gesto de la mano y acomodarlo en el canasto a ras de suelo.\nAdaptaciones: Respetar pausas y modulaciones de voz afectuosas.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Consolidar conteo 1 a 1 de objetos.',
+              description:
+                'Inicio: Disponer bloques grandes y cajas de cartón limpias a ras de suelo.\nDesarrollo: Los niños colocan bloques uno a uno dentro de las cajas de cartón limpias verificando correspondencia uno a uno.\nCierre: Guardar bloques.\nAdaptaciones: Modelado con señalamiento guiado.',
+              materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(fridayPlanWithReadingAndMath, 'MATERNAL_C1');
+      const readingAct = enriched[4].activities[0];
+      const mathAct = enriched[4].activities[1];
+
+      // Actividad 0: LECTURA EN VOZ ALTA debe conservar objetivo narrativo y CERO bloques/cajas de cartón
+      expect(readingAct.category).toBe('LECTURA EN VOZ ALTA');
+      expect(readingAct.objective).not.toContain('bloques');
+      expect(readingAct.objective).not.toContain('correspondencia uno a uno');
+      expect(readingAct.objective).not.toContain('noción de continente');
+      expect(readingAct.objective).toMatch(/\b(?:goce\s+literario|comprensi[oó]n|lectora|cuento|narrativ)\b/i);
+      expect(readingAct.materials).toContain('cuentos ilustrados infantiles');
+      expect(readingAct.materials).not.toContain('bloques grandes de plástico lavable');
+
+      // Actividad 1: PENSAMIENTO MATEMÁTICO sí recibe el objetivo de correspondencia
+      expect(mathAct.category).toBe('PENSAMIENTO MATEMÁTICO');
+      expect(mathAct.objective).toContain('correspondencia uno a uno');
+    });
+
+    it('P0: restaura el objetivo de lectura si llegó contaminado con términos matemáticos de bloques o correspondencia', () => {
+      const contaminatedFridayReading = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              // Objetivo erróneamente asignado con correspondencia y bloques
+              objective: 'Observar y consolidar la correspondencia uno a uno y la noción de continente colocando bloques dentro de cajas de cartón limpias.',
+              description:
+                'Inicio: Presentar el cuento «¿Dónde está Spot?» de Eric Hill a ras de suelo.\nDesarrollo: La Asistente relee los pasajes favoritos de Spot junto a las niñas y niños sobre colchonetas limpias.\nCierre: Guardar el cuento en el canasto.\nAdaptaciones: Apoyo cercano.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(contaminatedFridayReading, 'MATERNAL_C1');
+      const restoredReadingAct = enriched[4].activities[0];
+
+      expect(restoredReadingAct.category).toBe('LECTURA EN VOZ ALTA');
+      expect(restoredReadingAct.objective).not.toContain('bloques');
+      expect(restoredReadingAct.objective).not.toContain('correspondencia uno a uno');
+      expect(restoredReadingAct.objective).toContain('comprensión narrativa, la escucha atenta y el interés lector compartiendo pasajes');
+    });
+
+    // P1.1 — Evitar materiales que no intervienen en la actividad
+    it('P1.1: poda materiales no intervinientes (fantasmas) cuando materials lista recursos no utilizados', () => {
+      const readingWithExtraneousMaterials = {
+        category: 'LECTURA EN VOZ ALTA',
+        objective: 'Fortalecer la comprensión narrativa mediante la lectura dialogada del cuento infantil.',
+        description:
+          'Inicio: La Asistente invita a sentarse sobre las colchonetas limpias a ras de suelo y muestra el cuento.\nDesarrollo: Se exploran las páginas del cuento «¿Dónde está Spot?» de Eric Hill dialogando sobre los personajes.\nCierre: Despedir al personaje y colocar el libro en el canasto a ras de suelo.\nAdaptaciones: Modelado con señalamiento guiado.',
+        // pelotas y bloques NO intervienen en esta lectura
+        materials: ['cuentos ilustrados infantiles', 'pelotas medianas de vinil', 'bloques grandes de plástico lavable', 'colchonetas limpias'],
+        durationMinutes: 15,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(readingWithExtraneousMaterials, table, 'MATERNAL_C1');
+
+      expect(sanitized.materials).toContain('cuentos ilustrados infantiles');
+      expect(sanitized.materials).toContain('colchonetas limpias');
+      expect(sanitized.materials).not.toContain('pelotas medianas de vinil');
+      expect(sanitized.materials).not.toContain('bloques grandes de plástico lavable');
+    });
+
+    // P1.2 — Evitar fragmentar materiales en elementos artificiales («instrumentos musicales infantiles seguros» / «como tambores»)
+    it('P1.2: erradica «instrumentos musicales infantiles seguros» y «como tambores» sustituyéndolos por palmadas suaves y cantos acapela', () => {
+      const actWithArtificialInstruments = {
+        category: 'ACTIVACIÓN FÍSICA',
+        objective: 'Acompañar el ritmo utilizando las cajas de cartón como tambores e instrumentos musicales infantiles seguros.',
+        description:
+          'Inicio: Disponer cajas de cartón limpias sobre colchonetas limpias a ras de suelo.\nDesarrollo: Los niños cantan tocando las cajas de cartón como tambores al compás de instrumentos musicales infantiles seguros.\nCierre: Guardar los instrumentos musicales y aplaudir serenamente.\nAdaptaciones: Adecuar el ritmo.',
+        materials: ['cajas de cartón limpias', 'instrumentos musicales infantiles seguros', 'colchonetas limpias'],
+        durationMinutes: 15,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(actWithArtificialInstruments, table, 'MATERNAL_C1');
+
+      // Materials no debe contener instrumentos inventados
+      expect(sanitized.materials).not.toContain('instrumentos musicales infantiles seguros');
+
+      // Description y objective deben estar limpios de fragmentaciones artificiales
+      expect(sanitized.description).not.toMatch(/\bcomo\s+tambor(?:es)?\b/);
+      expect(sanitized.description).not.toContain('instrumentos musicales');
+      expect(sanitized.description).toMatch(/\bpalmadas\s+suaves\b/);
+
+      expect(sanitized.objective).not.toMatch(/\bcomo\s+tambor(?:es)?\b/);
+      expect(sanitized.objective).not.toContain('instrumentos musicales');
+    });
+
+    // P1.3 — Mantener variaciones pedagógicas observables entre días, sin prohibir repeticiones útiles
+    it('P1.3: preserva la lectura diaria del mismo cuento («¿Dónde está Spot?») con variaciones observables sin generar duplicados', () => {
+      const weeklyPlanWithDailySpot = [
+        {
+          dayOfWeek: 'MONDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Estimular la anticipación lectora explorando la portada y los personajes del cuento.',
+              description:
+                'Inicio: Presentación de la portada del cuento «¿Dónde está Spot?» de Eric Hill.\nDesarrollo: La Asistente muestra la portada y formula preguntas abiertas de anticipación hojear las páginas.\nCierre: Cerrar el libro con afecto.\nAdaptaciones: Pausas respetuosas.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'TUESDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Fortalecer la búsqueda activa y la predicción levantando solapas del cuento.',
+              description:
+                'Inicio: Reencuentro con Spot sobre colchonetas limpias.\nDesarrollo: Relectura interactiva invitando a descubrir quién está detrás de cada puerta levantando solapas y haciendo predicciones.\nCierre: Guardar en el canasto.\nAdaptaciones: Señalamiento guiado.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'WEDNESDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Estimular la expresión verbal y las emociones imitando onomatopeyas de los personajes.',
+              description:
+                'Inicio: Abrir el cuento de Spot en círculo sobre colchonetas limpias.\nDesarrollo: Durante la lectura, imitar onomatopeyas y sonidos de animales dialogando sobre qué siente cada personaje.\nCierre: Despedida afectuosa de los personajes.\nAdaptaciones: Validar sonidos guturales.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'THURSDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Favorecer la dramatización gestual y la corporalidad recreando escenas del cuento a ras de suelo.',
+              description:
+                'Inicio: Preparar la lectura dramatizada sobre colchonetas limpias.\nDesarrollo: Dramatización gestual actuando e imitando a los personajes buscando a Spot con sigilo y alegría a ras de suelo sin saltos.\nCierre: Retorno a la calma.\nAdaptaciones: Apoyo cercano.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Consolidar el recuento narrativo y la reconstrucción secuencial de pasajes favoritos.',
+              description:
+                'Inicio: Ronda de cierre semanal con el cuento de Spot.\nDesarrollo: Recuento compartido y reconstrucción secuencial donde las niñas y niños eligen sus pasajes favoritos para releerlos juntos.\nCierre: Cerrar el libro con cariño, despedir a los personajes con un gesto de la mano y acomodarlo en el canasto a ras de suelo.\nAdaptaciones: Preguntas abiertas.',
+              materials: ['cuentos ilustrados infantiles', 'colchonetas limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(weeklyPlanWithDailySpot, 'MATERNAL_C1');
+
+      // Las 5 lecturas deben mantenerse como LECTURA EN VOZ ALTA con objetivos y dinámicas observables diferentes
+      const objectives = enriched.map((d) => d.activities[0].objective);
+      const uniqueObjectives = new Set(objectives);
+      expect(uniqueObjectives.size).toBe(5);
+
+      // Ninguna lectura debe haberse convertido en matemáticas o bloques
+      for (const day of enriched) {
+        const readAct = day.activities[0];
+        expect(readAct.category).toBe('LECTURA EN VOZ ALTA');
+        expect(readAct.objective).not.toContain('bloques');
+        expect(readAct.objective).not.toContain('correspondencia uno a uno');
+      }
+    });
+  });
 });
+
 

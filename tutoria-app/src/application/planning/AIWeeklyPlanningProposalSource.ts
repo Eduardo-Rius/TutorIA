@@ -1412,6 +1412,9 @@ export function buildWeeklyPlanningAIUserPrompt(
       '   - Concebir cada actividad como una UNIDAD PEDAGÓGICA COHERENTE: Objetivo observable → Materiales declarados → Inicio → Desarrollo → Cierre concreto → Adaptaciones contextuales.',
       '   - Nombra los materiales directamente por su nombre en Inicio, Desarrollo y Cierre de forma fluida. NUNCA uses "{material}" ni concatenaciones como "Con <materiales>:".',
       '   - INVENTARIO ESTRICTO: Queda TERMINANTEMENTE PROHIBIDO inventar masa casera, plastilina, pintura, pegamento, cojines, almohadas, mantas, conos, cuerdas, túneles, sillas adicionales, mesas adicionales, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música, cinta adhesiva, chinchetas u objetos abstractos ausentes del inventario.',
+      '   - CERO INSTRUMENTOS MUSICALES O FRAGMENTACIÓN ARTIFICIAL: Queda TERMINANTEMENTE PROHIBIDO inventar «instrumentos musicales infantiles seguros», maracas, panderos, tambores o fragmentar materiales en elementos artificiales como «cajas como tambores» o «usar cajas como tambor». Todo acompañamiento sonoro debe realizarse exclusivamente con cantos acapela de la Asistente y palmadas suaves sobre colchonetas limpias a ras de suelo.',
+      '   - COHERENCIA DE MATERIALES DECLARADOS: En "materials", incluye ÚNICAMENTE los recursos que efectivamente intervienen y son manipulados en la actividad descrita. TERMINANTEMENTE PROHIBIDO listar materiales no intervinientes (por ejemplo, bloques, cajas o pelotas en una lectura de cuentos; o crayones en una actividad de marcha). Si no requiere objetos físicos, declara "materials": [].',
+      '   - REPETICIONES ÚTILES CON VARIACIÓN OBSERVABLE: Es pedagógicamente válido y deseable releer el mismo cuento diariamente (ej. «¿Dónde está Spot?») o utilizar bloques en distintos días, SIEMPRE QUE cada día presente una variación pedagógica observable (ej. lectura: lunes portada/anticipación, martes solapas/preguntas, miércoles onomatopeyas/emociones, jueves dramatización gestual, viernes recuento de pasajes favoritos).',
       '   - No menciones materiales físicos inexistentes cuando "materialRefs" permanezca vacío. Si una actividad involucra manipulación de materiales, DEBEN declararse en "materialRefs" a partir del inventario disponible.',
       '   - CERO TAPETES O LÍNEAS MARCADAS NO DECLARADOS: Queda TERMINANTEMENTE PROHIBIDO inventar tapetes, líneas marcadas en el piso, cintas o superficies no declaradas. Todo desplazamiento o actividad se apoya en colchonetas limpias a ras de suelo.',
       '   - COHERENCIA MATERIAL–ACCIÓN EN CLASIFICACIÓN Y CONTEO: Cuando propongas clasificar o contar, identifica explícitamente los objetos manipulables disponibles (ej. «bloques grandes de plástico lavable») y los recipientes contenedores utilizados (ej. «cajas de cartón limpias a ras de suelo»). Ambos deben registrarse en "materialRefs" y en la descripción.',
@@ -2204,9 +2207,19 @@ export function sanitizeMaternalB1PedagogicalFidelity(
 
   // 2b. Defecto 1 (SR-MD-29F), Defecto 2 (SR-MD-29Q) & SR-MD-30C: Coherencia materiales–acciones en clasificación
   // Identificar objetos concretos disponibles y registrarlos obligatoriamente junto con recipientes (cajas de cartón)
+  const isReadingActivity =
+    act.category === 'LECTURA EN VOZ ALTA' ||
+    /\b(?:cuento|libro|lectura|spot|narraci[oó]n|solapas?|eric\s+hill)\b/i.test(`${description} ${objective}`);
+
   const isClassification =
-    /\b(?:clasific\w*|agrup\w*|emparej\w*|ordenar\s+por\s+(?:color|tamaño)|separar\s+por\s+(?:color|tamaño)|seriaci[oó]n|juego\s+de\s+colores)\b/i.test(description) ||
-    /\b(?:clasific\w*|agrup\w*|emparej\w*|separar\s+por\s+(?:color|tamaño)|seriaci[oó]n|juego\s+de\s+colores)\b/i.test(objective);
+    !isReadingActivity &&
+    act.category !== 'ACTIVACIÓN FÍSICA' &&
+    act.category !== 'EXPERIENCIAS ARTÍSTICAS' &&
+    (
+      /\b(?:clasific\w*|ordenar\s+por\s+(?:color|tamaño)|separar\s+por\s+(?:color|tamaño)|seriaci[oó]n|juego\s+de\s+colores)\b/i.test(description) ||
+      /\b(?:agrupar\s+(?:por|seg[uú]n|bloques|objetos|piezas|elementos)|agrupaci[oó]n\s+(?:por|de\s+(?:bloques|objetos|piezas))|agrupar\s+en\s+cajas)\b/i.test(description) ||
+      /\b(?:clasific\w*|separar\s+por\s+(?:color|tamaño)|seriaci[oó]n|juego\s+de\s+colores|agrupar\s+(?:por|seg[uú]n|bloques|objetos))\b/i.test(objective)
+    );
 
   if (isClassification) {
     const blockEntry = table.entries.find((e) => /\bbloques?\b/i.test(e.displayName));
@@ -2368,7 +2381,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
   if (!hasTraysInTable && /\bbandejas?\b/i.test(objective)) {
     objective = objective.replace(/\b(?:en\s+)?bandejas?(?:\s+amplias?)?\b/gi, 'en cajas de cartón limpias');
   }
-  materials = materials.filter((m) => !/\b(?:bandejas?|reproductor|grabadora|bocina|equipo\s+de\s+sonido|cinta\s+adhesiva|chinchetas?|masking\s*tape)\b/i.test(m));
+  materials = materials.filter((m) => !/\b(?:bandejas?|reproductor|grabadora|bocina|equipo\s+de\s+sonido|cinta\s+adhesiva|chinchetas?|masking\s*tape|instrumentos?\s+musicales?|tambor(?:es)?|maracas?|panderos?|sonajas?)\b/i.test(m));
   if (!hasTraysInTable && (/\bcajas\s+de\s+cart[oó]n\b/i.test(description) || /\bcajas\s+de\s+cart[oó]n\b/i.test(objective))) {
     const boxEntry = table.entries.find((e) => /\bcajas?\s+de\s+cart[oó]n\b/i.test(e.displayName));
     const matName = boxEntry ? boxEntry.displayName : 'cajas de cartón limpias';
@@ -2376,7 +2389,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       materials.push(matName);
     }
   }
-  if (/\b(?:correspondencia|clasific|agrup)\b/i.test(description) || /\b(?:correspondencia|clasific|agrup)\b/i.test(objective)) {
+  if (!isReadingActivity && (/\b(?:correspondencia|clasific|agrupar\s+(?:por|seg[uú]n|bloques|objetos))\b/i.test(description) || /\b(?:correspondencia|clasific|agrupar\s+(?:por|seg[uú]n|bloques|objetos))\b/i.test(objective))) {
     if (/\bbloques?\b/i.test(description) && !materials.some((m) => /\bbloques?\b/i.test(m))) {
       const blockEntry = table.entries.find((e) => /\bbloques?\b/i.test(e.displayName));
       const matName = blockEntry ? blockEntry.displayName : 'bloques de construcción de plástico grande';
@@ -2672,6 +2685,66 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     }
   }
 
+  // 3j. P1.1 (SR-MD-31G): Evitar materiales que no intervienen en la actividad
+  if (materials.length > 1) {
+    const descAndObjLower = `${description} ${objective}`.toLowerCase();
+    const isFloorActivity = /\b(?:colchonetas?|suelo|piso|ras\s+de\s+suelo|acostad|sentad|recorrer|circuito|marcha|caminar|desplaz)\b/i.test(descAndObjLower);
+
+    const filtered = materials.filter((mat) => {
+      const matLower = mat.toLowerCase();
+      // Colchonetas can intervene as safe floor fixture if the activity takes place on floor/mats
+      if (/\bcolchonetas?\b/i.test(matLower)) {
+        return isFloorActivity;
+      }
+      // Boxes can intervene if boxes/guardar/clasificar/recipientes appear
+      if (/\bcajas?\b/i.test(matLower)) {
+        return /\b(?:cajas?|guardar|recipientes?|adentro|depositar|ordenar|almacenar)\b/i.test(descAndObjLower);
+      }
+      // Storybooks / cuentos
+      if (/\b(?:cuentos?|libros?)\b/i.test(matLower)) {
+        return /\b(?:cuentos?|libros?|lectura|leer|spot|historia|narraci[oó]n|solapas?|p[aá]ginas?|personajes?)\b/i.test(descAndObjLower);
+      }
+      // Blocks
+      if (/\bbloques?\b/i.test(matLower)) {
+        return /\b(?:bloques?|apilar|torres?|constru(?:ir|cci[oó]n)|alinear|encaj)\b/i.test(descAndObjLower);
+      }
+      // Crayons
+      if (/\bcray[oó]n(?:es)?\b/i.test(matLower)) {
+        return /\b(?:cray[oó]n(?:es)?|traz(?:ar|os?)|dibuj(?:ar|os?)|garabate(?:ar|o)|colorear)\b/i.test(descAndObjLower);
+      }
+      // Paper / pliegos
+      if (/\b(?:papel|pliegos?|cartulina)\b/i.test(matLower)) {
+        return /\b(?:papel|pliegos?|mural|dibuj(?:ar|os?)|traz(?:ar|os?)|garabate(?:ar|o))\b/i.test(descAndObjLower);
+      }
+      // Dolls / muñecos
+      if (/\bmuñecos?\b/i.test(matLower)) {
+        return /\b(?:muñecos?|bebit[oa]|cuidar|arropar|peinar|alimentar)\b/i.test(descAndObjLower);
+      }
+      // Balls / pelotas
+      if (/\bpelotas?\b/i.test(matLower)) {
+        return /\b(?:pelotas?|lanzar|atrapar|rodar|botar)\b/i.test(descAndObjLower);
+      }
+      // Puppets / títeres
+      if (/\bt[ií]teres?\b/i.test(matLower)) {
+        return /\bt[ií]teres?\b/i.test(descAndObjLower);
+      }
+      // Towels / toallas
+      if (/\btoallas?\b/i.test(matLower)) {
+        return /\b(?:toallas?|secado|secar|lavado|lavar|manos?|higiene)\b/i.test(descAndObjLower);
+      }
+
+      // Generic token matching for other inventory entries
+      const tokens = matLower
+        .split(/\s+/)
+        .filter((t) => t.length >= 4 && !/^(para|sobre|limpi[ao]s?|grandes?|median[ao]s?|lavables?|pl[aá]stico|infantiles?|vegetal)$/.test(t));
+      return tokens.some((tok) => descAndObjLower.includes(tok));
+    });
+
+    if (filtered.length > 0) {
+      materials = filtered;
+    }
+  }
+
   // Limpieza final de duplicaciones de frases
   objective = cleanDuplicatePedagogicalPhrases(objective);
   description = cleanDuplicatePedagogicalPhrases(description);
@@ -2846,6 +2919,55 @@ function isMaternalB1DuplicateOrLacksVariation(
     if (/\b(?:ronda|c[ií]rculo|socializaci[oó]n|compartid[oa]|merienda\s+imaginaria)\b/i.test(combined)) {
       return 'social-circle';
     }
+
+    // P1.3 (SR-MD-31G): Dinámicas progresivas de lectura diaria con el mismo cuento
+    if (/\b(?:portada|anticipa(?:r|ci[oó]n)|primera\s+lectura|hojear|presentaci[oó]n\s+del\s+cuento)\b/i.test(combined)) {
+      return 'reading-anticipation';
+    }
+    if (/\b(?:solapas?|levantar|descubrir\s+qui[eé]n|predecir|predicci[oó]n|d[oó]nde\s+est[aá])\b/i.test(combined)) {
+      return 'reading-flaps-prediction';
+    }
+    if (/\b(?:onomatopeyas?|sonidos?\s+de|emociones?|sentimientos?|qu[eé]\s+siente)\b/i.test(combined)) {
+      return 'reading-onomatopoeia-emotion';
+    }
+    if (/\b(?:dramatiza(?:r|ci[oó]n)|gestual|actuar|imitar\s+a\s+los\s+personajes|representar\s+pasajes)\b/i.test(combined)) {
+      return 'reading-dramatization';
+    }
+    if (/\b(?:recuento|reconstru(?:ir|cci[oó]n)|secuencia|qu[eé]\s+pas[oó]\s+primero|pasajes?\s+favoritos?|favorito)\b/i.test(combined)) {
+      return 'reading-retelling-consolidation';
+    }
+
+    // P1.3 (SR-MD-31G): Variaciones pedagógicas en pensamiento matemático
+    if (/\b(?:clasificar\s+por\s+color|color\s+notorio|colores?\s+(?:evidentes?|llamativos?)|cajas?\s+de\s+colores)\b/i.test(combined)) {
+      return 'math-color-sorting';
+    }
+    if (/\b(?:por\s+tamaño|grandes?\s+y\s+pequeños?|mediano|seriaci[oó]n\s+de\s+tamaños?)\b/i.test(combined)) {
+      return 'math-size-seriation';
+    }
+    if (/\b(?:conteo|contar\s+(?:3|tres|objetos)|1\s+a\s+1|uno\s+a\s+uno|correspondencia\s+uno\s+a\s+uno)\b/i.test(combined)) {
+      return 'math-counting-correspondence';
+    }
+    if (/\b(?:torres?|apilar|alinear|camino|tren|construcci[oó]n\s+libre|relaciones?\s+espaciales)\b/i.test(combined)) {
+      return 'math-spatial-building';
+    }
+
+    // P1.3 (SR-MD-31G): Variaciones pedagógicas en activación física
+    if (/\b(?:marcha|r[aá]pido\s+y\s+lento|alternancia\s+de\s+ritmos?)\b/i.test(combined)) {
+      return 'motor-rhythm-walk';
+    }
+    if (/\b(?:trayectorias|curvas?\s+y\s+rectas?)\b/i.test(combined)) {
+      return 'motor-trajectories';
+    }
+    if (/\b(?:lanzar|atrapar|rodar\s+la\s+pelota|pelotas?\s+de\s+vinil)\b/i.test(combined)) {
+      return 'motor-ball-toss';
+    }
+    if (/\b(?:imitar\s+animal(?:es|itos)?|pasos?\s+de\s+animal(?:es|itos)?|ranitas?|gatitos?|elefantes?)\b/i.test(combined)) {
+      return 'motor-animal-imitation';
+    }
+    if (/\b(?:circuito\s+sereno|respiraci[oó]n|relajaci[oó]n|calma)\b/i.test(combined)) {
+      return 'motor-circuit-calm';
+    }
+
     return null;
   };
 
@@ -3868,6 +3990,11 @@ export function enrichMaternalB1WeeklyProgression(
         let updatedObj = fridayAct.objective;
         let updatedDesc = fridayAct.description;
 
+        const isReadingAct =
+          fridayAct.category === 'LECTURA EN VOZ ALTA' ||
+          (/\b(?:cuento|libro|lectura|spot|eric\s+hill|narraci[oó]n|solapas?|personajes?\s+del?\s+cuento)\b/i.test(`${updatedDesc} ${updatedObj}`) &&
+            fridayAct.category !== 'PENSAMIENTO MATEMÁTICO');
+
         // Consolidación observacional y ejecución diferenciada en viernes si es duplicado de jueves
         if (isDuplicateOfThursday) {
           if (!/\b(?:observar|consolidar|evaluar|registrar)\b/i.test(updatedObj)) {
@@ -3880,23 +4007,40 @@ export function enrichMaternalB1WeeklyProgression(
           }
 
           if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
-            updatedDesc = updatedDesc.replace(
-              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
-              'Desarrollo: En la sesión de consolidación semanal, la Asistente observa con atención y registra la autonomía e iniciativa de cada niña y niño durante la actividad, fomentando que elijan sus propios recursos y compartan sus descubrimientos de forma cooperativa sin prisas.'
-            );
+            if (isReadingAct) {
+              updatedDesc = updatedDesc.replace(
+                /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                'Desarrollo: En la sesión de consolidación semanal de lectura, la Asistente observa con atención y registra la autonomía e iniciativa de cada niña y niño mientras hojean el cuento y comparten de forma dialogada sus pasajes favoritos sin prisas.'
+              );
+            } else {
+              updatedDesc = updatedDesc.replace(
+                /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                'Desarrollo: En la sesión de consolidación semanal, la Asistente observa con atención y registra la autonomía e iniciativa de cada niña y niño durante la actividad, fomentando que elijan sus propios recursos y compartan sus descubrimientos de forma cooperativa sin prisas.'
+              );
+            }
           }
         }
 
         const isMathAct =
-          fridayAct.category === 'PENSAMIENTO MATEMÁTICO' ||
-          /\b(?:bloques?|clasific|agrup|contar|conteo|correspondencia|seriaci[oó]n|torre|camino|tren)\b/i.test(`${updatedDesc} ${updatedObj}`);
+          !isReadingAct &&
+          fridayAct.category !== 'ACTIVACIÓN FÍSICA' &&
+          fridayAct.category !== 'EXPERIENCIAS ARTÍSTICAS' &&
+          (fridayAct.category === 'PENSAMIENTO MATEMÁTICO' ||
+            /\b(?:bloques\s+(?:grandes|pl[aá]sticos?|de\s+construcci[oó]n|limpios)|clasificar\s+bloques|apilar\s+bloques|seriaci[oó]n\s+de\s+bloques|correspondencia\s+uno\s+a\s+uno)\b/i.test(`${updatedDesc} ${updatedObj}`));
+
+        // P0 (SR-MD-31G): Preservar coherencia categoría–objetivo–desarrollo–materiales en LECTURA EN VOZ ALTA
+        if (isReadingAct) {
+          if (/\b(?:bloques?|clasific|correspondencia|continente|cajas\s+de\s+cart[oó]n)\b/i.test(updatedObj)) {
+            updatedObj = 'Observar y consolidar la comprensión narrativa, la escucha atenta y el interés lector compartiendo pasajes y personajes favoritos del cuento.';
+          }
+        }
 
         // Item 5 (SR-MD-31E): Alinear el objetivo de observación matemática del viernes con la actividad efectivamente generada
         if (roomType === 'MATERNAL_C1' && isMathAct) {
           const isSizeFocus = /\b(?:por\s+tamaño|grandes?\s+y\s+pequeños?|separar\s+los\s+grandes|diferenciar\s+tamaños?|seriaci[oó]n\s+de\s+tamaños?)\b/i.test(updatedDesc);
           const isColorFocus = /\b(?:colores?|amarill|azul|roj|verde|crom[aá]tic)\b/i.test(updatedDesc);
           const isSpatialFocus = /\b(?:camino|tren|torre|alinear|filas?|espacial|orientaci[oó]n|constru)\b/i.test(updatedDesc);
-          const isCorrespondenceFocus = /\b(?:correspondencia|uno\s+a\s+uno|contar|conteo|continente|adentro|meter)\b/i.test(updatedDesc);
+          const isCorrespondenceFocus = /\b(?:correspondencia|uno\s+a\s+uno|contar|conteo|continente)\b/i.test(updatedDesc);
 
           if (isColorFocus && !isSizeFocus) {
             updatedObj = 'Observar y consolidar la discriminación visual y la clasificación cromática agrupando bloques grandes por color notorio en cajas limpias.';
@@ -3919,7 +4063,7 @@ export function enrichMaternalB1WeeklyProgression(
         if (hasRepetitiveOrGenericClosure && /\bCierre:\s*/i.test(updatedDesc)) {
           let fridayClosure: string;
           const descLower = updatedDesc.toLowerCase();
-          if (fridayAct.category === 'LECTURA EN VOZ ALTA' || /\b(?:cuento|libro|lectura)\b/i.test(descLower)) {
+          if (isReadingAct || /\b(?:cuento|libro|lectura)\b/i.test(descLower)) {
             fridayClosure = 'Cierre: Cerrar el libro con cariño, despedir a los personajes con un gesto de la mano y acomodarlo en el canasto a ras de suelo.';
           } else if (isMathAct) {
             fridayClosure = 'Cierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus cajas de cartón limpias a ras de suelo.';
@@ -3938,8 +4082,14 @@ export function enrichMaternalB1WeeklyProgression(
           );
         }
 
+        let fridayMaterials = fridayAct.materials;
+        if (isReadingAct && fridayMaterials.some((m) => /\bbloques?\b/i.test(m))) {
+          fridayMaterials = fridayMaterials.filter((m) => !/\b(?:bloques?|piezas?)\b/i.test(m));
+        }
+
         return {
           ...fridayAct,
+          materials: fridayMaterials,
           objective: cleanDuplicatePedagogicalPhrases(updatedObj),
           description: cleanDuplicatePedagogicalPhrases(updatedDesc),
         };
@@ -4108,6 +4258,14 @@ export function cleanDuplicatePedagogicalPhrases(text: string): string {
   s = s.replace(/\bagach[aá]ndose\s+y\s+caminando\s+a\s+ras\s+de\s+suelo\b/gi, 'caminando con pasos cómodos y seguros sobre colchonetas limpias');
   s = s.replace(/\bagach[aá]ndose\s+con\s+paso\s+firme\b/gi, 'con pasos cómodos y seguros');
   s = s.replace(/\ben\s+cuclillas\b/gi, 'a ras de suelo');
+
+  // 5d. SR-MD-31G: Erradicar «instrumentos musicales infantiles seguros» y fragmentaciones como «como tambores»
+  s = s.replace(/\b(?:utilizando|usando|golpeando|tocando)\s+(?:las?\s+)?cajas?(?:\s+de\s+cart[oó]n)?\s+(?:como|a\s+modo\s+de)\s+tambor(?:es)?\b/gi, 'acompañando el canto con palmadas suaves sobre las colchonetas limpias');
+  s = s.replace(/\bcajas?(?:\s+de\s+cart[oó]n)?\s+(?:como|a\s+modo\s+de)\s+tambor(?:es)?\b/gi, 'palmadas suaves sobre colchonetas limpias');
+  s = s.replace(/\b(?:como|a\s+modo\s+de)\s+tambor(?:es)?\b/gi, 'con palmadas suaves a ras de suelo');
+  s = s.replace(/\binstrumentos\s+musicales(?:\s+infantiles)?(?:\s+seguros)?\b/gi, 'palmadas suaves y cantos acapela');
+  s = s.replace(/\bal\s+comp[aá]s\s+de\s+instrumentos\b/gi, 'al compás del canto acapela y palmadas suaves');
+  s = s.replace(/\btocar\s+(?:los\s+)?instrumentos\b/gi, 'acompañar con palmadas suaves');
 
   // 6. Clean extra spaces
   s = s.replace(/[ \t]{2,}/g, ' ');
