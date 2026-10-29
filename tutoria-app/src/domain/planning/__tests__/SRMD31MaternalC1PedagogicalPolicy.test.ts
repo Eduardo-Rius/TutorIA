@@ -28,6 +28,7 @@ import {
   cleanDuplicatePedagogicalPhrases,
   parseAndAllowlistUntrustedProposal,
   createRequestScopedMaterialTable,
+  areActivitiesPedagogicallyRelated,
 } from '../../../application/planning/AIWeeklyPlanningProposalSource';
 import { getAssistantRoleLabel, readPersistedSelectedRoom } from '../../../presentation/planning-ui/PlanningDemoApp';
 
@@ -1707,6 +1708,230 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
         expect(readAct.objective).not.toContain('bloques');
         expect(readAct.objective).not.toContain('correspondencia uno a uno');
       }
+    });
+  });
+
+  // =========================================================================
+  // 11. VERIFICACIÓN TÉCNICA SR-MD-31I — CIERRE PEDAGÓGICO FOCALIZADO DE MATERNAL C1
+  // =========================================================================
+  describe('11. Verificación Técnica SR-MD-31I — Cierre Pedagógico Focalizado de Maternal C1', () => {
+    const table = createRequestScopedMaterialTable(
+      'bloques grandes de plástico lavable, cuentos infantiles de Spot, muñecos de tela, pelotas de vinil, aros plásticos grandes, colchonetas limpias, crayones gruesos de cera, cajas de cartón limpias, pliegos de papel bond, títeres de tela'
+    );
+
+    it('Item 1: Martes EXP-D2-A4 — El cierre y materiales de clasificación con bloques deben referirse a bloques, no a aros', () => {
+      const tuesdayMathAct = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Favorecer la discriminación visual agrupando bloques grandes de plástico lavable por color notorio en cajas de cartón limpias.',
+        description:
+          'Inicio: La Asistente dispone bloques grandes de colores sobre colchonetas limpias.\nDesarrollo: Las niñas y niños exploran y agrupan los bloques por color evidente colocándolos en cajas de cartón limpias a ras de suelo.\nCierre: Admirar los aros clasificados y guardar los aros en su canasto con alegría.\nAdaptaciones: Ofrecer bloques duplicados.',
+        durationMinutes: 20,
+        materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias', 'aros plásticos grandes'],
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(tuesdayMathAct as any, table, 'MATERNAL_C1');
+
+      // Materiales: no debe contener aros
+      expect(sanitized.materials).not.toContain('aros plásticos grandes');
+      expect(sanitized.materials).toContain('bloques grandes de plástico lavable');
+      expect(sanitized.materials).toContain('cajas de cartón limpias');
+
+      // Descripción / Cierre: debe referirse a bloques, nunca a aros
+      expect(sanitized.description).not.toContain('aros clasificados');
+      expect(sanitized.description).not.toContain('guardar los aros');
+      expect(sanitized.description).toContain('bloques clasificados');
+      expect(sanitized.description).toContain('guardar los bloques');
+
+      // Enriquecimiento de progresión en Martes
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-11-02', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-11-03', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-11-04', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-11-05', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-11-06', activities: [{ ...tuesdayMathAct }] },
+      ];
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedTuesday = enriched[1].activities[0];
+      expect(enrichedTuesday.materials).not.toContain('aros plásticos grandes');
+      expect(enrichedTuesday.description).not.toMatch(/\baros\b/i);
+      expect(enrichedTuesday.description).toMatch(/bloques/i);
+    });
+
+    it('Item 2: Miércoles EXP-D3-A2 — Eliminar "colores" duplicado en materiales cuando se utilizan crayones gruesos', () => {
+      const wednesdayArtAct = {
+        category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+        objective: 'Estimular la expresión gráfico-plástica y el control visomotriz realizando trazos libres con crayones gruesos sobre papel a ras de suelo.',
+        description:
+          'Inicio: La Asistente extiende pliegos de papel bond sobre colchonetas limpias a ras de suelo y ofrece crayones gruesos de cera.\nDesarrollo: Las niñas y niños realizan trazos libres y garabateo con crayones gruesos de diversos colores sobre el papel bond.\nCierre: Admirar colectivamente los trazos extendidos sobre colchonetas limpias y guardar los crayones en su caja limpia.\nAdaptaciones: Disponer pliegos amplios y crayones gruesos en cantidad suficiente.',
+        durationMinutes: 20,
+        materials: ['crayones gruesos de cera', 'pliegos de papel bond', 'colores'],
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(wednesdayArtAct as any, table, 'MATERNAL_C1');
+
+      // "colores" no debe aparecer como elemento independiente duplicado
+      expect(sanitized.materials).not.toContain('colores');
+      expect(sanitized.materials).toContain('crayones gruesos de cera');
+      expect(sanitized.materials).toContain('pliegos de papel bond');
+
+      // Enriquecimiento de progresión en Miércoles
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-11-02', activities: [{ ...wednesdayArtAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-11-03', activities: [{ ...wednesdayArtAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-11-04', activities: [{ ...wednesdayArtAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-11-05', activities: [{ ...wednesdayArtAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-11-06', activities: [{ ...wednesdayArtAct }] },
+      ];
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedWed = enriched[2].activities[0];
+      expect(enrichedWed.materials).not.toContain('colores');
+      expect(enrichedWed.materials).toContain('crayones gruesos de cera');
+    });
+
+    it('Item 3: Viernes EXP-D5-A4 — Formular objetivo observable de clasificación por atributos (color y forma), sin fórmulas genéricas de autonomía motriz', () => {
+      const fridayMathAct = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Observar y consolidar la autonomía y coordinación en el juego estructurado con bloques grandes y cajas de cartón limpias a ras de suelo.',
+        description:
+          'Inicio: La Asistente dispone bloques grandes de diversas formas geométricas y colores sobre colchonetas limpias a ras de suelo.\nDesarrollo: En la sesión de consolidación semanal, la Asistente observa cómo las niñas y niños clasifican bloques agrupando por color y forma en cajas de cartón limpias.\nCierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus cajas de cartón limpias a ras de suelo.\nAdaptaciones: Acompañar con señalamiento guiado.',
+        durationMinutes: 20,
+        materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'],
+      };
+
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-11-02', activities: [{ ...fridayMathAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-11-03', activities: [{ ...fridayMathAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-11-04', activities: [{ ...fridayMathAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-11-05', activities: [{ ...fridayMathAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-11-06', activities: [{ ...fridayMathAct }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedFriday = enriched[4].activities[0];
+
+      // El objetivo debe ser de clasificación cognitiva y reconocimiento de atributos
+      expect(enrichedFriday.objective).toContain('clasificación por atributos');
+      expect(enrichedFriday.objective).toContain('color y forma');
+      expect(enrichedFriday.objective).not.toContain('autonomía y coordinación en el juego estructurado');
+    });
+
+    it('Item 4: Miércoles EXP-D3-A5 — La relación pedagógica excluye activación física y vincula correctamente con antecedente de juego simbólico del martes', () => {
+      const tuesdayMotorAct = {
+        category: 'ACTIVACIÓN FÍSICA' as const,
+        objective: 'Afianzar la autonomía motriz mediante desplazamientos lúdicos sobre colchonetas limpias a ras de suelo.',
+        description:
+          'Inicio: Reunirse en colchonetas limpias.\nDesarrollo: Circuito de marcha con pasos cómodos a ras de suelo sobre colchonetas limpias.\nCierre: Respiración suave sobre colchoneta limpia.\nAdaptaciones: Apoyo cercano.',
+        materials: ['colchonetas limpias'],
+      };
+
+      const tuesdaySymbolicAct = {
+        category: 'AMBIENTES DE APRENDIZAJE' as const,
+        objective: 'Desarrollar la empatía y la imitación de roles afectivos cuidando a los muñecos de tela.',
+        description:
+          'Inicio: Disponer muñecos de tela sobre colchonetas limpias.\nDesarrollo: Juego simbólico cuidando, arrullando y alimentando a los muñecos de tela con ternura.\nCierre: Acomodar a los muñecos en su canasta.\nAdaptaciones: Elementos duplicados.',
+        materials: ['muñecos de tela', 'colchonetas limpias'],
+      };
+
+      const wednesdaySymbolicAct = {
+        category: 'AMBIENTES DE APRENDIZAJE' as const,
+        objective: 'Fortalecer el juego simbólico y la interacción afectiva recreando roles cotidianos con muñecos de tela.',
+        description:
+          'Inicio: Presentar muñecos de tela sobre colchonetas limpias.\nDesarrollo: Las niñas y niños dramatizan roles cotidianos y cuidado familiar con los muñecos de tela a ras de suelo.\nCierre: Guardar los muñecos con cariño en su canasta.\nAdaptaciones: Contención afectiva.',
+        materials: ['muñecos de tela', 'colchonetas limpias'],
+      };
+
+      // 1. areActivitiesPedagogicallyRelated no debe vincular juego simbólico con activación física (a pesar de compartir colchonetas)
+      const matchesMotor = areActivitiesPedagogicallyRelated(tuesdayMotorAct, wednesdaySymbolicAct);
+      expect(matchesMotor).toBe(false);
+
+      // 2. areActivitiesPedagogicallyRelated debe vincular juego simbólico del miércoles con juego simbólico del martes
+      const matchesSymbolic = areActivitiesPedagogicallyRelated(tuesdaySymbolicAct, wednesdaySymbolicAct);
+      expect(matchesSymbolic).toBe(true);
+
+      // 3. Verificación de normalización de progreso en propuesta semanal completa
+      const untrustedProposal = {
+        days: [
+          {
+            dayOfWeek: 'MONDAY',
+            date: '2026-11-02',
+            activities: [
+              { ...tuesdayMotorAct, progression: { role: 'EXPLORE' } },
+              { ...tuesdaySymbolicAct, progression: { role: 'EXPLORE' } },
+            ],
+          },
+          {
+            dayOfWeek: 'TUESDAY',
+            date: '2026-11-03',
+            activities: [
+              { ...tuesdayMotorAct, progression: { role: 'REVISIT', revisitsSlot: 'D1_A1' } }, // EXP-D2-A1 (motor)
+              { ...tuesdaySymbolicAct, progression: { role: 'REVISIT', revisitsSlot: 'D1_A2' } }, // EXP-D2-A2 (simbólico)
+            ],
+          },
+          {
+            dayOfWeek: 'WEDNESDAY',
+            date: '2026-11-04',
+            activities: [
+              { ...tuesdayMotorAct, progression: { role: 'REVISIT', revisitsSlot: 'D2_A1' } },
+              {
+                ...wednesdaySymbolicAct,
+                progression: {
+                  role: 'VARY',
+                  revisitsSlot: 'D2_A1', // Erróneamente apuntaba a motor del martes
+                  variationDimensions: ['SENSORY_EXPERIENCE'],
+                },
+              },
+            ],
+          },
+          {
+            dayOfWeek: 'THURSDAY',
+            date: '2026-11-05',
+            activities: [
+              { ...tuesdayMotorAct, progression: { role: 'VARY', revisitsSlot: 'D3_A1' } },
+              { ...tuesdaySymbolicAct, progression: { role: 'VARY', revisitsSlot: 'D3_A2' } },
+            ],
+          },
+          {
+            dayOfWeek: 'FRIDAY',
+            date: '2026-11-06',
+            activities: [
+              { ...tuesdayMotorAct, progression: { role: 'OBSERVE_OR_CONSOLIDATE', revisitsSlot: 'D4_A1' } },
+              { ...tuesdaySymbolicAct, progression: { role: 'OBSERVE_OR_CONSOLIDATE', revisitsSlot: 'D4_A2' } },
+            ],
+          },
+        ],
+        weeklyFocus: 'Progresión semanal de Maternal C1',
+      };
+
+      const normalized = parseAndAllowlistUntrustedProposal(untrustedProposal, table, {
+        requireProgression: true,
+        roomType: 'MATERNAL_C1',
+        minActivitiesPerDay: 2,
+        maxActivitiesPerDay: 5,
+        targetActivitiesPerDay: 2,
+      });
+
+      // La experiencia simbólica de miércoles (EXP-D3-A2) debe corregir su revisitsExperienceId apuntando a EXP-D2-A2 (simbólico), no EXP-D2-A1 (motor)
+      const wedSymbolicExp = normalized.progression?.experiences.find((e) => e.experienceId === 'EXP-D3-A2');
+      expect(wedSymbolicExp?.revisitsExperienceId).toBe('EXP-D2-A2');
+    });
+
+    it('Item 5: Coherencia estricta de materiales — Elimina materiales listados que no intervienen en las actividades', () => {
+      const actWithGhostMaterials = {
+        category: 'LECTURA EN VOZ ALTA' as const,
+        objective: 'Fortalecer el lenguaje expresivo y la comprensión compartida con el cuento de Spot.',
+        description:
+          'Inicio: La Asistente muestra el cuento sobre colchonetas limpias.\nDesarrollo: Lectura interactiva de ¿Dónde está Spot? compartiendo solapas.\nCierre: Cerrar el libro con cariño y guardarlo en el canasto.\nAdaptaciones: Preguntas sencillas.',
+        durationMinutes: 15,
+        materials: ['cuentos infantiles de Spot', 'colchonetas limpias', 'bloques grandes de plástico lavable', 'pelotas de vinil'],
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(actWithGhostMaterials as any, table, 'MATERNAL_C1');
+
+      // No deben figurar bloques ni pelotas en la lectura
+      expect(sanitized.materials).not.toContain('bloques grandes de plástico lavable');
+      expect(sanitized.materials).not.toContain('pelotas de vinil');
+      expect(sanitized.materials).toContain('cuentos infantiles de Spot');
+      expect(sanitized.materials).toContain('colchonetas limpias');
     });
   });
 });

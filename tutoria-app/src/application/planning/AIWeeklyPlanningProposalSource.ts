@@ -1414,6 +1414,9 @@ export function buildWeeklyPlanningAIUserPrompt(
       '   - INVENTARIO ESTRICTO: Queda TERMINANTEMENTE PROHIBIDO inventar masa casera, plastilina, pintura, pegamento, cojines, almohadas, mantas, conos, cuerdas, túneles, sillas adicionales, mesas adicionales, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música, cinta adhesiva, chinchetas u objetos abstractos ausentes del inventario.',
       '   - CERO INSTRUMENTOS MUSICALES O FRAGMENTACIÓN ARTIFICIAL: Queda TERMINANTEMENTE PROHIBIDO inventar «instrumentos musicales infantiles seguros», maracas, panderos, tambores o fragmentar materiales en elementos artificiales como «cajas como tambores» o «usar cajas como tambor». Todo acompañamiento sonoro debe realizarse exclusivamente con cantos acapela de la Asistente y palmadas suaves sobre colchonetas limpias a ras de suelo.',
       '   - COHERENCIA DE MATERIALES DECLARADOS: En "materials", incluye ÚNICAMENTE los recursos que efectivamente intervienen y son manipulados en la actividad descrita. TERMINANTEMENTE PROHIBIDO listar materiales no intervinientes (por ejemplo, bloques, cajas o pelotas en una lectura de cuentos; o crayones en una actividad de marcha). Si no requiere objetos físicos, declara "materials": [].',
+      '   - CERO DUPLICIDAD DE ELEMENTOS DE DIBUJO: Queda TERMINANTEMENTE PROHIBIDO incluir «colores» como elemento independiente duplicado en "materials" cuando la actividad utilice crayones gruesos de cera. Únicamente se declara el material efectivamente utilizado («crayones gruesos de cera»).',
+      '   - COHERENCIA DE CIERRES CON MATERIALES: El Cierre de cada actividad DEBE corresponder ESTRICTAMENTE con los materiales manipulados en Inicio y Desarrollo. Si la actividad clasifica bloques, el cierre debe guardar y admirar los bloques clasificados; PROHIBIDO mencionar aros o recursos distintos.',
+      '   - OBJETIVOS OBSERVABLES EN PENSAMIENTO MATEMÁTICO: En actividades de clasificación por atributos (color y forma), el objetivo debe reflejar explícitamente dicha acción cognitiva («Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias»), evitando fórmulas genéricas desalineadas como autonomía motriz.',
       '   - REPETICIONES ÚTILES CON VARIACIÓN OBSERVABLE: Es pedagógicamente válido y deseable releer el mismo cuento diariamente (ej. «¿Dónde está Spot?») o utilizar bloques en distintos días, SIEMPRE QUE cada día presente una variación pedagógica observable (ej. lectura: lunes portada/anticipación, martes solapas/preguntas, miércoles onomatopeyas/emociones, jueves dramatización gestual, viernes recuento de pasajes favoritos).',
       '   - No menciones materiales físicos inexistentes cuando "materialRefs" permanezca vacío. Si una actividad involucra manipulación de materiales, DEBEN declararse en "materialRefs" a partir del inventario disponible.',
       '   - CERO TAPETES O LÍNEAS MARCADAS NO DECLARADOS: Queda TERMINANTEMENTE PROHIBIDO inventar tapetes, líneas marcadas en el piso, cintas o superficies no declaradas. Todo desplazamiento o actividad se apoya en colchonetas limpias a ras de suelo.',
@@ -1867,7 +1870,7 @@ export function areActivitiesPedagogicallyRelated(
   const featB = extractFeatures(objB);
 
   // 1. Specific key domain materials / props check:
-  // If both mention cuentos/libros, both mention bloques, both mention muñecos,
+  // If both mention cuentos/libros, both mention bloques, both mention muñecos/roles/títeres,
   // both mention pelotas, both mention telas, both mention cepillos, both mention lavabo/higiene
   const domainKeywords = [
     { name: 'reading', regex: /\b(?:cuentos?|libros?|spot|lectura)\b/i },
@@ -1875,23 +1878,25 @@ export function areActivitiesPedagogicallyRelated(
     { name: 'sorting', regex: /\b(?:clasific\w*|agrup\w*|seriaci[oó]n|emparej\w*|correspondencia|continente)\b/i },
     { name: 'drawing', regex: /\b(?:cray[oó]n(?:es)?|dibuj\w*|garabate\w*|traz\w*|mural)\b/i },
     { name: 'clay', regex: /\b(?:masa|plastilina|amasar|modelad[ao])\b/i },
-    { name: 'dolls', regex: /\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete|arrull\w*)\b/i },
+    { name: 'symbolic_play', regex: /\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete|arrull\w*|t[ií]teres?|guiñol(?:es)?|juego\s+simb[oó]lico|sociodrama|roles\s+cotidianos?|consultorio|tiendita|cuidado\s+familiar|preparar\s+comida)\b/i },
     { name: 'balls', regex: /\b(?:pelotas?|balones?)\b/i },
     { name: 'fabrics', regex: /\b(?:telas?|pañuelos?|lienzos?|texturas?\s+de\s+tela)\b/i },
     { name: 'hygiene_teeth', regex: /\b(?:cepillos?|cepillado|bucal|dientes)\b/i },
     { name: 'hygiene_hands', regex: /\b(?:lavado\s+de\s+manos|secar\s+las\s+manos|secado\s+de\s+manos|lavabo|tarja|toallas?)\b/i },
     { name: 'relaxation', regex: /\b(?:relajaci[oó]n|descanso|m[uú]sica\s+suave|descalzarse|respiraci[oó]n)\b/i },
     { name: 'mirror', regex: /\b(?:espejos?|auto-reconocimiento|esquema\s+corporal)\b/i },
-    { name: 'motor_mats', regex: /\b(?:desplazamiento|marcha|colchoneta)\b/i },
+    { name: 'motor_circuit', regex: /\b(?:circuito|desplazamientos?\s+(?:en\s+trayectorias|coordinados?)|marcha|caminar|pasos\s+de\s+animal)\b/i },
   ];
 
-  // Cross-domain hard exclusions (SR-MD-29Q Defecto 5: una clasificación nunca debe registrarse como continuación de garabateo)
+  // Cross-domain hard exclusions (SR-MD-29Q Defecto 5 & SR-MD-31I)
   const aHasBlocksOrSorting = /\b(?:bloques?|clasific\w*|agrup\w*|seriaci[oó]n|emparej\w*|correspondencia)\b/i.test(featA.fullText);
   const bHasBlocksOrSorting = /\b(?:bloques?|clasific\w*|agrup\w*|seriaci[oó]n|emparej\w*|correspondencia)\b/i.test(featB.fullText);
   const aHasDrawing = /\b(?:cray[oó]n(?:es)?|dibuj\w*|garabate\w*|traz\w*|mural)\b/i.test(featA.fullText);
   const bHasDrawing = /\b(?:cray[oó]n(?:es)?|dibuj\w*|garabate\w*|traz\w*|mural)\b/i.test(featB.fullText);
-  const aHasDolls = /\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete|arrull\w*)\b/i.test(featA.fullText);
-  const bHasDolls = /\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete|arrull\w*)\b/i.test(featB.fullText);
+  const aHasSymbolic = /\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete|arrull\w*|t[ií]teres?|guiñol(?:es)?|juego\s+simb[oó]lico|sociodrama|roles\s+cotidianos?|consultorio|tiendita|cuidado\s+familiar)\b/i.test(featA.fullText);
+  const bHasSymbolic = /\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete|arrull\w*|t[ií]teres?|guiñol(?:es)?|juego\s+simb[oó]lico|sociodrama|roles\s+cotidianos?|consultorio|tiendita|cuidado\s+familiar)\b/i.test(featB.fullText);
+  const aHasMotorOnly = /\b(?:circuito|marcha|caminar|gateo|pasos\s+de\s+animal|desplazamientos?\s+(?:en\s+trayectorias|coordinados?))\b/i.test(featA.fullText) && !aHasSymbolic;
+  const bHasMotorOnly = /\b(?:circuito|marcha|caminar|gateo|pasos\s+de\s+animal|desplazamientos?\s+(?:en\s+trayectorias|coordinados?))\b/i.test(featB.fullText) && !bHasSymbolic;
   const aHasBalls = /\b(?:pelotas?|balones?)\b/i.test(featA.fullText);
   const bHasBalls = /\b(?:pelotas?|balones?)\b/i.test(featB.fullText);
   const aHasReading = /\b(?:cuentos?|libros?|spot|lectura)\b/i.test(featA.fullText);
@@ -1903,8 +1908,11 @@ export function areActivitiesPedagogicallyRelated(
   if ((aHasBlocksOrSorting && bHasClay) || (bHasBlocksOrSorting && aHasClay)) return false;
   if ((aHasDrawing && bHasClay) || (bHasDrawing && aHasClay)) return false;
   if ((aHasReading && !bHasReading) || (!aHasReading && bHasReading)) return false;
-  if ((aHasDolls && bHasBalls) || (bHasDolls && aHasBalls)) return false;
-  if ((aHasDolls && bHasBlocksOrSorting) || (bHasDolls && aHasBlocksOrSorting)) return false;
+  if ((aHasSymbolic && bHasBalls) || (bHasSymbolic && aHasBalls)) return false;
+  if ((aHasSymbolic && bHasBlocksOrSorting) || (bHasSymbolic && aHasBlocksOrSorting)) return false;
+  if ((aHasSymbolic && bHasMotorOnly) || (bHasSymbolic && aHasMotorOnly)) return false;
+  if ((aHasSymbolic && bHasDrawing) || (bHasSymbolic && aHasDrawing)) return false;
+  if ((aHasSymbolic && bHasClay) || (bHasSymbolic && aHasClay)) return false;
 
   // If both match the same domain keyword
   for (const kw of domainKeywords) {
@@ -1912,7 +1920,7 @@ export function areActivitiesPedagogicallyRelated(
     const inB = kw.regex.test(featB.fullText);
     if (inA && inB) {
       // Guard against false positives if they share a background surface but have conflicting foreground props
-      if ((aHasBlocksOrSorting && (featA.fullText.includes('telas') || aHasDolls)) || (bHasBlocksOrSorting && (featB.fullText.includes('telas') || bHasDolls))) {
+      if ((aHasBlocksOrSorting && (featA.fullText.includes('telas') || aHasSymbolic)) || (bHasBlocksOrSorting && (featB.fullText.includes('telas') || bHasSymbolic))) {
         return false;
       }
       return true;
@@ -1934,9 +1942,10 @@ export function areActivitiesPedagogicallyRelated(
   if (featA.cat && featA.cat === featB.cat) {
     if (aHasBlocksOrSorting !== bHasBlocksOrSorting) return false;
     if (aHasDrawing !== bHasDrawing) return false;
-    if (aHasDolls !== bHasDolls) return false;
+    if (aHasSymbolic !== bHasSymbolic) return false;
     if (aHasBalls !== bHasBalls) return false;
     if (aHasClay !== bHasClay) return false;
+    if (aHasMotorOnly !== bHasMotorOnly) return false;
     return true;
   }
 
@@ -2685,7 +2694,32 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     }
   }
 
-  // 3j. P1.1 (SR-MD-31G): Evitar materiales que no intervienen en la actividad
+  // SR-MD-31I Item 1: Coherencia de cierre y materiales en actividades con bloques (eliminar aros parásitos)
+  if (/\bbloques?\b/i.test(`${description} ${objective}`)) {
+    materials = materials.filter((m) => !/\baros?\b/i.test(m));
+    description = description
+      .replace(/\b(?:los\s+)?aros\s+clasificados?\b/gi, 'los bloques clasificados')
+      .replace(/\bguardar\s+(?:los\s+)?aros\b/gi, 'guardar los bloques')
+      .replace(/\blos\s+aros\s+en\s+sus?\s+cajas?\b/gi, 'los bloques en sus cajas')
+      .replace(/\bclasificar\s+(?:los\s+)?aros\b/gi, 'clasificar los bloques')
+      .replace(/\bcon\s+los\s+aros\b/gi, 'con los bloques')
+      .replace(/\baros?\s+pl[aá]sticos?\b/gi, 'bloques de plástico')
+      .replace(/\baros?\b/gi, 'bloques');
+  }
+
+  // SR-MD-31I Item 2: Erradicar duplicidad de «colores» cuando la actividad utiliza crayones gruesos
+  const hasCrayonsDeclared =
+    materials.some((m) => /\bcray[oó]n/i.test(m)) ||
+    /\bcray[oó]n/i.test(`${description} ${objective}`);
+  if (hasCrayonsDeclared) {
+    materials = materials.filter(
+      (m) =>
+        !/^\s*colores(?:\s+de\s+madera)?\s*$/i.test(m) &&
+        !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m)
+    );
+  }
+
+  // 3j. P1.1 (SR-MD-31G & SR-MD-31I): Evitar materiales que no intervienen en la actividad
   if (materials.length > 1) {
     const descAndObjLower = `${description} ${objective}`.toLowerCase();
     const isFloorActivity = /\b(?:colchonetas?|suelo|piso|ras\s+de\s+suelo|acostad|sentad|recorrer|circuito|marcha|caminar|desplaz)\b/i.test(descAndObjLower);
@@ -2706,11 +2740,24 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       }
       // Blocks
       if (/\bbloques?\b/i.test(matLower)) {
-        return /\b(?:bloques?|apilar|torres?|constru(?:ir|cci[oó]n)|alinear|encaj)\b/i.test(descAndObjLower);
+        if (isReadingActivity) return false;
+        return /\b(?:bloques?|apilar|torres?|constru(?:ir|cci[oó]n)|alinear|encaj|clasific|cajas?\s+de\s+cart[oó]n)\b/i.test(descAndObjLower);
       }
       // Crayons
       if (/\bcray[oó]n(?:es)?\b/i.test(matLower)) {
         return /\b(?:cray[oó]n(?:es)?|traz(?:ar|os?)|dibuj(?:ar|os?)|garabate(?:ar|o)|colorear)\b/i.test(descAndObjLower);
+      }
+      // Independent "colores" or "lápices": prune if crayons are used or if drawing words refer to wax crayons
+      if (/^\s*colores(?:\s+de\s+madera)?\s*$/i.test(matLower) || /^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(matLower)) {
+        if (hasCrayonsDeclared) return false;
+        return /\b(?:colores|colorear)\b/i.test(descAndObjLower);
+      }
+      // Hoops / aros: prune if activity is manipulating blocks
+      if (/\baros?\b/i.test(matLower)) {
+        if (/\bbloques?\b/i.test(descAndObjLower) || materials.some((m) => /\bbloques?\b/i.test(m))) {
+          return false;
+        }
+        return /\b(?:aros?|rodar\s+el\s+aro)\b/i.test(descAndObjLower);
       }
       // Paper / pliegos
       if (/\b(?:papel|pliegos?|cartulina)\b/i.test(matLower)) {
@@ -3842,9 +3889,64 @@ export function enrichMaternalB1WeeklyProgression(
       });
     }
 
+    // Item 1 (SR-MD-31I): Martes — Pensamiento matemático: coherencia bloques vs aros en cierre y materiales
+    if (tuesdayDay) {
+      tuesdayDay.activities = tuesdayDay.activities.map((tuesdayAct) => {
+        let updatedObj = tuesdayAct.objective;
+        let updatedDesc = tuesdayAct.description;
+        let updatedMats = [...tuesdayAct.materials];
+
+        const isBlocksActivity =
+          /\b(?:bloques?|clasific(?:ar|aci[oó]n)?\s+de\s+bloques)\b/i.test(`${updatedDesc} ${updatedObj}`) ||
+          updatedMats.some((m) => /\bbloques?\b/i.test(m));
+
+        if (isBlocksActivity) {
+          updatedMats = updatedMats.filter((m) => !/\baros?\b/i.test(m));
+          updatedDesc = updatedDesc
+            .replace(/\b(?:los\s+)?aros\s+clasificados?\b/gi, 'los bloques clasificados')
+            .replace(/\bguardar\s+(?:los\s+)?aros\b/gi, 'guardar los bloques')
+            .replace(/\blos\s+aros\s+en\s+sus?\s+cajas?\b/gi, 'los bloques en sus cajas')
+            .replace(/\bclasificar\s+(?:los\s+)?aros\b/gi, 'clasificar los bloques')
+            .replace(/\bcon\s+los\s+aros\b/gi, 'con los bloques')
+            .replace(/\baros?\s+pl[aá]sticos?\b/gi, 'bloques de plástico')
+            .replace(/\baros?\b/gi, 'bloques');
+        }
+
+        return {
+          ...tuesdayAct,
+          materials: updatedMats,
+          objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+          description: cleanDuplicatePedagogicalPhrases(updatedDesc),
+        };
+      });
+    }
+
+    // Item 2 (SR-MD-31I): Miércoles — Experiencias artísticas: erradicar "colores" duplicado con crayones
+    if (wednesdayDay) {
+      wednesdayDay.activities = wednesdayDay.activities.map((wedAct) => {
+        let updatedMats = [...wedAct.materials];
+        const hasCrayons =
+          updatedMats.some((m) => /\bcray[oó]n/i.test(m)) ||
+          /\bcray[oó]n/i.test(`${wedAct.description} ${wedAct.objective}`);
+        if (hasCrayons) {
+          updatedMats = updatedMats.filter(
+            (m) =>
+              !/^\s*colores(?:\s+de\s+madera)?\s*$/i.test(m) &&
+              !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m)
+          );
+        }
+        return {
+          ...wedAct,
+          materials: updatedMats,
+          objective: cleanDuplicatePedagogicalPhrases(wedAct.objective),
+          description: cleanDuplicatePedagogicalPhrases(wedAct.description),
+        };
+      });
+    }
+
     // Item 3 (SR-MD-31E): Diferenciación real de exploración sensorial Martes vs Jueves respetando materiales disponibles
     if (tuesdayDay && thursdayDay) {
-      const isSensory = (act: WeeklyPlanningActivityProposal) =>
+      const isSensory = (act: ProposedActivity) =>
         /\b(?:sensorial|texturas?|percepci[oó]n\s+t[aá]ctil|exploraci[oó]n\s+(?:de\s+)?texturas?|t[aá]ctil)\b/i.test(`${act.description} ${act.objective}`);
       const tuesdaySensory = tuesdayDay.activities.find((a) => isSensory(a));
       const thursdaySensoryIdx = thursdayDay.activities.findIndex((a) => isSensory(a));
@@ -3881,7 +3983,7 @@ export function enrichMaternalB1WeeklyProgression(
 
     // Item 4 (SR-MD-31E): Viernes con finalidad de observación o consolidación diferente de la actividad de láminas de animales del Miércoles
     if (wednesdayDay && fridayDay) {
-      const isAnimalCards = (act: WeeklyPlanningActivityProposal) =>
+      const isAnimalCards = (act: ProposedActivity) =>
         /\b(?:l[aá]minas?\s+(?:ilustradas?\s+)?(?:de\s+)?animal(?:es|itos)?|tarjetas?\s+(?:de\s+)?animal(?:es|itos)?|l[aá]minas?\s+de\s+animales)\b/i.test(`${act.description} ${act.objective}`);
       const wednesdayAnimalCards = wednesdayDay.activities.find((a) => isAnimalCards(a));
       const fridayAnimalCardsIdx = fridayDay.activities.findIndex((a) => isAnimalCards(a));
@@ -4035,14 +4137,17 @@ export function enrichMaternalB1WeeklyProgression(
           }
         }
 
-        // Item 5 (SR-MD-31E): Alinear el objetivo de observación matemática del viernes con la actividad efectivamente generada
+        // Item 5 (SR-MD-31E) & Item 3 (SR-MD-31I): Alinear el objetivo de observación matemática del viernes con la actividad efectivamente generada
         if (roomType === 'MATERNAL_C1' && isMathAct) {
+          const isColorAndShapeFocus = /\b(?:color\s+y\s+forma|forma\s+y\s+color|atributos?|figuras?\s+y\s+colores?|dos\s+atributos|formas?\s+geom[eé]tricas?)\b/i.test(updatedDesc);
           const isSizeFocus = /\b(?:por\s+tamaño|grandes?\s+y\s+pequeños?|separar\s+los\s+grandes|diferenciar\s+tamaños?|seriaci[oó]n\s+de\s+tamaños?)\b/i.test(updatedDesc);
           const isColorFocus = /\b(?:colores?|amarill|azul|roj|verde|crom[aá]tic)\b/i.test(updatedDesc);
           const isSpatialFocus = /\b(?:camino|tren|torre|alinear|filas?|espacial|orientaci[oó]n|constru)\b/i.test(updatedDesc);
           const isCorrespondenceFocus = /\b(?:correspondencia|uno\s+a\s+uno|contar|conteo|continente)\b/i.test(updatedDesc);
 
-          if (isColorFocus && !isSizeFocus) {
+          if (isColorAndShapeFocus) {
+            updatedObj = 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias.';
+          } else if (isColorFocus && !isSizeFocus) {
             updatedObj = 'Observar y consolidar la discriminación visual y la clasificación cromática agrupando bloques grandes por color notorio en cajas limpias.';
           } else if (isSpatialFocus && !isSizeFocus) {
             updatedObj = 'Observar y consolidar la coordinación visomotriz fina y las nociones espaciales al alinear y apilar bloques grandes a ras de suelo.';
@@ -4050,8 +4155,8 @@ export function enrichMaternalB1WeeklyProgression(
             updatedObj = 'Observar y consolidar la correspondencia uno a uno y la noción de continente colocando bloques dentro de cajas de cartón limpias.';
           } else if (isSizeFocus) {
             updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en sus cajas correspondientes.';
-          } else if (!/\b(?:observar\s+y\s+consolidar|observar\s+la\s+consolidaci[oó]n)\b/i.test(updatedObj)) {
-            updatedObj = 'Observar y consolidar la autonomía y coordinación en el juego estructurado con bloques grandes y cajas de cartón limpias a ras de suelo.';
+          } else if (/\b(?:clasific|agrup)\b/i.test(updatedDesc) || /\b(?:autonom[ií]a\s+y\s+coordinaci[oó]n|coordinaci[oó]n\s+motriz)\b/i.test(updatedObj)) {
+            updatedObj = 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias.';
           }
         }
 
@@ -4085,6 +4190,9 @@ export function enrichMaternalB1WeeklyProgression(
         let fridayMaterials = fridayAct.materials;
         if (isReadingAct && fridayMaterials.some((m) => /\bbloques?\b/i.test(m))) {
           fridayMaterials = fridayMaterials.filter((m) => !/\b(?:bloques?|piezas?)\b/i.test(m));
+        }
+        if (isMathAct && /\bbloques?\b/i.test(`${updatedDesc} ${updatedObj}`)) {
+          fridayMaterials = fridayMaterials.filter((m) => !/\baros?\b/i.test(m));
         }
 
         return {
@@ -4266,6 +4374,19 @@ export function cleanDuplicatePedagogicalPhrases(text: string): string {
   s = s.replace(/\binstrumentos\s+musicales(?:\s+infantiles)?(?:\s+seguros)?\b/gi, 'palmadas suaves y cantos acapela');
   s = s.replace(/\bal\s+comp[aá]s\s+de\s+instrumentos\b/gi, 'al compás del canto acapela y palmadas suaves');
   s = s.replace(/\btocar\s+(?:los\s+)?instrumentos\b/gi, 'acompañar con palmadas suaves');
+
+  // 5e. SR-MD-31I Item 1: Coherencia de materiales en pensamiento matemático (bloques vs aros)
+  if (/\bbloques?\b/i.test(s) && /\baros?\b/i.test(s)) {
+    s = s.replace(/\b(?:los\s+)?aros\s+clasificados?\b/gi, 'los bloques clasificados');
+    s = s.replace(/\bguardar\s+(?:los\s+)?aros\b/gi, 'guardar los bloques');
+    s = s.replace(/\blos\s+aros\s+en\s+sus?\s+cajas?\b/gi, 'los bloques en sus cajas');
+    s = s.replace(/\bclasificar\s+(?:los\s+)?aros\b/gi, 'clasificar los bloques');
+    s = s.replace(/\bcon\s+los\s+aros\b/gi, 'con los bloques');
+    s = s.replace(/\baros\s+y\s+bloques\b/gi, 'bloques grandes');
+    s = s.replace(/\bbloques\s+y\s+aros\b/gi, 'bloques grandes');
+    s = s.replace(/\baros?\s+pl[aá]sticos?\b/gi, 'bloques de plástico');
+    s = s.replace(/\baros?\b/gi, 'bloques');
+  }
 
   // 6. Clean extra spaces
   s = s.replace(/[ \t]{2,}/g, ' ');
