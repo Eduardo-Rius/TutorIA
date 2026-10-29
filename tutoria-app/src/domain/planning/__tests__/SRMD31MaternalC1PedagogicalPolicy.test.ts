@@ -2331,6 +2331,231 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       expect(wednesdayBall.objective).toMatch(/Favorecer\s+la\s+coordinaci[oó]n\s+[oó]culo-manual,\s+el\s+control\s+postural/i);
     });
   });
+
+  // =========================================================================
+  // 14. VERIFICACIÓN TÉCNICA SR-MD-31O — CORRECCIÓN FINAL FOCALIZADA DE MATERNAL C1
+  // =========================================================================
+  describe('14. Verificación Técnica SR-MD-31O — Corrección Final Focalizada de Maternal C1', () => {
+    // Inventario real de Maternal C1 (sin títeres ni utensilios plásticos)
+    const table = createRequestScopedMaterialTable(
+      'bloques grandes de plástico lavable, cuentos infantiles de Spot con solapas, muñecos de tela, pelotas medianas de vinil, aros plásticos grandes, colchonetas limpias, crayones gruesos de cera, cajas de cartón limpias, pliegos de papel bond, recipientes plásticos amplios, telas limpias con texturas variadas'
+    );
+
+    it('Defecto 1: EXP-D3-A5 (miércoles) — Adapta títeres ausentes en inventario a muñecos de tela lavables con coherencia total', () => {
+      const puppetWednesdayRaw = {
+        category: 'LENGUAJE CONVERSACIONAL Y JUEGO SIMBÓLICO' as const,
+        objective: 'Favorecer el lenguaje comprensivo y la empatía mediante interacción con títeres o guiñoles respondiendo a preguntas causales.',
+        description:
+          'Inicio: Disponer títeres para las niñas y niños.\nDesarrollo: La Asistente da vida a los títeres y hace preguntas de por qué.\nCierre: Guardar los títeres en su caja.\nAdaptaciones: Apoyo a lenguaje emergente.',
+        materials: ['títeres de tela', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      // 1. Sanitización focalizada de fidelidad pedagógica
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(puppetWednesdayRaw as any, table, 'MATERNAL_C1');
+      expect(sanitized.materials).not.toContain('títeres de tela');
+      expect(sanitized.materials).toContain('muñecos de tela');
+      expect(sanitized.description).not.toMatch(/\bt[ií]teres?\b/i);
+      expect(sanitized.objective).not.toMatch(/\bt[ií]teres?\b/i);
+      expect(sanitized.description).toContain('muñecos de tela');
+
+      // 2. Progresión semanal de Miércoles con unidad pedagógica completa
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...puppetWednesdayRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...puppetWednesdayRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...puppetWednesdayRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...puppetWednesdayRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...puppetWednesdayRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const wedAct = enriched[2].activities[0];
+
+      // Objetivo
+      expect(wedAct.objective).toContain('muñecos de tela lavables');
+      expect(wedAct.objective).not.toMatch(/\bt[ií]teres?\b/i);
+
+      // Inicio, Desarrollo, Cierre, Adaptaciones
+      expect(wedAct.description).toMatch(/Inicio:\s*Disponer\s+colchonetas\s+limpias.*muñecos\s+de\s+tela\s+lavables/i);
+      expect(wedAct.description).toMatch(/Desarrollo:\s*La\s+Asistente\s+da\s+vida\s+a\s+los\s+muñecos\s+de\s+tela\s+lavables/i);
+      expect(wedAct.description).toMatch(/Cierre:\s*Despedir\s+la\s+narraci[oó]n\s+abrazando\s+a\s+los\s+muñecos\s+de\s+tela/i);
+      expect(wedAct.description).toMatch(/Adaptaciones:\s*Formular\s+preguntas\s+con\s+opciones\s+sencillas/i);
+
+      // Materiales
+      expect(wedAct.materials).toContain('muñecos de tela');
+      expect(wedAct.materials).toContain('colchonetas limpias');
+      expect(wedAct.materials).not.toContain('títeres de tela');
+      expect(wedAct.materials).not.toContain('títeres');
+    });
+
+    it('Defecto 2: EXP-D4-A5 (jueves) — Elimina utensilios plásticos inventados y mantiene juego simbólico con recursos declarados', () => {
+      const feedingThursdayRaw = {
+        category: 'LENGUAJE CONVERSACIONAL Y JUEGO SIMBÓLICO' as const,
+        objective: 'Promover el juego simbólico usando cajas limpias y utensilios plásticos para alimentar a los muñecos.',
+        description:
+          'Inicio: La Asistente dispone muñecos y utensilios plásticos.\nDesarrollo: Dramatizar preparar comida usando vajilla y utensilios plásticos para dar de comer a los muñecos.\nCierre: Guardar utensilios y muñecos.\nAdaptaciones: Apoyo cercano.',
+        materials: ['muñecos de tela', 'utensilios plásticos', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      // 1. Sanitización de fidelidad
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(feedingThursdayRaw as any, table, 'MATERNAL_C1');
+      expect(sanitized.materials).not.toContain('utensilios plásticos');
+      expect(sanitized.materials).toContain('muñecos de tela');
+      expect(sanitized.description).not.toMatch(/utensilios\s+pl[aá]sticos/i);
+      expect(sanitized.objective).not.toMatch(/utensilios\s+pl[aá]sticos/i);
+      expect(sanitized.description).toContain('mímica afectuosa y gestos cariñosos de las manos');
+
+      // 2. Progresión semanal de Jueves
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...feedingThursdayRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...feedingThursdayRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...feedingThursdayRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...feedingThursdayRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...feedingThursdayRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const thuAct = enriched[3].activities[0];
+
+      // Objetivo
+      expect(thuAct.objective).toContain('cuidado de muñecos de tela con gestos cariñosos sobre colchonetas limpias');
+      expect(thuAct.objective).not.toMatch(/utensilios/i);
+
+      // Descripción
+      expect(thuAct.description).toMatch(/Inicio:\s*La\s+Asistente\s+invita\s+al\s+grupo.*muñecos\s+de\s+tela.*expresar\s+cariño\s+y\s+cuidado\s+con\s+las\s+manos/i);
+      expect(thuAct.description).toMatch(/Desarrollo:.*m[ií]mica\s+afectuosa\s+y\s+suaves\s+caricias\s+de\s+las\s+manos/i);
+      expect(thuAct.description).toMatch(/Cierre:\s*Arropar\s+suavemente\s+a\s+los\s+muñecos\s+de\s+tela/i);
+      expect(thuAct.description).not.toMatch(/\butensilios\s+pl[aá]sticos\b/i);
+
+      // Materiales
+      expect(thuAct.materials).toEqual(['muñecos de tela', 'colchonetas limpias']);
+      expect(thuAct.materials).not.toContain('utensilios plásticos');
+    });
+
+    it('Defecto 3: EXP-D5-A2 (viernes) — Elimina referencia a guardar crayones en una caja en el cierre del mural colectivo', () => {
+      const fridayMuralRaw = {
+        category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+        objective: 'Observar la libre expresión gráfico-plástica y consolidar la convivencia grupal conformando un mural colectivo con los dibujos existentes a ras de suelo sobre colchonetas limpias.',
+        description:
+          'Inicio: Disponer las colchonetas limpias a ras de suelo e invitar a reunir dibujos.\nDesarrollo: Colocar juntos los dibujos sobre colchonetas limpias conformando un mural colectivo agregando trazos compartidos con crayones gruesos.\nCierre: Admirar colectivamente el mural y los trazos compartidos sobre colchonetas limpias y guardar los crayones en su caja limpia.\nAdaptaciones: Apoyo para acomodar hojas contiguas.',
+        materials: ['pliegos de papel bond con dibujos existentes', 'crayones gruesos de cera', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      // 1. Sanitización de fidelidad
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(fridayMuralRaw as any, table, 'MATERNAL_C1');
+      expect(sanitized.description).not.toMatch(/en\s+su\s+caja\s+limpia/i);
+      expect(sanitized.description).not.toMatch(/en\s+cajas?\b/i);
+      expect(sanitized.description).toContain('reuniendo con cuidado los crayones sobre la colchoneta limpia');
+      expect(sanitized.materials).not.toContain('cajas de cartón limpias');
+      expect(sanitized.materials).not.toContain('cajas limpias');
+
+      // 2. Progresión semanal de Viernes
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...fridayMuralRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const friArt = enriched[4].activities[0];
+
+      expect(friArt.description).not.toMatch(/en\s+su\s+caja\s+limpia/i);
+      expect(friArt.description).not.toMatch(/en\s+cajas?\b/i);
+      expect(friArt.description).toContain('reuniendo con cuidado los crayones sobre la colchoneta limpia');
+      expect(friArt.materials).toContain('pliegos de papel bond con dibujos existentes');
+      expect(friArt.materials).toContain('crayones gruesos de cera');
+      expect(friArt.materials).toContain('colchonetas limpias');
+      expect(friArt.materials).not.toContain('cajas de cartón limpias');
+      expect(friArt.materials).not.toContain('cajas limpias');
+    });
+
+    it('Defecto 4: EXP-D5-A4 (viernes) — Unifica objetivo y desarrollo para utilizar recipientes plásticos amplios, no cajas, y erradica «colores» como material independiente', () => {
+      const fridayMathRaw = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias.',
+        description:
+          'Inicio: Se colocan bloques grandes de diferentes colores y formas sobre colchonetas limpias.\nDesarrollo: En la sesión de consolidación, las niñas y niños clasifican por color y forma colocando los bloques en cajas de cartón limpias.\nCierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus cajas de cartón limpias a ras de suelo.\nAdaptaciones: Modelar la agrupación.',
+        materials: ['bloques grandes de plástico lavable', 'colores', 'cajas de cartón limpias', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      // 1. Sanitización de fidelidad pedagógica
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(fridayMathRaw as any, table, 'MATERNAL_C1');
+      expect(sanitized.materials).not.toContain('colores');
+      expect(sanitized.materials).toContain('bloques grandes de plástico lavable');
+      expect(sanitized.materials).toContain('recipientes plásticos amplios');
+
+      // 2. Progresión semanal de Viernes
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...fridayMathRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...fridayMathRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...fridayMathRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...fridayMathRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...fridayMathRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const friMath = enriched[4].activities[0];
+
+      // Objetivo unificado con recipientes plásticos amplios
+      expect(friMath.objective).toContain('recipientes plásticos amplios');
+      expect(friMath.objective).not.toMatch(/\bcajas?\s+limpias?\b/i);
+      expect(friMath.objective).not.toMatch(/\bcajas?\s+de\s+cart[oó]n\b/i);
+
+      // Desarrollo unificado con recipientes plásticos amplios
+      expect(friMath.description).toContain('recipientes plásticos amplios');
+      expect(friMath.description).not.toMatch(/\ben\s+(?:sus\s+)?cajas?(?:\s+de\s+cart[oó]n)?(?:\s+limpias?)?\b/i);
+
+      // Cierre adaptado a recipientes plásticos amplios
+      expect(friMath.description).toMatch(/recipientes\s+pl[aá]sticos\s+amplios\s+a\s+ras\s+de\s+suelo/i);
+
+      // Materiales: bloques, recipientes plásticos amplios, colchonetas; CERO cajas y CERO «colores»
+      expect(friMath.materials).toContain('bloques grandes de plástico lavable');
+      expect(friMath.materials).toContain('recipientes plásticos amplios');
+      expect(friMath.materials).toContain('colchonetas limpias');
+      expect(friMath.materials).not.toContain('cajas de cartón limpias');
+      expect(friMath.materials).not.toContain('cajas limpias');
+      expect(friMath.materials).not.toContain('colores');
+    });
+
+    it('Mejora menor: EXP-D1-A3 (lunes) — Sustituye la expresión «como un canguro» por una instrucción motriz natural y segura', () => {
+      const mondayMotorRaw = {
+        category: 'ACTIVACIÓN FÍSICA' as const,
+        objective: 'Favorecer el desplazamiento y la coordinación motriz caminando como un canguro sobre colchonetas limpias.',
+        description:
+          'Inicio: La Asistente dispone colchonetas limpias alineadas.\nDesarrollo: Invitar a las niñas y niños a saltar como un canguro y avanzar como canguros sobre las colchonetas limpias con pasos amplios.\nCierre: Sentarse en círculo y relajarse.\nAdaptaciones: Acompañar de la mano si es necesario.',
+        materials: ['colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      // 1. Sanitización de fidelidad pedagógica
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(mondayMotorRaw as any, table, 'MATERNAL_C1');
+      expect(sanitized.objective).not.toContain('canguro');
+      expect(sanitized.description).not.toContain('canguro');
+      expect(sanitized.description).toContain('caminar con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias');
+      expect(sanitized.objective).toContain('desplazamientos con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias');
+
+      // 2. Progresión semanal de Lunes
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...mondayMotorRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...mondayMotorRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...mondayMotorRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...mondayMotorRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...mondayMotorRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const monMotor = enriched[0].activities[0];
+
+      expect(monMotor.objective).not.toContain('canguro');
+      expect(monMotor.description).not.toContain('canguro');
+      expect(monMotor.description).toContain('caminar con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias');
+    });
+  });
 });
 
 

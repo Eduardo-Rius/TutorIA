@@ -189,8 +189,8 @@ export interface RequestScopedMaterialTable {
  * Deterministically constructs a request-scoped material symbol table.
  */
 export function createRequestScopedMaterialTable(
-  allowedMaterials: readonly string[],
-  approvedRoomFixtures: readonly string[] = []
+  allowedMaterials: readonly string[] | string,
+  approvedRoomFixtures: readonly string[] | string = []
 ): RequestScopedMaterialTable {
   const entries: RequestScopedMaterialEntry[] = [];
   const refMap = new Map<string, RequestScopedMaterialEntry>();
@@ -199,7 +199,12 @@ export function createRequestScopedMaterialTable(
 
   let counter = 1;
 
-  for (const rawName of allowedMaterials) {
+  const materialsList =
+    typeof allowedMaterials === 'string'
+      ? (allowedMaterials as string).split(',').map((s) => s.trim()).filter(Boolean)
+      : allowedMaterials;
+
+  for (const rawName of materialsList) {
     const trimmed = rawName.trim();
     if (!trimmed) continue;
     const normalized = trimmed.toLowerCase();
@@ -221,7 +226,12 @@ export function createRequestScopedMaterialTable(
     displayNameMap.set(normalized, entry);
   }
 
-  for (const rawFixture of approvedRoomFixtures) {
+  const fixturesList =
+    typeof approvedRoomFixtures === 'string'
+      ? (approvedRoomFixtures as string).split(',').map((s) => s.trim()).filter(Boolean)
+      : approvedRoomFixtures;
+
+  for (const rawFixture of fixturesList) {
     const trimmed = rawFixture.trim();
     if (!trimmed) continue;
     const normalized = trimmed.toLowerCase();
@@ -1127,10 +1137,10 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
         '       - CADA DÍA (Lunes a Viernes) DEBE presentar 5 actividades con objetivos y descripciones diferenciadas (25 ACTIVIDADES ÚNICAS en total).',
         '       - PROHIBICIÓN ESTRICTA DE ACTIVIDADES IDÉNTICAS O CLÓNICAS: Un mismo día NO PUEDE incluir dos actividades prácticamente idénticas. Cada día y cada actividad deben tener su propia identidad, acción docente, vocabulario y desafío lúdico.',
         '       - PROGRESIÓN AUTÉNTICA JUEVES–VIERNES: Queda TERMINANTEMENTE PROHIBIDO que jueves y viernes repitan literalmente el mural colectivo. El mural colectivo está reservado exclusivamente para el viernes (jueves debe presentar trazos rítmicos individuales). Asimismo, el cierre observacional semanal y la consolidación quedan RESERVADOS EXCLUSIVAMENTE para el viernes; el jueves debe ofrecer una variación pedagógica real.',
-        '       - En Pensamiento y Relaciones Espaciales: Lunes (exploración y construcción combinada libre a ras de suelo), Martes (clasificación por dos atributos: color y forma en cajas de cartón limpias), Miércoles (seriación simple de 3 tamaños: grande, mediano, pequeño en recipientes limpios), Jueves (conteo lúdico funcional 1 a 1 de 3 a 5 objetos concretos al guardar o repartir), Viernes (consolidación de relaciones espaciales y clasificación combinada con observación formativa en cajas limpias a ras de suelo).',
-        '       - En Lenguaje Conversacional y Juego Simbólico: Lunes (diálogo espontáneo sobre vivencias y presentación de muñecos de tela), Martes (sociodrama de roles cotidianos: consultorio médico o cuidado familiar peinando y arropando al muñeco), Miércoles (interacción con títeres o guiñoles respondiendo a preguntas causales «¿por qué?»), Jueves (dramatización de preparar comida o tienda usando cajas limpias y utensilios plásticos), Viernes (ronda cooperativa y expresión de preferencias con muñecos y títeres).',
-        '       - En Expresión Artística y Plástica: Lunes (garabateo circular amplio con crayones gruesos en pliegos a ras de suelo sobre colchonetas limpias), Martes (dibujo intencionado con asignación de nombre: «Mi dibujo es...»), Miércoles (exploración de formas libres sobre papel a ras de suelo con crayones gruesos; modelado tridimensional con masa casera SOLO si está declarada en el inventario), Jueves (trazos rítmicos libres individuales acompañados de canto acapela), Viernes (mural colectivo a ras de suelo reservado exclusivamente para el cierre semanal, sin fijaciones en pared).',
-        '       - En Movimiento y Expresión Corporal: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo o imitación de animalitos con movimientos cómodos), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos sobre colchonetas limpias con pasos cómodos y seguros, sin posturas forzadas ni saltos bruscos), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
+        '       - En Pensamiento y Relaciones Espaciales: Lunes (exploración y construcción combinada libre a ras de suelo), Martes (clasificación por dos atributos: color y forma en cajas de cartón limpias), Miércoles (seriación simple de 3 tamaños: grande, mediano, pequeño en recipientes limpios), Jueves (conteo lúdico funcional 1 a 1 de 3 a 5 objetos concretos al guardar o repartir), Viernes (consolidación de relaciones espaciales y clasificación combinada con observación formativa en recipientes plásticos amplios a ras de suelo; el color es un atributo de los bloques, no un material independiente).',
+        '       - En Lenguaje Conversacional y Juego Simbólico: Lunes (diálogo espontáneo sobre vivencias y presentación de muñecos de tela), Martes (sociodrama de roles cotidianos: consultorio médico o cuidado familiar peinando y arropando al muñeco), Miércoles (interacción narrativa con muñecos lavables o animales de juguete grandes disponibles respondiendo a preguntas causales «¿por qué?»), Jueves (dramatización de preparar comida o alimentar mediante mímica afectuosa y juego simbólico con muñecos de tela sobre colchonetas limpias, utilizando exclusivamente recursos disponibles y declarados sin inventar utensilios plásticos), Viernes (ronda cooperativa y expresión de preferencias con muñecos de tela sobre colchonetas limpias).',
+        '       - En Expresión Artística y Plástica: Lunes (garabateo circular amplio con crayones gruesos en pliegos a ras de suelo sobre colchonetas limpias), Martes (dibujo intencionado con asignación de nombre: «Mi dibujo es...»), Miércoles (exploración de formas libres sobre papel a ras de suelo con crayones gruesos; modelado tridimensional con masa casera SOLO si está declarada en el inventario), Jueves (trazos rítmicos libres individuales acompañados de canto acapela), Viernes (mural colectivo a ras de suelo reservado exclusivamente para el cierre semanal, sin fijaciones en pared ni cajas).',
+        '       - En Movimiento y Expresión Corporal: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo o imitación de animalitos con movimientos naturales, seguros y cómodos sobre colchonetas limpias; PROHIBIDO saltar o caminar como canguro), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos sobre colchonetas limpias con pasos cómodos y seguros, sin posturas forzadas ni saltos bruscos), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
         '       - En Hábitos, Higiene y Autonomía: Lavado y secado autónomo de manos en lavabo infantil con toallero bajo, y práctica cotidiana de guardar y ordenar los materiales de la sala («Guardar y ordenar»).',
         '       - INVENTARIO ESTRICTO: NUNCA propongas actividades que requieran masa casera u otros materiales no declarados en el inventario. No menciones materiales físicos inexistentes cuando materials permanezca vacío.',
         '     * 6. LECTURA EN VOZ ALTA DIARIA CON EL CUENTO DEL CONTEXTO (5 DINÁMICAS DIFERENCIADAS):',
@@ -1402,19 +1412,20 @@ export function buildWeeklyPlanningAIUserPrompt(
       '   - PROHIBIDO GENERAR ACTIVIDADES IDÉNTICAS O REPETITIVAS: Cada día y cada actividad deben tener su propia identidad formativa según la edad de 37 a 42 meses (GT Económica págs. 89-98). Un mismo día NO PUEDE incluir dos actividades prácticamente idénticas.',
       '   - PROGRESIÓN AUTÉNTICA JUEVES–VIERNES: Queda TERMINANTEMENTE PROHIBIDO que jueves y viernes repitan literalmente el mural colectivo. El mural colectivo está reservado exclusivamente para el viernes; el jueves debe ofrecer trazos rítmicos individuales. La consolidación observacional semanal queda reservada EXCLUSIVAMENTE para el viernes; el jueves DEBE ofrecer una variación pedagógica real (en ritmo, agencia del niño o interacción).',
       '   - PROGRESIÓN OBLIGATORIA POR DÍAS EN CADA EJE FORMATIVO:',
-      '     * PENSAMIENTO Y EXPLORACIÓN: Lunes (exploración y construcción combinada libre a ras de suelo), Martes (clasificación por dos atributos: color y forma en cajas de cartón limpias), Miércoles (seriación simple de 3 tamaños: grande, mediano, pequeño en recipientes limpios), Jueves (conteo funcional 1 a 1 de 3 a 5 objetos concretos en recipientes limpios), Viernes (consolidación de relaciones espaciales y clasificación combinada con observación formativa en cajas limpias a ras de suelo).',
-      '     * LENGUAJE CONVERSACIONAL Y JUEGO SIMBÓLICO: Lunes (diálogo sobre vivencias y presentación de muñecos de tela), Martes (sociodrama de roles cotidianos: consultorio médico o cuidado familiar peinando y arropando al muñeco), Miércoles (interacción con títeres o guiñoles respondiendo a preguntas causales «¿por qué?»), Jueves (dramatización de preparar comida o tienda usando cajas limpias y utensilios plásticos), Viernes (ronda cooperativa y expresión de preferencias con muñecos y títeres).',
-      '     * EXPRESIÓN ARTÍSTICO-PLÁSTICA: Lunes (garabateo circular amplio con crayones gruesos en pliegos a ras de suelo sobre colchonetas limpias), Martes (dibujo intencionado con asignación de nombre: «Mi dibujo es...»), Miércoles (exploración de formas libres sobre papel a ras de suelo con crayones gruesos; modelado tridimensional con masa casera SOLO si está declarada en el inventario), Jueves (trazos rítmicos libres individuales acompañados de canto acapela; NUNCA mural colectivo), Viernes (mural colectivo a ras de suelo reservado exclusivamente para el cierre semanal, sin fijaciones en pared).',
-      '     * ACTIVACIÓN FÍSICA Y PSICOMOTRICIDAD: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo o imitación lúdica de animalitos con movimientos naturales y cómodos sobre colchonetas limpias, sin posturas forzadas), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos sobre colchonetas limpias con pasos seguros y cómodos, sin posturas forzadas ni saltos bruscos), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
+      '     * PENSAMIENTO Y EXPLORACIÓN: Lunes (exploración y construcción combinada libre a ras de suelo), Martes (clasificación por dos atributos: color y forma en cajas de cartón limpias), Miércoles (seriación simple de 3 tamaños: grande, mediano, pequeño en recipientes limpios), Jueves (conteo funcional 1 a 1 de 3 a 5 objetos concretos en recipientes limpios), Viernes (consolidación de relaciones espaciales y clasificación combinada con observación formativa en recipientes plásticos amplios a ras de suelo; el color es un atributo de los bloques, no un material independiente).',
+      '     * LENGUAJE CONVERSACIONAL Y JUEGO SIMBÓLICO: Lunes (diálogo sobre vivencias y presentación de muñecos de tela), Martes (sociodrama de roles cotidianos: consultorio médico o cuidado familiar peinando y arropando al muñeco), Miércoles (interacción narrativa con muñecos lavables o animales de juguete grandes disponibles respondiendo a preguntas causales «¿por qué?»), Jueves (dramatización de preparar comida o alimentar mediante mímica afectuosa y juego simbólico con muñecos de tela sobre colchonetas limpias, utilizando exclusivamente recursos disponibles y declarados sin inventar utensilios plásticos), Viernes (ronda cooperativa y expresión de preferencias con muñecos de tela sobre colchonetas limpias).',
+      '     * EXPRESIÓN ARTÍSTICO-PLÁSTICA: Lunes (garabateo circular amplio con crayones gruesos en pliegos a ras de suelo sobre colchonetas limpias), Martes (dibujo intencionado con asignación de nombre: «Mi dibujo es...»), Miércoles (exploración de formas libres sobre papel a ras de suelo con crayones gruesos; modelado tridimensional con masa casera SOLO si está declarada en el inventario), Jueves (trazos rítmicos libres individuales acompañados de canto acapela; NUNCA mural colectivo), Viernes (mural colectivo a ras de suelo reservado exclusivamente para el cierre semanal, sin fijaciones en pared ni cajas).',
+      '     * ACTIVACIÓN FÍSICA Y PSICOMOTRICIDAD: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo o imitación lúdica de animalitos con movimientos naturales y cómodos sobre colchonetas limpias, sin posturas forzadas; PROHIBIDO saltar o caminar como canguro), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos sobre colchonetas limpias con pasos seguros y cómodos, sin posturas forzadas ni saltos bruscos), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
       '     * LECTURA EN VOZ ALTA (5 DINÁMICAS PROGRESIVAS): Lunes (lectura dialogada, portada y anticipación a partir de ilustraciones), Martes (relectura interactiva con preguntas de predicción), Miércoles (diálogo sobre emociones y decisiones de personajes), Jueves (dramatización gestual de pasajes del cuento a ras de suelo), Viernes (recuento participativo y reconstrucción de la secuencia del cuento).',
       '     * HÁBITOS, HIGIENE Y AUTONOMÍA: Lavado y secado autónomo de manos en lavabo bajo con toallero bajo, y hábito formativo de recoger y ordenar la sala («Guardar y ordenar»).',
       '2. COHERENCIA MATERIAL Y UNIDAD PEDAGÓGICA (CERO MATERIALES INVENTADOS):',
       '   - Concebir cada actividad como una UNIDAD PEDAGÓGICA COHERENTE: Objetivo observable → Materiales declarados → Inicio → Desarrollo → Cierre concreto → Adaptaciones contextuales.',
       '   - Nombra los materiales directamente por su nombre en Inicio, Desarrollo y Cierre de forma fluida. NUNCA uses "{material}" ni concatenaciones como "Con <materiales>:".',
-      '   - INVENTARIO ESTRICTO: Queda TERMINANTEMENTE PROHIBIDO inventar masa casera, plastilina, pintura, pegamento, cojines, almohadas, mantas, conos, cuerdas, túneles, sillas adicionales, mesas adicionales, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música, cinta adhesiva, chinchetas u objetos abstractos ausentes del inventario.',
+      '   - INVENTARIO ESTRICTO: Queda TERMINANTEMENTE PROHIBIDO inventar masa casera, plastilina, pintura, pegamento, cojines, almohadas, mantas, conos, cuerdas, túneles, sillas adicionales, mesas adicionales, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música, cinta adhesiva, chinchetas, utensilios plásticos, vajilla o cubiertos de plástico, títeres o guiñoles no declarados u objetos abstractos ausentes del inventario.',
       '   - CERO INSTRUMENTOS MUSICALES O FRAGMENTACIÓN ARTIFICIAL: Queda TERMINANTEMENTE PROHIBIDO inventar «instrumentos musicales infantiles seguros», maracas, panderos, tambores o fragmentar materiales en elementos artificiales como «cajas como tambores» o «usar cajas como tambor». Todo acompañamiento sonoro debe realizarse exclusivamente con cantos acapela de la Asistente y palmadas suaves sobre colchonetas limpias a ras de suelo.',
       '   - COHERENCIA DE MATERIALES DECLARADOS: En "materials", incluye ÚNICAMENTE los recursos que efectivamente intervienen y son manipulados en la actividad descrita. TERMINANTEMENTE PROHIBIDO listar materiales no intervinientes (por ejemplo, bloques, cajas o pelotas en una lectura de cuentos; o crayones en una actividad de marcha). Si no requiere objetos físicos, declara "materials": [].',
-      '   - CERO DUPLICIDAD DE ELEMENTOS DE DIBUJO Y CERO CAJAS EN DIBUJO: Queda TERMINANTEMENTE PROHIBIDO incluir «colores» como elemento independiente duplicado o «cajas de cartón» en "materials" cuando la actividad sea dibujo con crayones gruesos sobre papel bond. Únicamente se declaran los crayones gruesos de cera, pliegos de papel bond y colchonetas limpias.',
+      '   - CERO DUPLICIDAD DE ELEMENTOS DE DIBUJO Y CERO CAJAS EN DIBUJO: Queda TERMINANTEMENTE PROHIBIDO incluir «colores» como elemento independiente duplicado o «cajas de cartón» en "materials" cuando la actividad sea dibujo con crayones gruesos sobre papel bond. Únicamente se declaran los crayones gruesos de cera, pliegos de papel bond y colchonetas limpias. En el mural colectivo del viernes, los crayones se reúnen con cuidado sobre la colchoneta limpia sin mencionar cajas.',
+      '   - EL COLOR ES UN ATRIBUTO, NO UN MATERIAL INDEPENDIENTE: En actividades de clasificación de bloques, queda TERMINANTEMENTE PROHIBIDO incluir «colores» en "materials"; el color es un atributo propio de los bloques grandes de plástico lavable. Utilizar recipientes plásticos amplios a ras de suelo, no cajas.',
       '   - UNIDAD ESTRICTA EN SENSORIAL CON TELAS: En actividades sensoriales con telas, describe Inicio, Desarrollo, Cierre, Adaptaciones y Materiales EXCLUSIVAMENTE alrededor de las telas y colchonetas limpias; TERMINANTEMENTE PROHIBIDO mezclar crayones, papel o cajas en una actividad de telas.',
       '   - DECLARACIÓN DE COLCHONETAS UTILIZADAS: Si la actividad describe desplazamientos o acciones sobre colchonetas limpias a ras de suelo en Inicio o Desarrollo, DEBEN declararse las colchonetas en "materials" / "materialRefs".',
       '   - COHERENCIA DE CIERRES CON MATERIALES: El Cierre de cada actividad DEBE corresponder ESTRICTAMENTE con los materiales manipulados en Inicio y Desarrollo. Si la actividad clasifica bloques, el cierre debe guardar y admirar los bloques clasificados; PROHIBIDO mencionar aros o recursos distintos.',
@@ -2268,6 +2279,13 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     );
     const concreteManipulable = existingManipulable || targetManipulableName;
 
+    // SR-MD-31O Defecto 4: Eliminar «colores» como material independiente; el color es un atributo de los bloques
+    materials = materials.filter(
+      (m) =>
+        !/^\s*(?:los\s+)?colores(?:\s+de\s+madera|\s+pl[aá]sticos?)?\s*$/i.test(m) &&
+        !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m)
+    );
+
     if (!existingManipulable) {
       materials = materials.filter((m) => !/\b(?:colores?|cray[oó]n(?:es)?)\b/i.test(m));
       if (!materials.includes(concreteManipulable)) {
@@ -2275,21 +2293,34 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       }
     }
 
+    const usesRecipientes =
+      /\brecipientes?\b/i.test(`${description} ${objective}`) ||
+      materials.some((m) => /\brecipientes?\b/i.test(m));
+
+    const recipientEntry = table.entries.find((e) => /\brecipientes?\b/i.test(e.displayName));
+    const recipientName = recipientEntry?.displayName || (roomType === 'MATERNAL_C1' ? 'recipientes plásticos amplios' : 'recipientes limpios');
+
     const boxEntry = table.entries.find((e) => /\bcajas?\s+de\s+cart[oó]n\b/i.test(e.displayName));
     const boxName = boxEntry?.displayName || 'cajas de cartón limpias';
-    if (!materials.includes(boxName)) {
-      materials.push(boxName);
+
+    const isMaternalC1 = roomType === 'MATERNAL_C1';
+    const containerName = (isMaternalC1 && recipientEntry) || usesRecipientes ? recipientName : boxName;
+    if (!materials.includes(containerName)) {
+      materials.push(containerName);
+    }
+    if (usesRecipientes || (isMaternalC1 && recipientEntry)) {
+      materials = materials.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m) && !/\bcajas?\s+limpias?\b/i.test(m));
     }
 
     description = description
-      .replace(/\b(?:clasificar|agrupar|separar|manipular)\s+(?:los\s+)?objetos\s+de\s+colores?\b/gi, `clasificar ${concreteManipulable} por color notorio en ${boxName}`)
+      .replace(/\b(?:clasificar|agrupar|separar|manipular)\s+(?:los\s+)?objetos\s+de\s+colores?\b/gi, `clasificar ${concreteManipulable} por color notorio en ${containerName}`)
       .replace(/\bobjetos\s+de\s+colores?\b/gi, `${concreteManipulable}`)
-      .replace(/\bclasificar\s+(?:por\s+|los\s+)?colores\b/gi, `clasificar ${concreteManipulable} por color evidente en ${boxName}`)
-      .replace(/\bclasificaci[oó]n\s+(?:de|por)\s+colores?\b/gi, `clasificación de ${concreteManipulable} por color notorio en ${boxName}`)
-      .replace(/\bagrupar\s+(?:por\s+|los\s+)?colores?\b/gi, `agrupar ${concreteManipulable} por color notorio en ${boxName}`)
-      .replace(/\bclasificar\s+(?:por\s+)?tamaños?\b/gi, `clasificar ${concreteManipulable} por tamaño en ${boxName}`)
-      .replace(/\bagrupar\s+(?:por\s+)?tamaños?\b/gi, `agrupar ${concreteManipulable} por tamaño en ${boxName}`)
-      .replace(/\bjuego\s+de\s+colores\b/gi, `juego de clasificación con ${concreteManipulable} en ${boxName}`)
+      .replace(/\bclasificar\s+(?:por\s+|los\s+)?colores\b/gi, `clasificar ${concreteManipulable} por color evidente en ${containerName}`)
+      .replace(/\bclasificaci[oó]n\s+(?:de|por)\s+colores?\b/gi, `clasificación de ${concreteManipulable} por color notorio en ${containerName}`)
+      .replace(/\bagrupar\s+(?:por\s+|los\s+)?colores?\b/gi, `agrupar ${concreteManipulable} por color notorio en ${containerName}`)
+      .replace(/\bclasificar\s+(?:por\s+)?tamaños?\b/gi, `clasificar ${concreteManipulable} por tamaño en ${containerName}`)
+      .replace(/\bagrupar\s+(?:por\s+)?tamaños?\b/gi, `agrupar ${concreteManipulable} por tamaño en ${containerName}`)
+      .replace(/\bjuego\s+de\s+colores\b/gi, `juego de clasificación con ${concreteManipulable} en ${containerName}`)
       .replace(/\bcon\s+colores\b/gi, `con ${concreteManipulable}`);
     objective = objective
       .replace(/\b(?:clasificar|agrupar|separar)\s+(?:los\s+)?objetos\s+de\s+colores?\b/gi, `clasificar ${concreteManipulable} por color notorio`)
@@ -2301,6 +2332,17 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       .replace(/\bclasificar\s+(?:por\s+)?tamaños?\b/gi, `clasificar ${concreteManipulable} por tamaño`)
       .replace(/\bagrupar\s+(?:por\s+)?tamaños?\b/gi, `agrupar ${concreteManipulable} por tamaño`);
 
+    if (isMaternalC1 && recipientEntry) {
+      description = description
+        .replace(/\ben\s+(?:sus\s+)?cajas?(?:\s+de\s+cart[oó]n)?(?:\s+limpias?)?\b/gi, `en ${containerName} a ras de suelo`)
+        .replace(/\bcajas?\s+de\s+cart[oó]n\s+limpias?\b/gi, containerName)
+        .replace(/\bcajas?\s+limpias?\b/gi, containerName);
+      objective = objective
+        .replace(/\ben\s+(?:sus\s+)?cajas?(?:\s+de\s+cart[oó]n)?(?:\s+limpias?)?\b/gi, `en ${containerName}`)
+        .replace(/\bcajas?\s+de\s+cart[oó]n\s+limpias?\b/gi, containerName)
+        .replace(/\bcajas?\s+limpias?\b/gi, containerName);
+    }
+
     if (!new RegExp(`\\b(?:${concreteManipulable}|bloques?|pelotas?|cubos?)\\b`, 'i').test(description)) {
       description = description.replace(
         /\b(?:clasificar|agrupar|juegan\s+a\s+clasificar)\b/i,
@@ -2311,7 +2353,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     if (!/\b(?:cajas?\s+de\s+cart[oó]n|recipientes?)\b/i.test(description)) {
       description = description.replace(
         new RegExp(`(${concreteManipulable}[^.\\n]*)`, 'i'),
-        `$1 en ${boxName} a ras de suelo`
+        `$1 en ${containerName} a ras de suelo`
       );
     }
   }
@@ -2331,6 +2373,19 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     );
   }
   materials = materials.filter((m) => !/\bm[oó]dulos?\b/i.test(m));
+
+  // SR-MD-31O Defecto 5: Sustituir la expresión confusa sobre caminar «como un canguro» por instrucción motriz segura (antes de hasJumping)
+  if (/\bcanguros?\b/i.test(description) || /\bcanguros?\b/i.test(objective)) {
+    description = description
+      .replace(/\b(?:saltar|saltando|caminar|caminando|avanzar|avanzando|desplazarse)\s+(?:como|imitando\s+a(?:l)?)\s+(?:un\s+)?canguros?\b/gi, 'caminar con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+      .replace(/\b(?:como|imitando\s+a(?:l)?)\s+(?:un\s+)?canguros?\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+      .replace(/\bcanguros?\b/gi, 'pasos firmes a ras de suelo');
+
+    objective = objective
+      .replace(/\b(?:saltar|saltando|caminar|caminando|avanzar|avanzando|desplazarse|desplazamientos?)\s+(?:como|imitando\s+a(?:l)?)\s+(?:un\s+)?canguros?\b/gi, 'desplazamientos con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+      .replace(/\b(?:como|imitando\s+a(?:l)?)\s+(?:un\s+)?canguros?\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+      .replace(/\bcanguros?\b/gi, 'pasos firmes a ras de suelo');
+  }
 
   // 3b. Defecto 2 (SR-MD-29O) & SR-MD-31C: Coherencia motriz absoluta
   // Erradicación completa de saltos, brincos o movimientos de impacto en objetivo, inicio, desarrollo, cierre y adaptaciones
@@ -2405,6 +2460,74 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       .replace(/\bcarreras\s+competitivas\b/gi, 'desplazamientos lúdicos compartidos')
       .replace(/\ba\s+ver\s+qui[eé]n\s+llega\s+primero\b/gi, 'desplazándose con libertad y entusiasmo por la sala')
       .replace(/\bganar\s+la\s+carrera\b/gi, 'completar el recorrido lúdico a su propio ritmo');
+  }
+
+
+  // SR-MD-31O Defecto 1: Adaptar títeres ausentes o no declarados a muñecos de tela lavables con coherencia total
+  const hasPuppetsInTable = table.entries.some((e) =>
+    /\b(?:t[ií]teres?|guiñol(?:es)?)\b/i.test(e.displayName)
+  );
+  if (!hasPuppetsInTable) {
+    materials = materials.filter(
+      (m) => !/\b(?:t[ií]teres?|guiñol(?:es)?)\b/i.test(m)
+    );
+    if (/\b(?:t[ií]teres?|guiñol(?:es)?)\b/i.test(`${description} ${objective}`)) {
+      const dollEntry = table.entries.find((e) => /\b(?:muñecos?|animales?\s+de\s+juguete)\b/i.test(e.displayName));
+      const targetDoll = dollEntry?.displayName || 'muñecos de tela';
+
+      description = description
+        .replace(/\b(?:interacci[oó]n\s+con\s+)?t[ií]teres\s+o\s+guiñoles\b/gi, `interacción narrativa con ${targetDoll}`)
+        .replace(/\b(?:interacci[oó]n\s+con\s+)?guiñoles\s+o\s+t[ií]teres\b/gi, `interacción narrativa con ${targetDoll}`)
+        .replace(/\bcon\s+t[ií]teres\s+y\s+muñecos\b/gi, `con ${targetDoll}`)
+        .replace(/\bcon\s+muñecos\s+y\s+t[ií]teres\b/gi, `con ${targetDoll}`)
+        .replace(/\bcon\s+(?:los\s+)?t[ií]teres\b/gi, `con los ${targetDoll}`)
+        .replace(/\bcon\s+(?:los\s+)?guiñoles\b/gi, `con los ${targetDoll}`)
+        .replace(/\b(?:los\s+)?t[ií]teres\b/gi, targetDoll)
+        .replace(/\b(?:los\s+)?guiñoles\b/gi, targetDoll)
+        .replace(/\bt[ií]teres?\b/gi, targetDoll)
+        .replace(/\bguiñol(?:es)?\b/gi, targetDoll);
+
+      objective = objective
+        .replace(/\b(?:interacci[oó]n\s+con\s+)?t[ií]teres\s+o\s+guiñoles\b/gi, `interacción narrativa con ${targetDoll}`)
+        .replace(/\b(?:interacci[oó]n\s+con\s+)?guiñoles\s+o\s+t[ií]teres\b/gi, `interacción narrativa con ${targetDoll}`)
+        .replace(/\bcon\s+t[ií]teres\s+y\s+muñecos\b/gi, `con ${targetDoll}`)
+        .replace(/\bcon\s+muñecos\s+y\s+t[ií]teres\b/gi, `con ${targetDoll}`)
+        .replace(/\bcon\s+(?:los\s+)?t[ií]teres\b/gi, `con los ${targetDoll}`)
+        .replace(/\bcon\s+(?:los\s+)?guiñoles\b/gi, `con los ${targetDoll}`)
+        .replace(/\b(?:los\s+)?t[ií]teres\b/gi, targetDoll)
+        .replace(/\b(?:los\s+)?guiñoles\b/gi, targetDoll)
+        .replace(/\bt[ií]teres?\b/gi, targetDoll)
+        .replace(/\bguiñol(?:es)?\b/gi, targetDoll);
+
+      if (!materials.includes(targetDoll)) {
+        materials.unshift(targetDoll);
+      }
+      if (/\bcolchonetas?\b/i.test(description) && !materials.some((m) => /\bcolchonetas?\b/i.test(m))) {
+        materials.push('colchonetas limpias');
+      }
+    }
+  }
+
+  // SR-MD-31O Defecto 2: Erradicar utensilios plásticos inventados manteniendo el juego simbólico con recursos declarados
+  const hasUtensilsInTable = table.entries.some((e) =>
+    /\b(?:utensilios?|platos?|cucharas?|vasos?|sartenes?|ollas?|cocinita)\b/i.test(e.displayName)
+  );
+  if (!hasUtensilsInTable) {
+    materials = materials.filter(
+      (m) => !/\b(?:utensilios?|platos?|cucharas?|vasos?|sartenes?|ollas?|cocinita)\b/i.test(m)
+    );
+    if (/\butensilios?\b/i.test(description) || /\butensilios?\b/i.test(objective)) {
+      description = description
+        .replace(/\b(?:usando|con|utilizando)\s+(?:cajas\s+limpias\s+y\s+)?utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos sobre colchonetas limpias')
+        .replace(/\b(?:usando|con|utilizando)\s+utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos')
+        .replace(/\butensilios\s+pl[aá]sticos?\b/gi, 'mímica afectuosa y gestos cariñosos de las manos')
+        .replace(/\butensilios\b/gi, 'mímica afectuosa y gestos cariñosos de las manos');
+      objective = objective
+        .replace(/\b(?:usando|con|utilizando)\s+(?:cajas\s+limpias\s+y\s+)?utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos sobre colchonetas limpias')
+        .replace(/\b(?:usando|con|utilizando)\s+utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos')
+        .replace(/\butensilios\s+pl[aá]sticos?\b/gi, 'mímica afectuosa y gestos cariñosos de las manos')
+        .replace(/\butensilios\b/gi, 'mímica afectuosa y gestos cariñosos de las manos');
+    }
   }
 
   // 3d. Defecto 4 (SR-MD-29O): Materiales omitidos o no inventariados (bandejas, recipientes, reproductores de música, fijación mural)
@@ -2620,8 +2743,8 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       diversifiedClosure = 'Observar lo construido y clasificado con alegría, y colocar los bloques dentro de sus cajas de cartón limpias a ras de suelo.';
     } else if (/\b(?:cray[oó]n|dibuj|traz|papel|garabate|mural)\b/i.test(descLower) || act.category === 'EXPERIENCIAS ARTÍSTICAS') {
       diversifiedClosure = shouldPurgeTapete
-        ? 'Admirar colectivamente los trazos extendidos sobre colchonetas limpias a ras de suelo y guardar los crayones uno a uno en su caja.'
-        : 'Admirar colectivamente los trazos extendidos sobre el tapete limpio y guardar los crayones uno a uno en su caja.';
+        ? 'Admirar colectivamente los trazos extendidos sobre colchonetas limpias a ras de suelo, reuniendo con cuidado los crayones sobre la colchoneta limpia.'
+        : 'Admirar colectivamente los trazos extendidos sobre el tapete limpio, reuniendo con cuidado los crayones sobre la colchoneta limpia.';
     } else if (/\b(?:circuito|marcha|colchoneta|ranitas?|desplaz)\b/i.test(descLower) || (act.category as string) === 'ACTIVACIÓN FÍSICA') {
       diversifiedClosure = 'Sentarse en la colchoneta limpia, realizar dos respiraciones lentas con palmadas en los muslos y relajarse al compás del canto sereno de la Asistente.';
     } else if (/\b(?:pelota|bal[oó]n)\b/i.test(descLower)) {
@@ -2778,18 +2901,31 @@ export function sanitizeMaternalB1PedagogicalFidelity(
 
   // SR-MD-31K Defecto 2 & SR-MD-31L: Erradicar cajas de cartón adicionales en actividades de dibujo sobre papel cuando no intervienen activamente
   const usesBoxesActively =
-    /\b(?:decorar|pintar|constru(?:ir|cci[oó]n\s+con)?|apilar|transformar|intervenir|soporte|trazar\s+sobre|escultura)\s+(?:las?\s+|con\s+)?cajas?\b/i.test(`${description} ${objective}`) ||
+    /\b(?:decor\w*|pint\w*|constru(?:ir|cci[oó]n\s+con)?|apil\w*|transform\w*|interven\w*|soporte|traz\w*\s+sobre|escultura)\s+(?:las?\s+|con\s+|las\s+caras\s+(?:exteriores\s+)?de\s+(?:las?\s+)?)?cajas?\b/i.test(`${description} ${objective}`) ||
     /\bcajas?\s+(?:de\s+cart[oó]n\s+)?como\s+(?:soporte|lienzo|escultura|bloques?|base)/i.test(`${description} ${objective}`);
 
   const isPaperDrawingAct =
-    (/\b(?:cray[oó]n|dibuj|garabate|traz)\b/i.test(description) && /\b(?:papel|pliegos?|mural)\b/i.test(description)) ||
-    (act.category === 'EXPERIENCIAS ARTÍSTICAS' && /\b(?:papel|pliegos?)\b/i.test(description));
+    (/\b(?:cray[oó]n(?:es)?|dibuj\w*|garabate\w*|traz\w*)\b/i.test(`${description} ${objective} ${materials.join(' ')}`) &&
+      /\b(?:papel\w*|pliegos?|mural\w*)\b/i.test(`${description} ${objective} ${materials.join(' ')}`)) ||
+    (act.category === 'EXPERIENCIAS ARTÍSTICAS' &&
+      /\b(?:papel\w*|pliegos?|mural\w*)\b/i.test(`${description} ${objective} ${materials.join(' ')}`));
 
   if (isPaperDrawingAct && !usesBoxesActively) {
-    materials = materials.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
-    description = description
-      .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
-      .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+    const isMural = /\bmural\b/i.test(`${description} ${objective}`);
+    if (isMural) {
+      materials = materials.filter((m) => !/\bcajas?\b/i.test(m));
+      description = description
+        .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'sobre colchonetas limpias')
+        .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'colchonetas limpias')
+        .replace(/\bguardar\s+los\s+crayones\s+(?:uno\s+a\s+uno\s+)?en\s+su\s+caja(?:\s+limpia)?\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia')
+        .replace(/\bguardar\s+los\s+crayones\s+en\s+su\s+caja(?:\s+limpia)?\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia')
+        .replace(/\ben\s+(?:su\s+)?caja(?:\s+limpia)?\b/gi, 'sobre la colchoneta limpia');
+    } else {
+      materials = materials.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
+      description = description
+        .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
+        .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+    }
   }
 
   // SR-MD-31M Defecto 1: Eliminar cajas de cartón de materiales si no participan realmente en la seriación o clasificación con recipientes
@@ -2851,7 +2987,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       }
       // Recipientes / contenedores
       if (/\brecipientes?\b/i.test(matLower)) {
-        return /\b(?:recipientes?|seriaci[oó]n|clasific|agrup)\b/i.test(descAndObjLower);
+        return /\b(?:recipientes?|seriaci[oó]n|clasific\w*|agrup\w*)\b/i.test(descAndObjLower);
       }
       // Storybooks / cuentos
       if (/\b(?:cuentos?|libros?)\b/i.test(matLower)) {
@@ -2860,7 +2996,7 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       // Blocks
       if (/\bbloques?\b/i.test(matLower)) {
         if (isReadingActivity) return false;
-        return /\b(?:bloques?|apilar|torres?|constru(?:ir|cci[oó]n)|alinear|encaj|clasific|cajas?\s+de\s+cart[oó]n)\b/i.test(descAndObjLower);
+        return /\b(?:bloques?|apilar|torres?|constru(?:ir|cci[oó]n)|alinear|encaj|clasific\w*|cajas?\s+de\s+cart[oó]n)\b/i.test(descAndObjLower);
       }
       // Crayons
       if (/\bcray[oó]n(?:es)?\b/i.test(matLower)) {
@@ -2882,14 +3018,14 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       if (/\b(?:papel|pliegos?|cartulina)\b/i.test(matLower)) {
         return /\b(?:papel|pliegos?|mural|dibuj(?:ar|os?)|traz(?:ar|os?)|garabate(?:ar|o))\b/i.test(descAndObjLower);
       }
-      // Fabrics / telas
-      if (/\btelas?\b/i.test(matLower)) {
-        if (isPaperDrawingAct) return false;
-        return /\b(?:telas?|lienzos?|pañuelos?|texturas?\s+de\s+tela|ondear|brisa)\b/i.test(descAndObjLower);
-      }
       // Dolls / muñecos
       if (/\bmuñecos?\b/i.test(matLower)) {
-        return /\b(?:muñecos?|bebit[oa]|cuidar|arropar|peinar|alimentar)\b/i.test(descAndObjLower);
+        return /\b(?:muñecos?|bebit[oa]|cuid\w*|arrop\w*|pein\w*|aliment\w*|roles|juego\s+simb[oó]lico)\b/i.test(descAndObjLower);
+      }
+      // Fabrics / telas
+      if (/\btelas?\b/i.test(matLower) && !/\bmuñec/i.test(matLower)) {
+        if (isPaperDrawingAct) return false;
+        return /\b(?:telas?|lienzos?|pañuelos?|texturas?\s+de\s+tela|ondear|brisa)\b/i.test(descAndObjLower);
       }
       // Balls / pelotas
       if (/\bpelotas?\b/i.test(matLower)) {
@@ -4078,6 +4214,19 @@ export function enrichMaternalB1WeeklyProgression(
             .replace(/\ben\s+cuclillas\b/gi, 'a ras de suelo sobre colchonetas limpias')
             .replace(/\bsin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
         }
+        // SR-MD-31O Defecto 5 (EXP-D1-A3): sustituir la expresión sobre caminar como un canguro por instrucción motriz segura
+        if (/\bcanguros?\b/i.test(`${updatedDesc} ${updatedObj}`)) {
+          updatedObj = updatedObj
+            .replace(/\b(?:saltar|caminar|avanzar|desplazarse)\s+como\s+(?:un\s+)?canguro\b/gi, 'caminar con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+            .replace(/\bcomo\s+(?:un\s+)?canguro\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+            .replace(/\bimitando\s+(?:a\s+un\s+|al\s+)?canguro\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo')
+            .replace(/\bcanguros?\b/gi, 'pasos firmes a ras de suelo');
+          updatedDesc = updatedDesc
+            .replace(/\b(?:saltar|caminar|avanzar|desplazarse)\s+como\s+(?:un\s+)?canguro\b/gi, 'caminar con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+            .replace(/\bcomo\s+(?:un\s+)?canguro\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+            .replace(/\bimitando\s+(?:a\s+un\s+|al\s+)?canguro\b/gi, 'caminando con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+            .replace(/\bcanguros?\b/gi, 'pasos firmes a ras de suelo');
+        }
         return {
           ...mondayAct,
           objective: cleanDuplicatePedagogicalPhrases(updatedObj),
@@ -4147,10 +4296,12 @@ export function enrichMaternalB1WeeklyProgression(
               !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m) &&
               !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m)
           );
-          // Normalizar procedimentalmente cajas en dibujo a "su caja limpia"
+          // Normalizar procedimentalmente cajas en dibujo a colchonetas limpias
           updatedDesc = updatedDesc
-            .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
-            .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+            .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'sobre colchonetas limpias')
+            .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'colchonetas limpias')
+            .replace(/\bguardar\s+los\s+crayones\s+(?:uno\s+a\s+uno\s+)?en\s+su\s+caja(?:\s+limpia)?\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia')
+            .replace(/\bguardar\s+los\s+crayones\s+en\s+su\s+caja\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia');
 
           // Asegurar colchonetas limpias en materiales si se dibuja a ras de suelo sobre colchonetas
           if (/\bcolchonetas?\b/i.test(updatedDesc) && !updatedMats.some((m) => /\bcolchonetas?\b/i.test(m))) {
@@ -4177,6 +4328,47 @@ export function enrichMaternalB1WeeklyProgression(
             /^(?:lanzar\s+y\s+atrapar|atrapar\s+y\s+lanzar|rodar\s+y\s+recibir)\b/i.test(updatedObj.trim())
           ) {
             updatedObj = 'Favorecer la coordinación óculo-manual, el control postural y la cooperación lúdica mediante el lanzamiento y recepción guiada de pelotas en parejas a ras de suelo.';
+          }
+        }
+
+        // SR-MD-31O Defecto 1 (EXP-D3-A5): Adaptar títeres ausentes en inventario a muñecos de tela lavables con coherencia total
+        const isWednesdayPuppetOrNarrative =
+          /\b(?:t[ií]teres?|guiñoles?)\b/i.test(`${updatedDesc} ${updatedObj}`) ||
+          (/\b(?:preguntas\s+causales|por\s+qu[eé]|experiencia\s+narrativa)\b/i.test(`${updatedDesc} ${updatedObj}`) &&
+            /\b(?:muñecos?|personajes?)\b/i.test(`${updatedDesc} ${updatedObj}`));
+
+        if (isWednesdayPuppetOrNarrative) {
+          updatedObj = 'Favorecer el lenguaje comprensivo, el razonamiento causal y la empatía mediante la interacción narrativa con muñecos de tela lavables respondiendo a preguntas causales.';
+          if (/\bInicio:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bInicio:\s*[\s\S]*?(?=\s*(?:\bDesarrollo:|$))/i,
+              'Inicio: Disponer colchonetas limpias a ras de suelo e invitar a las niñas y niños a sentarse en semicírculo para presentar los muñecos de tela lavables con voz cálida. '
+            );
+          }
+          if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+              'Desarrollo: La Asistente da vida a los muñecos de tela lavables en una narración dialogada y plantea preguntas causales («¿Por qué creen que el muñeco busca abrigo?», «¿Cómo podemos ayudarlo?»), motivando a las niñas y niños a dialogar, responder y expresar emociones interactuando directamente con los muñecos sobre las colchonetas limpias.'
+            );
+          }
+          if (/\bCierre:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n(?:es)?:|$))/i,
+              'Cierre: Despedir la narración abrazando a los muñecos de tela con ternura y colocándolos a descansar sobre la colchoneta limpia. '
+            );
+          }
+          if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
+              'Adaptaciones: Formular preguntas con opciones sencillas y dar apoyo gestual a quienes presentan lenguaje emergente, respetando su ritmo de respuesta.'
+            );
+          }
+          updatedMats = updatedMats.filter((m) => !/\b(?:t[ií]teres?|guiñol(?:es)?)\b/i.test(m));
+          if (!updatedMats.some((m) => /\bmuñec[oa]s?\b/i.test(m))) {
+            updatedMats.unshift('muñecos de tela');
+          }
+          if (!updatedMats.some((m) => /\bcolchonetas?\b/i.test(m))) {
+            updatedMats.push('colchonetas limpias');
           }
         }
 
@@ -4353,6 +4545,7 @@ export function enrichMaternalB1WeeklyProgression(
       thursdayDay.activities = thursdayDay.activities.map((thursdayAct) => {
         let updatedObj = thursdayAct.objective;
         let updatedDesc = thursdayAct.description;
+        let updatedMats = [...thursdayAct.materials];
 
         // Item 1 (SR-MD-31E): Erradicar contradicción «a ras de suelo, sin desplazamientos a ras de suelo»
         updatedObj = updatedObj
@@ -4391,6 +4584,64 @@ export function enrichMaternalB1WeeklyProgression(
             .replace(/\bmural\b/gi, 'trazos individuales');
         }
 
+        // SR-MD-31O Defecto 2 (EXP-D4-A5): Eliminar utensilios plásticos inventados en juego simbólico de jueves
+        const isDramatizationOrFeedingThursday =
+          roomType === 'MATERNAL_C1' &&
+          (/\b(?:utensilios?|cocin\w*|aliment\w*|comidita|dar\s+de\s+comer|cucharas?|platos?|vajilla)\b/i.test(`${updatedDesc} ${updatedObj}`) ||
+            (/\b(?:muñecos?|beb[eé]s?|roles|juego\s+simb[oó]lico)\b/i.test(`${updatedDesc} ${updatedObj}`) &&
+              /\b(?:cuid\w*|aliment\w*|arrop\w*|atend\w*)\b/i.test(`${updatedDesc} ${updatedObj}`)));
+
+        if (isDramatizationOrFeedingThursday) {
+          updatedObj = 'Favorecer el juego simbólico, la expresión afectiva y la empatía mediante la recreación dialogada del cuidado de muñecos de tela con gestos cariñosos sobre colchonetas limpias.';
+          if (/\bInicio:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bInicio:\s*[\s\S]*?(?=\s*(?:\bDesarrollo:|$))/i,
+              'Inicio: La Asistente invita al grupo a sentarse sobre colchonetas limpias a ras de suelo y presenta a los muñecos de tela, conversando sobre cómo expresar cariño y cuidado con las manos. '
+            );
+          }
+          if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+              'Desarrollo: La Asistente guía una dramatización de cuidado afectuoso donde cada niña y niño sostiene a su muñeco de tela, recreando con mímica afectuosa y suaves caricias de las manos acciones de arrullo y alimentación simbólica a ras de suelo sobre colchonetas limpias, estimulando la verbalización espontánea.'
+            );
+          }
+          if (/\bCierre:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n(?:es)?:|$))/i,
+              'Cierre: Arropar suavemente a los muñecos de tela con una caricia y colocarlos a descansar ordenadamente sobre la colchoneta limpia. '
+            );
+          }
+          if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
+              'Adaptaciones: Modelar gestos afectuosos mano sobre mano para quienes requieran apoyo en la interacción con el muñeco, respetando sus iniciativas.'
+            );
+          }
+          updatedMats = updatedMats.filter(
+            (m) => !/\b(?:utensilios?|vajilla|platos?|cucharas?|vasos?|sartenes?|ollas?|cocinita|cajas?\s+de\s+cart[oó]n)\b/i.test(m)
+          );
+          if (!updatedMats.some((m) => /\bmuñec[oa]s?\b/i.test(m))) {
+            updatedMats.unshift('muñecos de tela');
+          }
+          if (!updatedMats.some((m) => /\bcolchonetas?\b/i.test(m))) {
+            updatedMats.push('colchonetas limpias');
+          }
+        }
+
+        updatedDesc = updatedDesc
+          .replace(/\b(?:usando|con|utilizando)\s+(?:cajas\s+limpias\s+y\s+)?utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos sobre colchonetas limpias')
+          .replace(/\b(?:usando|con|utilizando)\s+utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos')
+          .replace(/\b(?<!sin\s+requerir\s+)utensilios\s+pl[aá]sticos?\b/gi, 'mímica afectuosa de las manos')
+          .replace(/\b(?<!sin\s+requerir\s+)utensilios\b/gi, 'mímica afectuosa');
+        updatedObj = updatedObj
+          .replace(/\b(?:usando|con|utilizando)\s+(?:cajas\s+limpias\s+y\s+)?utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos sobre colchonetas limpias')
+          .replace(/\b(?:usando|con|utilizando)\s+utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos')
+          .replace(/\b(?<!sin\s+requerir\s+)utensilios\s+pl[aá]sticos?\b/gi, 'mímica afectuosa de las manos')
+          .replace(/\b(?<!sin\s+requerir\s+)utensilios\b/gi, 'mímica afectuosa');
+        updatedMats = updatedMats.filter(
+          (m) => !/\b(?:utensilios?|vajilla|platos?|cucharas?|vasos?|sartenes?|ollas?|cocinita)\b/i.test(m)
+        );
+
         // Erradicar lenguaje de consolidación/cierre semanal de jueves (reservado exclusivamente para viernes)
         if (/\b(?:consolidaci[oó]n\s+semanal|cierre\s+semanal|observar\s+y\s+consolidar|sesi[oó]n\s+de\s+consolidaci[oó]n|observar\s+la\s+consolidaci[oó]n)\b/i.test(updatedObj)) {
           updatedObj = updatedObj
@@ -4407,6 +4658,7 @@ export function enrichMaternalB1WeeklyProgression(
 
         return {
           ...thursdayAct,
+          materials: updatedMats,
           objective: cleanDuplicatePedagogicalPhrases(updatedObj),
           description: cleanDuplicatePedagogicalPhrases(updatedDesc),
         };
@@ -4476,18 +4728,25 @@ export function enrichMaternalB1WeeklyProgression(
           const isCorrespondenceFocus = /\b(?:correspondencia|uno\s+a\s+uno|contar|conteo|continente)\b/i.test(updatedDesc);
 
           if (isColorAndShapeFocus) {
-            updatedObj = 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias.';
+            updatedObj = 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en recipientes plásticos amplios.';
           } else if (isColorFocus && !isSizeFocus) {
-            updatedObj = 'Observar y consolidar la discriminación visual y la clasificación cromática agrupando bloques grandes por color notorio en cajas limpias.';
+            updatedObj = 'Observar y consolidar la discriminación visual y la clasificación cromática agrupando bloques grandes por color notorio en recipientes plásticos amplios.';
           } else if (isSpatialFocus && !isSizeFocus) {
             updatedObj = 'Observar y consolidar la coordinación visomotriz fina y las nociones espaciales al alinear y apilar bloques grandes a ras de suelo.';
           } else if (isCorrespondenceFocus && !isSizeFocus) {
-            updatedObj = 'Observar y consolidar la correspondencia uno a uno y la noción de continente colocando bloques dentro de cajas de cartón limpias.';
+            updatedObj = 'Observar y consolidar la correspondencia uno a uno y la noción de continente colocando bloques dentro de recipientes plásticos amplios a ras de suelo.';
           } else if (isSizeFocus) {
-            updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en sus cajas correspondientes.';
+            updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en recipientes plásticos amplios.';
           } else if (/\b(?:clasific|agrup)\b/i.test(updatedDesc) || /\b(?:autonom[ií]a\s+y\s+coordinaci[oó]n|coordinaci[oó]n\s+motriz)\b/i.test(updatedObj)) {
-            updatedObj = 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias.';
+            updatedObj = 'Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en recipientes plásticos amplios.';
           }
+
+          // SR-MD-31O Defecto 4 (EXP-D5-A4): Unificar objetivo y desarrollo para utilizar recipientes plásticos amplios, no cajas. Eliminar «colores» como material independiente
+          updatedDesc = updatedDesc
+            .replace(/\ben\s+(?:sus\s+)?cajas?(?:\s+de\s+cart[oó]n)?(?:\s+limpias?)?\b/gi, 'en recipientes plásticos amplios a ras de suelo')
+            .replace(/\bcajas?\s+de\s+cart[oó]n\s+limpias?\b/gi, 'recipientes plásticos amplios')
+            .replace(/\bcajas?\s+limpias?\b/gi, 'recipientes plásticos amplios')
+            .replace(/\bcajas?\s+correspondientes\b/gi, 'recipientes plásticos amplios correspondientes');
         }
 
         // Item 6 (SR-MD-31E & SR-MD-31M): Reducir cierres repetitivos en viernes y eliminar canasto no declarado
@@ -4501,9 +4760,11 @@ export function enrichMaternalB1WeeklyProgression(
           if (isReadingAct || /\b(?:cuento|libro|lectura)\b/i.test(descLower)) {
             fridayClosure = 'Cierre: Cerrar el libro con cariño, despedir a los personajes con un gesto de la mano y guardarlo en su caja limpia a ras de suelo.';
           } else if (isMathAct) {
-            fridayClosure = 'Cierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus cajas de cartón limpias a ras de suelo.';
+            fridayClosure = roomType === 'MATERNAL_C1'
+              ? 'Cierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus recipientes plásticos amplios a ras de suelo.'
+              : 'Cierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus cajas de cartón limpias a ras de suelo.';
           } else if (fridayAct.category === 'EXPERIENCIAS ARTÍSTICAS' || /\b(?:cray[oó]n|dibuj|mural)\b/i.test(descLower)) {
-            fridayClosure = 'Cierre: Admirar colectivamente el mural y los trazos compartidos sobre colchonetas limpias y guardar los crayones en su caja limpia.';
+            fridayClosure = 'Cierre: Admirar colectivamente el mural y los trazos compartidos sobre colchonetas limpias, reuniendo con cuidado los crayones sobre la colchoneta limpia.';
           } else if (fridayAct.category === 'ACTIVACIÓN FÍSICA' || /\b(?:circuito|marcha|colchoneta)\b/i.test(descLower)) {
             fridayClosure = 'Cierre: Sentarse en colchonetas limpias en círculo, respirar serenamente con palmadas suaves en los muslos y relajarse al compás de un canto suave.';
           } else if (/\b(?:muñec|beb[eé]|roles)\b/i.test(descLower)) {
@@ -4542,7 +4803,7 @@ export function enrichMaternalB1WeeklyProgression(
           if (/\bCierre:\s*/i.test(updatedDesc)) {
             updatedDesc = updatedDesc.replace(
               /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n(?:es)?:|$))/i,
-              'Cierre: Admirar colectivamente el mural y los trazos compartidos sobre colchonetas limpias y guardar los crayones en su caja limpia. '
+              'Cierre: Admirar colectivamente el mural y los trazos compartidos sobre colchonetas limpias, reuniendo con cuidado los crayones sobre la colchoneta limpia. '
             );
           }
           if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
@@ -4551,9 +4812,12 @@ export function enrichMaternalB1WeeklyProgression(
               'Adaptaciones: Apoyar a quienes requieran asistencia para acomodar sus hojas contiguas sobre las colchonetas respetando su ritmo.'
             );
           }
+          updatedDesc = updatedDesc
+            .replace(/\bguardar\s+los\s+crayones\s+(?:uno\s+a\s+uno\s+)?en\s+su\s+caja(?:\s+limpia)?\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia')
+            .replace(/\bguardar\s+los\s+crayones\s+en\s+su\s+caja\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia');
           // Materiales: únicamente disponibles y efectivamente necesarios
           fridayMaterials = fridayMaterials.filter(
-            (m) => !/\b(?:pegamento|adhesivo|resistol|cintas?|tijeras?|tachuelas?|cajas?\s+de\s+cart[oó]n)\b/i.test(m)
+            (m) => !/\b(?:pegamento|adhesivo|resistol|cintas?|tijeras?|tachuelas?|cajas?\s+de\s+cart[oó]n|cajas?\s+limpias?|cajas?)\b/i.test(m)
           );
           if (!fridayMaterials.some((m) => /\b(?:papel|pliegos?)\b/i.test(m))) {
             fridayMaterials.unshift('pliegos de papel bond con dibujos existentes');
@@ -4629,6 +4893,25 @@ export function enrichMaternalB1WeeklyProgression(
           fridayMaterials = fridayMaterials.filter((m) => !/\baros?\b/i.test(m));
         }
 
+        // SR-MD-31O Defecto 4 (EXP-D5-A4): Garantizar recipientes plásticos amplios y erradicar cajas y «colores»
+        if (roomType === 'MATERNAL_C1' && isMathAct) {
+          fridayMaterials = fridayMaterials.filter(
+            (m) =>
+              !/\b(?:cajas?\s+de\s+cart[oó]n|cajas?\s+limpias?|cajas?)\b/i.test(m) &&
+              !/^\s*(?:los\s+)?colores(?:\s+de\s+madera|\s+pl[aá]sticos?)?\s*$/i.test(m) &&
+              !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m)
+          );
+          if (!fridayMaterials.some((m) => /\bbloques?\b/i.test(m))) {
+            fridayMaterials.unshift('bloques grandes de plástico lavable');
+          }
+          if (!fridayMaterials.some((m) => /\brecipientes?\b/i.test(m))) {
+            fridayMaterials.push('recipientes plásticos amplios');
+          }
+          if (!fridayMaterials.some((m) => /\bcolchonetas?\b/i.test(m))) {
+            fridayMaterials.push('colchonetas limpias');
+          }
+        }
+
         return {
           ...fridayAct,
           materials: fridayMaterials,
@@ -4639,7 +4922,7 @@ export function enrichMaternalB1WeeklyProgression(
     }
   }
 
-  // SR-MD-31K & SR-MD-31M: Reconciliación transversal de materiales y coherencia procedural para Maternal C1 / B1 / B2
+  // SR-MD-31K & SR-MD-31M & SR-MD-31O: Reconciliación transversal de materiales y coherencia procedural para Maternal C1 / B1 / B2
   diversifiedDays.forEach((d) => {
     d.activities = d.activities.map((a) => {
       let mats = [...a.materials];
@@ -4655,20 +4938,113 @@ export function enrichMaternalB1WeeklyProgression(
         (/\b(?:cray[oó]n|dibuj|garabate|traz)\b/i.test(`${desc} ${obj}`) &&
           /\b(?:papel|pliegos?)\b/i.test(`${desc} ${obj}`));
 
+      // SR-MD-31O Defecto 3: Erradicar cajas en dibujo sobre papel y reunir crayones sobre colchoneta limpia en mural
       if (isDrawing && !usesBoxesActively) {
-        // Erradicar cajas de cartón auxiliares en dibujo sobre papel
-        mats = mats.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
-        desc = desc
-          .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
-          .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+        const isMural = /\bmural\b/i.test(`${desc} ${obj}`);
+        if (isMural) {
+          mats = mats.filter((m) => !/\bcajas?\b/i.test(m));
+          desc = desc
+            .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'sobre colchonetas limpias')
+            .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'colchonetas limpias')
+            .replace(/\bguardar\s+los\s+crayones\s+(?:uno\s+a\s+uno\s+)?en\s+su\s+caja(?:\s+limpia)?\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia')
+            .replace(/\bguardar\s+los\s+crayones\s+en\s+su\s+caja(?:\s+limpia)?\b/gi, 'reuniendo con cuidado los crayones sobre la colchoneta limpia')
+            .replace(/\ben\s+su\s+caja(?:\s+limpia)?\b/gi, 'sobre la colchoneta limpia');
+        } else {
+          mats = mats.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
+          desc = desc
+            .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
+            .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+        }
       }
 
-      // SR-MD-31M Defecto 1: Eliminar cajas de cartón si no participan realmente en la seriación con recipientes
+      // SR-MD-31M Defecto 1 & SR-MD-31O Defecto 4: Eliminar cajas si se usan recipientes en clasificación o seriación
       const usesRecipientes =
         /\brecipientes?\b/i.test(`${desc} ${obj}`) || mats.some((m) => /\brecipientes?\b/i.test(m));
       const usesBoxesInProcedure = /\bcajas?\b/i.test(desc);
       if (usesRecipientes && !usesBoxesInProcedure) {
-        mats = mats.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
+        mats = mats.filter((m) => !/\bcajas?\b/i.test(m));
+      }
+
+      if (roomType === 'MATERNAL_C1' && (a.category === 'PENSAMIENTO MATEMÁTICO' || /\b(?:clasific|seriaci[oó]n|agrup)\b/i.test(`${desc} ${obj}`))) {
+        if (usesRecipientes) {
+          mats = mats.filter((m) => !/\bcajas?\b/i.test(m));
+          desc = desc
+            .replace(/\ben\s+(?:sus\s+)?cajas?(?:\s+de\s+cart[oó]n)?(?:\s+limpias?)?\b/gi, 'en recipientes plásticos amplios a ras de suelo')
+            .replace(/\bcajas?\s+de\s+cart[oó]n\s+limpias?\b/gi, 'recipientes plásticos amplios')
+            .replace(/\bcajas?\s+limpias?\b/gi, 'recipientes plásticos amplios')
+            .replace(/\bcajas?\s+correspondientes\b/gi, 'recipientes plásticos amplios correspondientes');
+          obj = obj
+            .replace(/\ben\s+(?:sus\s+)?cajas?(?:\s+de\s+cart[oó]n)?(?:\s+limpias?)?\b/gi, 'en recipientes plásticos amplios')
+            .replace(/\bcajas?\s+de\s+cart[oó]n\s+limpias?\b/gi, 'recipientes plásticos amplios')
+            .replace(/\bcajas?\s+limpias?\b/gi, 'recipientes plásticos amplios')
+            .replace(/\bcajas?\s+correspondientes\b/gi, 'recipientes plásticos amplios correspondientes');
+        }
+      }
+
+      // SR-MD-31O Defecto 4: El color es un atributo, nunca un material independiente
+      if (roomType === 'MATERNAL_C1') {
+        mats = mats.filter(
+          (m) =>
+            !/^\s*(?:los\s+)?colores(?:\s+de\s+madera|\s+pl[aá]sticos?)?\s*$/i.test(m) &&
+            !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m)
+        );
+      }
+
+      // SR-MD-31O Defecto 5: Sustituir «como un canguro» por instrucción motriz segura
+      if (/\bcanguros?\b/i.test(desc) || /\bcanguros?\b/i.test(obj)) {
+        desc = desc
+          .replace(/\b(?:saltar|caminar|avanzar|desplazarse)\s+como\s+(?:un\s+)?canguro\b/gi, 'caminar con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+          .replace(/\bcomo\s+(?:un\s+)?canguro\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+          .replace(/\bimitando\s+(?:a\s+un\s+|al\s+)?canguro\b/gi, 'caminando con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+          .replace(/\bcanguros?\b/gi, 'pasos firmes a ras de suelo');
+
+        obj = obj
+          .replace(/\b(?:saltar|caminar|avanzar|desplazarse)\s+como\s+(?:un\s+)?canguro\b/gi, 'desplazamientos con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+          .replace(/\bcomo\s+(?:un\s+)?canguro\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo sobre colchonetas limpias')
+          .replace(/\bimitando\s+(?:a\s+un\s+|al\s+)?canguro\b/gi, 'con pasos amplios, firmes y seguros a ras de suelo')
+          .replace(/\bcanguros?\b/gi, 'pasos firmes a ras de suelo');
+      }
+
+      // SR-MD-31O Defecto 1 & 2: Coherencia transversal para Maternal C1 (títeres y utensilios)
+      if (roomType === 'MATERNAL_C1') {
+        mats = mats.filter(
+          (m) =>
+            !/\b(?:t[ií]teres?|guiñol(?:es)?)\b/i.test(m) &&
+            !/\b(?:utensilios?|vajilla|platos?|cucharas?|vasos?|sartenes?|ollas?|cocinita)\b/i.test(m)
+        );
+        if (/\b(?:t[ií]teres?|guiñoles?)\b/i.test(`${desc} ${obj}`)) {
+          desc = desc
+            .replace(/\b(?:interacci[oó]n\s+con\s+)?t[ií]teres\s+o\s+guiñoles\b/gi, 'interacción narrativa con muñecos de tela')
+            .replace(/\b(?:interacci[oó]n\s+con\s+)?guiñoles\s+o\s+t[ií]teres\b/gi, 'interacción narrativa con muñecos de tela')
+            .replace(/\bcon\s+t[ií]teres\s+y\s+muñecos\b/gi, 'con muñecos de tela')
+            .replace(/\bcon\s+muñecos\s+y\s+t[ií]teres\b/gi, 'con muñecos de tela')
+            .replace(/\bcon\s+(?:los\s+)?t[ií]teres\b/gi, 'con los muñecos de tela')
+            .replace(/\bcon\s+(?:los\s+)?guiñoles\b/gi, 'con los muñecos de tela')
+            .replace(/\b(?:los\s+)?t[ií]teres\b/gi, 'muñecos de tela')
+            .replace(/\b(?:los\s+)?guiñoles\b/gi, 'muñecos de tela')
+            .replace(/\bt[ií]teres?\b/gi, 'muñecos de tela')
+            .replace(/\bguiñol(?:es)?\b/gi, 'muñecos de tela');
+          obj = obj
+            .replace(/\b(?:interacci[oó]n\s+con\s+)?t[ií]teres\s+o\s+guiñoles\b/gi, 'interacción narrativa con muñecos de tela')
+            .replace(/\b(?:interacci[oó]n\s+con\s+)?guiñoles\s+o\s+t[ií]teres\b/gi, 'interacción narrativa con muñecos de tela')
+            .replace(/\bt[ií]teres?\b/gi, 'muñecos de tela')
+            .replace(/\bguiñol(?:es)?\b/gi, 'muñecos de tela');
+          if (!mats.some((m) => /\bmuñec[oa]s?\b/i.test(m))) {
+            mats.unshift('muñecos de tela');
+          }
+        }
+        if (/\butensilios?\b/i.test(`${desc} ${obj}`)) {
+          desc = desc
+            .replace(/\b(?:usando|con|utilizando)\s+(?:cajas\s+limpias\s+y\s+)?utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos sobre colchonetas limpias')
+            .replace(/\b(?:usando|con|utilizando)\s+utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos')
+            .replace(/\b(?<!sin\s+requerir\s+)utensilios\s+pl[aá]sticos?\b/gi, 'mímica afectuosa de las manos')
+            .replace(/\b(?<!sin\s+requerir\s+)utensilios\b/gi, 'mímica afectuosa');
+          obj = obj
+            .replace(/\b(?:usando|con|utilizando)\s+(?:cajas\s+limpias\s+y\s+)?utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos sobre colchonetas limpias')
+            .replace(/\b(?:usando|con|utilizando)\s+utensilios\s+pl[aá]sticos?\b/gi, 'mediante mímica afectuosa y gestos cariñosos de las manos')
+            .replace(/\b(?<!sin\s+requerir\s+)utensilios\s+pl[aá]sticos?\b/gi, 'mímica afectuosa de las manos')
+            .replace(/\b(?<!sin\s+requerir\s+)utensilios\b/gi, 'mímica afectuosa');
+        }
       }
 
       // SR-MD-31M Defecto 2: Normalizar cualquier «sobre limpias» huérfano
