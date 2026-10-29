@@ -25,6 +25,9 @@ import {
   buildWeeklyPlanningAIUserPrompt,
   projectPedagogicalGenerationPolicy,
   buildPrivacyMinimizedAIInput,
+  cleanDuplicatePedagogicalPhrases,
+  parseAndAllowlistUntrustedProposal,
+  createRequestScopedMaterialTable,
 } from '../../../application/planning/AIWeeklyPlanningProposalSource';
 import { getAssistantRoleLabel, readPersistedSelectedRoom } from '../../../presentation/planning-ui/PlanningDemoApp';
 
@@ -770,6 +773,361 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       const resolved = readPersistedSelectedRoom('test-user', 'default', authorizedRooms);
       expect(resolved).toBe('room-maternal-c1');
       sessionStorage.clear();
+    });
+  });
+
+  // =========================================================================
+  // 8. CORRECCIÓN FOCALIZADA MATERNAL C1 (SR-MD-31C)
+  // =========================================================================
+  describe('8. Corrección Focalizada Maternal C1 (SR-MD-31C)', () => {
+    // 1. Inventario: eliminar propuestas que requieran masa casera u otros materiales no declarados.
+    it('inventario: elimina masa casera no inventariada y la sustituye por crayones gruesos y papel bond a ras de suelo', () => {
+      const inventoryWithoutClay =
+        'Bloques grandes de plástico lavable, cuentos ilustrados infantiles, crayones gruesos de cera, pliegos de papel bond, colchonetas limpias';
+      const table = createRequestScopedMaterialTable(
+        inventoryWithoutClay.split(',').map((s) => s.trim())
+      );
+
+      const rawAct = {
+        category: 'EXPERIENCIAS ARTÍSTICAS',
+        objective: 'Modelado tridimensional con masa casera no tóxica y estimulación táctil.',
+        description:
+          'Inicio: Se ofrece masa casera no tóxica sobre colchonetas limpias.\nDesarrollo: Niñas y niños se dedican a amasar y modelar figuras tridimensionales con masa vegetal no tóxica.\nCierre: Guardar la masa casera en sus cajas limpias a ras de suelo.\nAdaptaciones: Ofrecer porciones individuales de masa para evitar disputas.',
+        materials: ['masa vegetal casera no tóxica'],
+        durationMinutes: 15,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(
+        rawAct,
+        table,
+        'Maternal C1',
+        true
+      );
+
+      // Materiales
+      expect(sanitized.materials.some((m) => /\b(?:masa|plastilina|arcilla)\b/i.test(m))).toBe(false);
+      expect(sanitized.materials.some((m) => /\bcray[oó]n/i.test(m))).toBe(true);
+      expect(sanitized.materials.some((m) => /\b(?:papel|pliegos?)\b/i.test(m))).toBe(true);
+
+      // Descripción
+      expect(/\b(?:masa|amasar|modelar)\b/i.test(sanitized.description)).toBe(false);
+      expect(sanitized.description).toContain('crayones gruesos');
+      expect(sanitized.description).toContain('papel bond');
+
+      // Objetivo
+      expect(/\b(?:masa|amasar)\b/i.test(sanitized.objective)).toBe(false);
+      expect(sanitized.objective).toContain('trazos libres con crayones gruesos sobre papel');
+
+      // Adaptaciones
+      expect(/\b(?:masa|plastilina)\b/i.test(sanitized.description)).toBe(false);
+    });
+
+    // 1b. Inventario: no permitir actividades que mencionen materiales físicos mientras materials permanece vacío.
+    it('inventario: auto-puebla materials desde el inventario disponible cuando materials está vacío', () => {
+      const table = createRequestScopedMaterialTable([
+        'Bloques grandes de plástico lavable',
+        'Cajas de cartón limpias',
+        'Colchonetas limpias',
+      ]);
+
+      const rawAct = {
+        category: 'PENSAMIENTO MATEMÁTICO',
+        objective: 'Favorecer la seriación y clasificación de bloques por tamaño.',
+        description:
+          'Inicio: Disponer bloques grandes en cajas de cartón limpias a ras de suelo.\nDesarrollo: Niñas y niños apilan bloques grandes y los clasifican dentro de cajas de cartón limpias.\nCierre: Guardar bloques grandes en cajas de cartón limpias.\nAdaptaciones: Disponer bloques duplicados.',
+        materials: [] as string[],
+        durationMinutes: 15,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(
+        rawAct,
+        table,
+        'Maternal C1',
+        true
+      );
+
+      expect(sanitized.materials.length).toBeGreaterThan(0);
+      expect(sanitized.materials.some((m) => /\bbloques?\b/i.test(m))).toBe(true);
+      expect(sanitized.materials.some((m) => /\bcajas?\b/i.test(m))).toBe(true);
+    });
+
+    // 2. Coherencia motriz: al normalizar saltos a desplazamientos seguros, corregir objetivo, desarrollo, cierre y adaptaciones sin contradicciones.
+    it('coherencia motriz: erradica exhaustivamente referencias a saltar/saltos en objetivo, desarrollo, cierre y adaptaciones', () => {
+      const table = createRequestScopedMaterialTable([
+        'Colchonetas limpias',
+        'Aros plásticos grandes',
+      ]);
+
+      const rawAct = {
+        category: 'ACTIVACIÓN FÍSICA',
+        objective: 'Promover saltos con ambos pies y coordinación motriz gruesa sobre colchonetas.',
+        description:
+          'Inicio: Disponer aros en colchonetas limpias sin desniveles.\nDesarrollo: Saltar adentro de los aros con ambos pies y brincar suavemente como ranitas.\nCierre: Felicitar los saltos logrados y respirar suavemente en colchonetas limpias.\nAdaptaciones: Acompañar mano a mano si prefieren no saltar o sin exigir saltos obligatorios.',
+        materials: ['colchonetas limpias', 'aros plásticos grandes'],
+        durationMinutes: 18,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(
+        rawAct,
+        table,
+        'Maternal C1',
+        true
+      );
+
+      // Objetivo sin saltos/brincos
+      expect(/\b(?:salt(?:ar|os?|itos?)|brinc(?:ar|os?))\b/i.test(sanitized.objective)).toBe(false);
+      expect(sanitized.objective).toContain('desplazarse de forma voluntaria sobre colchonetas limpias');
+
+      // Desarrollo sin saltos/brincos
+      expect(/\b(?:salt(?:ar|os?|itos?)|brinc(?:ar|os?))\b/i.test(sanitized.description)).toBe(false);
+      expect(sanitized.description).toContain('pasar caminando');
+
+      // Cierre sin saltos
+      expect(sanitized.description).toContain('celebrar los desplazamientos y pasos firmes');
+
+      // Adaptaciones sin contradicciones (cero mención de saltos, marcha segura con apoyo)
+      expect(sanitized.description).toContain('Brindar apoyo cercano de la mano a quienes muestren marcha vacilante');
+      expect(sanitized.description).not.toContain('sin exigir saltos');
+      expect(sanitized.description).not.toContain('si prefieren no saltar');
+    });
+
+    // 3. Diversidad: evitar que jueves y viernes repitan literalmente el mural colectivo.
+    it('diversidad: sustituye el mural colectivo en jueves por trazos rítmicos individuales guiados por canto, reservando el mural para el viernes', () => {
+      const days = [
+        { dayOfWeek: 'MONDAY', activities: [{ category: 'EXPERIENCIAS ARTÍSTICAS', objective: 'Dibujo 1', description: 'Inicio: Papel.\nDesarrollo: Trazos.\nCierre: Fin.\nAdaptaciones: Ritmo.', materials: [] }] },
+        { dayOfWeek: 'TUESDAY', activities: [{ category: 'EXPERIENCIAS ARTÍSTICAS', objective: 'Dibujo 2', description: 'Inicio: Papel.\nDesarrollo: Trazos.\nCierre: Fin.\nAdaptaciones: Ritmo.', materials: [] }] },
+        { dayOfWeek: 'WEDNESDAY', activities: [{ category: 'EXPERIENCIAS ARTÍSTICAS', objective: 'Dibujo 3', description: 'Inicio: Papel.\nDesarrollo: Trazos.\nCierre: Fin.\nAdaptaciones: Ritmo.', materials: [] }] },
+        {
+          dayOfWeek: 'THURSDAY',
+          activities: [
+            {
+              category: 'EXPERIENCIAS ARTÍSTICAS',
+              objective: 'Realizar un mural colectivo con crayones gruesos sobre papel bond extendido a ras de suelo.',
+              description:
+                'Inicio: Extender papel bond a ras de suelo sobre colchonetas limpias.\nDesarrollo: Realizar un mural colectivo de líneas y garabatos con crayones gruesos.\nCierre: Admirar colectivamente el mural colectivo en la sala.\nAdaptaciones: Respeto al ritmo individual.',
+              materials: ['pliegos de papel bond', 'crayones gruesos de cera'],
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'EXPERIENCIAS ARTÍSTICAS',
+              objective: 'Consolidar la expresión artística colaborativa en el mural colectivo semanal.',
+              description:
+                'Inicio: Extender papel bond a ras de suelo sobre colchonetas limpias.\nDesarrollo: Realizar el mural colectivo final de la semana con crayones gruesos.\nCierre: Admirar colectivamente el mural colectivo semanal.\nAdaptaciones: Respeto al ritmo individual.',
+              materials: ['pliegos de papel bond', 'crayones gruesos de cera'],
+            },
+          ],
+        },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(days as any, 'MATERNAL_C1');
+
+      const thursdayAct = enriched[3].activities[0];
+      const fridayAct = enriched[4].activities[0];
+
+      // Jueves erradica mural colectivo y promueve trazos rítmicos individuales
+      expect(thursdayAct.objective).not.toContain('mural colectivo');
+      expect(thursdayAct.objective).toContain('trazos libres individuales');
+      expect(thursdayAct.description).not.toContain('mural colectivo');
+      expect(thursdayAct.description).toContain('trazos individuales');
+
+      // Viernes preserva o consolida
+      expect(fridayAct.description).toContain('mural colectivo');
+    });
+
+    // 3b. Diversidad: evitar que un mismo día incluya dos actividades prácticamente idénticas.
+    it('diversidad: transforma la segunda actividad idéntica dentro del mismo día para garantizar diferenciación pedagógica', () => {
+      const days = [
+        {
+          dayOfWeek: 'TUESDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Lectura interactiva del cuento infantil.',
+              description: 'Inicio: Mostrar cuento.\nDesarrollo: Preguntas y solapas.\nCierre: Guardar libro.\nAdaptaciones: Cercanía.',
+              materials: ['cuentos ilustrados infantiles'],
+            },
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Clasificar bloques por tamaño.',
+              description: 'Inicio: Bloques en piso.\nDesarrollo: Niñas y niños clasifican bloques grandes por tamaño.\nCierre: Guardar bloques.\nAdaptaciones: Apoyo.',
+              materials: ['bloques grandes de plástico lavable'],
+            },
+            {
+              category: 'ACTIVACIÓN FÍSICA',
+              objective: 'Desplazamientos a ras de suelo.',
+              description: 'Inicio: Colchonetas limpias.\nDesarrollo: Caminar a ras de suelo.\nCierre: Respiración.\nAdaptaciones: Acompañamiento.',
+              materials: ['colchonetas limpias'],
+            },
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Clasificar bloques por tamaño.',
+              description: 'Inicio: Bloques en piso.\nDesarrollo: Niñas y niños clasifican bloques grandes por tamaño.\nCierre: Guardar bloques.\nAdaptaciones: Apoyo.',
+              materials: ['bloques grandes de plástico lavable'],
+            },
+            {
+              category: 'AMBIENTES DE APRENDIZAJE',
+              objective: 'Hábitos higiénicos en lavabo infantil.',
+              description: 'Inicio: Lavabo.\nDesarrollo: Lavado de manos.\nCierre: Toalla.\nAdaptaciones: Autonomía.',
+              materials: ['lavabo infantil con toallas limpias'],
+            },
+          ],
+        },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(days as any, 'MATERNAL_C1');
+      const act2 = enriched[0].activities[1];
+      const act4 = enriched[0].activities[3];
+
+      expect(act4.objective).not.toBe(act2.objective);
+      expect(act4.objective).toContain('alineando bloques grandes para formar caminos y puentes continuos');
+      expect(act4.description).toContain('caminos o puentes a ras de suelo');
+    });
+
+    // 4. Progresión: reservar el cierre observacional semanal para el viernes. El jueves debe ofrecer una variación pedagógica real.
+    it('progresión: asigna VARY y variación pedagógica en jueves, y reserva OBSERVE_OR_CONSOLIDATE para el viernes', () => {
+      const days = [
+        {
+          dayOfWeek: 'MONDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Lectura del cuento Spot.',
+              proceduralAction: 'Inicio: Cuento.\nDesarrollo: Lectura.\nCierre: Guardar.\nAdaptaciones: Ritmo.',
+              materials: ['cuentos ilustrados infantiles'],
+              progression: { role: 'EXPLORE' },
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'TUESDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Relectura interactiva.',
+              proceduralAction: 'Inicio: Cuento.\nDesarrollo: Relectura.\nCierre: Guardar.\nAdaptaciones: Ritmo.',
+              materials: ['cuentos ilustrados infantiles'],
+              progression: { role: 'REVISIT', revisitsSlot: 'D1_A1' },
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'WEDNESDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Lectura con onomatopeyas.',
+              proceduralAction: 'Inicio: Cuento.\nDesarrollo: Onomatopeyas.\nCierre: Guardar.\nAdaptaciones: Ritmo.',
+              materials: ['cuentos ilustrados infantiles'],
+              progression: { role: 'VARY', revisitsSlot: 'D1_A1' },
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'THURSDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Observar y consolidar la lectura dramatizada en el cierre semanal.',
+              proceduralAction: 'Inicio: Cuento.\nDesarrollo: Como consolidación semanal, la Asistente observa con atención y registra.\nCierre: Guardar.\nAdaptaciones: Ritmo.',
+              materials: ['cuentos ilustrados infantiles'],
+              progression: { role: 'VARY', revisitsSlot: 'D1_A1' },
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Relectura autónoma compartida.',
+              proceduralAction: 'Inicio: Cuento.\nDesarrollo: Relectura autónoma.\nCierre: Guardar.\nAdaptaciones: Ritmo.',
+              materials: ['cuentos ilustrados infantiles'],
+              progression: { role: 'OBSERVE_OR_CONSOLIDATE', revisitsSlot: 'D1_A1' },
+            },
+          ],
+        },
+      ];
+
+      const rawJson = {
+        days,
+        weeklyFocus: 'Progresión semanal de lectura y juego',
+      };
+
+      const result = parseAndAllowlistUntrustedProposal(rawJson, undefined, {
+        requireProgression: true,
+        roomType: 'MATERNAL_C1',
+      });
+
+      const expThursday = result.progression?.experiences.find((e) => e.experienceId === 'EXP-D4-A1');
+      const expFriday = result.progression?.experiences.find((e) => e.experienceId === 'EXP-D5-A1');
+
+      // Jueves es VARY con propósito PROGRESSION y dimensión PEDAGOGICAL_INTENT
+      expect(expThursday?.role).toBe('VARY');
+      expect(expThursday?.repetitionPurpose).toBe('PROGRESSION');
+      expect(expThursday?.variationDimensions).toEqual(['PEDAGOGICAL_INTENT']);
+
+      // Viernes es OBSERVE_OR_CONSOLIDATE con propósito RESPONSE_OBSERVATION y dimensión OBSERVATION_FOCUS
+      expect(expFriday?.role).toBe('OBSERVE_OR_CONSOLIDATE');
+      expect(expFriday?.repetitionPurpose).toBe('RESPONSE_OBSERVATION');
+      expect(expFriday?.variationDimensions).toEqual(['OBSERVATION_FOCUS']);
+
+      // Jueves no contiene texto de consolidación semanal prematuro
+      const enriched = enrichMaternalB1WeeklyProgression(result.days, 'MATERNAL_C1');
+      expect(enriched[3].activities[0].objective).not.toContain('cierre semanal');
+      expect(enriched[3].activities[0].objective).not.toContain('observar y consolidar');
+      expect(enriched[3].activities[0].description).not.toContain('Como consolidación semanal');
+    });
+
+    // 5. Redacción: eliminar duplicaciones como «a ras de suelo a ras de suelo».
+    it('redacción: elimina duplicaciones consecutivas de locuciones como «a ras de suelo a ras de suelo» y «sobre colchonetas limpias»', () => {
+      const input1 = 'Extender los pliegos de papel a ras de suelo a ras de suelo sobre colchonetas limpias.';
+      const cleaned1 = cleanDuplicatePedagogicalPhrases(input1);
+      expect(cleaned1).toBe('Extender los pliegos de papel a ras de suelo sobre colchonetas limpias.');
+
+      const input2 = 'Disponer los materiales sobre colchonetas limpias sobre colchonetas limpias en la sala.';
+      const cleaned2 = cleanDuplicatePedagogicalPhrases(input2);
+      expect(cleaned2).toBe('Disponer los materiales sobre colchonetas limpias en la sala.');
+
+      const input3 = 'Guardar los bloques en cajas de cartón limpias cajas de cartón limpias.';
+      const cleaned3 = cleanDuplicatePedagogicalPhrases(input3);
+      expect(cleaned3).toBe('Guardar los bloques en cajas de cartón limpias.');
+
+      const input4 = 'Actividad sobre colchonetas limpias a ras de suelo sobre colchonetas limpias.';
+      const cleaned4 = cleanDuplicatePedagogicalPhrases(input4);
+      expect(cleaned4).toBe('Actividad a ras de suelo sobre colchonetas limpias.');
+    });
+
+    // 5b. Adaptaciones: asegurar que las adaptaciones correspondan a la acción descrita.
+    it('redacción y adaptaciones: reemplaza adaptaciones incoherentes o cruzadas de otro dominio por adaptaciones específicas para Maternal C1', () => {
+      const table = createRequestScopedMaterialTable([
+        'Cuentos ilustrados infantiles',
+        'Colchonetas limpias',
+      ]);
+
+      // Actividad de lectura que tenía una adaptación errónea de saltar y circuitos
+      const rawReadingAct = {
+        category: 'LECTURA EN VOZ ALTA',
+        objective: 'Promover la escucha atenta y la formulación de preguntas causales con cuentos infantiles.',
+        description:
+          'Inicio: Sentarse en colchonetas limpias y mostrar el cuento.\nDesarrollo: La Asistente narra la historia y muestra ilustraciones.\nCierre: Guardar el cuento en el canasto a ras de suelo.\nAdaptaciones: Acompañar mano a mano en los saltos del circuito.',
+        materials: ['cuentos ilustrados infantiles'],
+        durationMinutes: 15,
+      };
+
+      const sanitizedReading = sanitizeMaternalB1PedagogicalFidelity(
+        rawReadingAct,
+        table,
+        'Maternal C1',
+        true
+      );
+
+      expect(sanitizedReading.description).not.toContain('saltos del circuito');
+      expect(sanitizedReading.description).toContain('proceso de adaptación o con lenguaje emergente');
+      expect(sanitizedReading.description).toContain('observar la lectura sentados junto a la Asistente');
     });
   });
 });
