@@ -26,6 +26,7 @@ import {
   projectPedagogicalGenerationPolicy,
   buildPrivacyMinimizedAIInput,
 } from '../../../application/planning/AIWeeklyPlanningProposalSource';
+import { getAssistantRoleLabel, readPersistedSelectedRoom } from '../../../presentation/planning-ui/PlanningDemoApp';
 
 describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal C1 (37–42 meses)', () => {
   const roomMaternalC1: Room = {
@@ -742,6 +743,33 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       }
       expect(proposal.progression).toBeDefined();
       expect(proposal.progression?.weeklyFocus).toContain('Maternal C1');
+    });
+  });
+
+  // =========================================================================
+  // 7. INTEGRACIÓN DE UI Y RESOLUCIÓN DE SALA PARA MATERNAL C1
+  // =========================================================================
+  describe('7. Integración de UI y Selección de Sala para Maternal C1', () => {
+    it('formatea el título de rol institucional para Maternal C1', () => {
+      expect(getAssistantRoleLabel('room-maternal-c1')).toBe('Asistente Educativa MC1');
+      expect(getAssistantRoleLabel('maternal-c1')).toBe('Asistente Educativa MC1');
+    });
+
+    it('resuelve y valida la sala persistida Maternal C1 cuando está autorizada', () => {
+      const authorizedRooms = [
+        RoomCatalog.getRoom('room-lactantes-a')!,
+        RoomCatalog.getRoom('room-lactantes-b')!,
+        RoomCatalog.getRoom('room-lactantes-c')!,
+        RoomCatalog.getRoom('room-maternal-a')!,
+        RoomCatalog.getRoom('room-maternal-b1')!,
+        RoomCatalog.getRoom('room-maternal-b2')!,
+        RoomCatalog.getRoom('room-maternal-c1')!,
+      ];
+
+      sessionStorage.setItem('tutoria_selected_room:default:test-user', 'maternal-c1');
+      const resolved = readPersistedSelectedRoom('test-user', 'default', authorizedRooms);
+      expect(resolved).toBe('room-maternal-c1');
+      sessionStorage.clear();
     });
   });
 });
