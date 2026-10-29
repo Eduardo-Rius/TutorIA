@@ -95,20 +95,20 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="human-gate-title"
     >
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-teal-100">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden border border-teal-100">
         {/* Header with explicit governance copy */}
-        <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-teal-900 text-white px-6 py-5 flex-shrink-0">
+        <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-teal-900 text-white px-4 sm:px-6 py-4 sm:py-5 flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 id="human-gate-title" className="text-2xl font-bold tracking-tight">
+              <h2 id="human-gate-title" className="text-xl sm:text-2xl font-bold tracking-tight">
                 Revisar propuesta de TutorIA
               </h2>
-              <p className="text-sm text-teal-100 mt-1 font-medium">
+              <p className="text-xs sm:text-sm text-teal-100 mt-1 font-medium">
                 TutorIA preparó una propuesta para tu semana. Revísala antes de incorporarla a tu planeación.
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -182,16 +182,16 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
         )}
 
         {/* Scrollable content: complete 5-day schedule */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50/60">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-6 bg-slate-50/60">
           {proposal.days.map((day: ProposedPlanningDay) => {
             const dayLabel = WEEKDAY_SPANISH_NAMES[day.dayOfWeek] || day.dayOfWeek;
             return (
               <div
                 key={day.dayOfWeek}
-                className="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition"
+                className="bg-white border border-gray-200/80 rounded-xl p-3.5 sm:p-5 shadow-sm hover:shadow transition"
               >
-                <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                  <h3 className="text-lg font-bold text-teal-950 flex items-center gap-2">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 sm:pb-3 mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-bold text-teal-950 flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-teal-600 inline-block"></span>
                     <span>{dayLabel}</span>
                   </h3>
@@ -200,15 +200,15 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
                   </span>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {day.activities.map((act: ProposedActivity, actIdx: number) => (
                     <div
                       key={actIdx}
-                      className="bg-teal-50/30 border border-teal-100/80 rounded-lg p-4 space-y-3"
+                      className="bg-teal-50/30 border border-teal-100/80 rounded-lg p-3 sm:p-4 space-y-2.5 sm:space-y-3"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          <span className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">
                             Categoría:
                           </span>
                           <span className="text-xs font-bold bg-teal-100 text-teal-900 px-2.5 py-0.5 rounded-md border border-teal-200/60">
@@ -238,28 +238,28 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
                       )}
 
                       <div>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                        <span className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
                           Objetivo:
                         </span>
-                        <p className="text-sm text-gray-900 font-medium leading-relaxed">
+                        <p className="text-xs sm:text-sm text-gray-900 font-medium leading-relaxed break-words">
                           {act.objective}
                         </p>
                       </div>
 
                       <div>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                        <span className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
                           Descripción:
                         </span>
-                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                        <p className="text-xs sm:text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words">
                           {act.description}
                         </p>
                       </div>
 
                       <div>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                        <span className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
                           Materiales:
                         </span>
-                        <p className="text-sm text-gray-800 font-medium">
+                        <p className="text-xs sm:text-sm text-gray-800 font-medium break-words">
                           {Array.isArray(act.materials) && act.materials.length > 0
                             ? act.materials.join(', ')
                             : act.materials
@@ -276,12 +276,12 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
         </div>
 
         {/* Footer actions: Anita decides */}
-        <div className="bg-white border-t border-gray-200 px-6 py-4 flex-shrink-0 flex items-center justify-between gap-4">
+        <div className="bg-white border-t border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4">
           <button
             type="button"
             onClick={onDiscard}
             disabled={isAccepting}
-            className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 font-bold text-sm transition disabled:opacity-50"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 font-bold text-sm transition disabled:opacity-50 min-h-[44px] flex items-center justify-center cursor-pointer"
           >
             Descartar
           </button>
@@ -289,7 +289,7 @@ export const WeeklyPlanningProposalHumanGate: React.FC<WeeklyPlanningProposalHum
             type="button"
             onClick={onAccept}
             disabled={isAccepting}
-            className="px-7 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-sm transition shadow-sm hover:shadow flex items-center gap-2 disabled:opacity-50"
+            className="w-full sm:w-auto px-7 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-sm transition shadow-sm hover:shadow flex items-center justify-center gap-2 disabled:opacity-50 min-h-[44px] cursor-pointer"
           >
             {isAccepting ? 'Guardando borrador…' : 'Usar esta propuesta'}
           </button>

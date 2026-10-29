@@ -1482,97 +1482,99 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
           loginScope={loginScopeEnv}
         />
       )}
-      <div data-testid="top-demo-bar" className="bg-[#f8f9fa] py-1.5 px-4 text-center text-xs print:hidden flex items-center justify-center gap-4 border-b border-gray-200/60">
+      <div data-testid="top-demo-bar" className="bg-[#f8f9fa] py-2 px-3 sm:px-4 text-center text-xs print:hidden flex flex-wrap items-center justify-center gap-2 sm:gap-4 border-b border-gray-200/60">
         <span className="font-medium text-gray-400 uppercase tracking-widest text-[10px]">Modo Demo</span>
         <select
           data-testid="modality-select"
           aria-label="Modalidad de guardería"
           value={modality}
           onChange={(e) => setModality(e.target.value as 'DIRECT' | 'INDIRECT')}
-          className="text-xs bg-white border border-gray-300 rounded px-2 py-1 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
+          className="text-xs bg-white border border-gray-300 rounded px-2 py-1 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary cursor-pointer min-h-[32px]"
         >
           <option value="DIRECT">Prestación Directa (LAB)</option>
           <option value="INDIRECT">Prestación Indirecta (LAB)</option>
         </select>
-        <div className="flex items-center gap-1 text-[10px] text-gray-400 ml-2">
+        <div className="flex flex-wrap items-center justify-center gap-1 text-[10px] text-gray-400">
           <span>Fecha Demo:</span>
-          <button onClick={() => setSimulatedDate('2026-08-23')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-23' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>23</button>
-          <button onClick={() => setSimulatedDate('2026-08-24')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-24' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>24 (L)</button>
-          <button onClick={() => setSimulatedDate('2026-08-25')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-25' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>25 (M)</button>
-          <button onClick={() => setSimulatedDate('2026-08-26')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-26' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>26 (X)</button>
-          <button onClick={() => setSimulatedDate('2026-08-27')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-27' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>27 (J)</button>
-          <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'}`}>28 (V)</button>
+          <button onClick={() => setSimulatedDate('2026-08-23')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-23' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'} cursor-pointer`}>23</button>
+          <button onClick={() => setSimulatedDate('2026-08-24')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-24' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'} cursor-pointer`}>24 (L)</button>
+          <button onClick={() => setSimulatedDate('2026-08-25')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-25' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'} cursor-pointer`}>25 (M)</button>
+          <button onClick={() => setSimulatedDate('2026-08-26')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-26' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'} cursor-pointer`}>26 (X)</button>
+          <button onClick={() => setSimulatedDate('2026-08-27')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-27' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'} cursor-pointer`}>27 (J)</button>
+          <button onClick={() => setSimulatedDate('2026-08-28')} className={`px-1.5 py-0.5 rounded font-bold ${simulatedDate === '2026-08-28' ? 'bg-teal-700 text-white' : 'text-gray-500 hover:bg-gray-200'} cursor-pointer`}>28 (V)</button>
         </div>
-        <button
-          data-testid="role-btn-teacher"
-          onClick={() => {
-            if (canSwitchRoleFreely) {
-              handleRoleChange('TEACHER');
-            }
-          }}
-          disabled={!canSwitchRoleFreely && role !== 'TEACHER'}
-          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
-            role === 'TEACHER'
-              ? 'bg-role-teacher text-white shadow-sm'
-              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          } ${!canSwitchRoleFreely && role !== 'TEACHER' ? 'opacity-40 cursor-not-allowed' : ''}`}
-        >
-          <img src={personas.anita} alt="Asistente Educativa" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-          <span>Asistente Educativa</span>
-          <span className="sr-only">{loginScopeEnv === 'G002' ? 'Asistente Educativa' : 'Anita (Pedagoga)'}</span>
-        </button>
-        <button
-          data-testid="role-btn-director"
-          onClick={() => {
-            if (canSwitchRoleFreely) {
-              handleRoleChange('DIRECTOR');
-            }
-          }}
-          disabled={!canSwitchRoleFreely && role !== 'DIRECTOR'}
-          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
-            role === 'DIRECTOR'
-              ? 'bg-role-director text-white shadow-sm'
-              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          } ${!canSwitchRoleFreely && role !== 'DIRECTOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
-        >
-          <img src={personas.ceci} alt="Educadora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-          <span>Educadora</span>
-          <span className="sr-only">{loginScopeEnv === 'G002' ? 'Educadora' : 'Ceci (Directora)'}</span>
-        </button>
-        <button
-          data-testid="role-btn-supervisor"
-          onClick={() => {
-            if (canSwitchRoleFreely) {
-              handleRoleChange('SUPERVISOR');
-            }
-          }}
-          disabled={!canSwitchRoleFreely && role !== 'SUPERVISOR'}
-          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-2 ${
-            role === 'SUPERVISOR'
-              ? 'bg-role-supervisor text-white shadow-sm'
-              : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
-          } ${!canSwitchRoleFreely && role !== 'SUPERVISOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
-        >
-          <img src={personas.tere} alt="Directora" className="w-6 h-6 rounded-full object-cover bg-white/20" />
-          <span>Directora</span>
-          <span className="sr-only">{loginScopeEnv === 'G002' ? 'Directora' : 'Tere (Supervisora)'}</span>
-        </button>
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+          <button
+            data-testid="role-btn-teacher"
+            onClick={() => {
+              if (canSwitchRoleFreely) {
+                handleRoleChange('TEACHER');
+              }
+            }}
+            disabled={!canSwitchRoleFreely && role !== 'TEACHER'}
+            className={`px-2.5 sm:px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 sm:gap-2 ${
+              role === 'TEACHER'
+                ? 'bg-role-teacher text-white shadow-sm'
+                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+            } ${!canSwitchRoleFreely && role !== 'TEACHER' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <img src={personas.anita} alt="Asistente Educativa" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover bg-white/20" />
+            <span className="text-xs sm:text-sm">Asistente Educativa</span>
+            <span className="sr-only">{loginScopeEnv === 'G002' ? 'Asistente Educativa' : 'Anita (Pedagoga)'}</span>
+          </button>
+          <button
+            data-testid="role-btn-director"
+            onClick={() => {
+              if (canSwitchRoleFreely) {
+                handleRoleChange('DIRECTOR');
+              }
+            }}
+            disabled={!canSwitchRoleFreely && role !== 'DIRECTOR'}
+            className={`px-2.5 sm:px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 sm:gap-2 ${
+              role === 'DIRECTOR'
+                ? 'bg-role-director text-white shadow-sm'
+                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+            } ${!canSwitchRoleFreely && role !== 'DIRECTOR' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <img src={personas.ceci} alt="Educadora" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover bg-white/20" />
+            <span className="text-xs sm:text-sm">Educadora</span>
+            <span className="sr-only">{loginScopeEnv === 'G002' ? 'Educadora' : 'Ceci (Directora)'}</span>
+          </button>
+          <button
+            data-testid="role-btn-supervisor"
+            onClick={() => {
+              if (canSwitchRoleFreely) {
+                handleRoleChange('SUPERVISOR');
+              }
+            }}
+            disabled={!canSwitchRoleFreely && role !== 'SUPERVISOR'}
+            className={`px-2.5 sm:px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 sm:gap-2 ${
+              role === 'SUPERVISOR'
+                ? 'bg-role-supervisor text-white shadow-sm'
+                : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+            } ${!canSwitchRoleFreely && role !== 'SUPERVISOR' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <img src={personas.tere} alt="Directora" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover bg-white/20" />
+            <span className="text-xs sm:text-sm">Directora</span>
+            <span className="sr-only">{loginScopeEnv === 'G002' ? 'Directora' : 'Tere (Supervisora)'}</span>
+          </button>
+        </div>
       </div>
 
-      <div className="py-4 mb-8 bg-surface-warm print:hidden border-b border-border-soft relative">
-        <div className="max-w-6xl mx-auto w-full px-4 flex flex-col md:flex-row items-center justify-between">
-          <div className="w-full md:w-1/3 flex justify-start mb-4 md:mb-0">
-            <button onClick={() => window.location.href = loginScopeEnv === 'G002' ? '/' : '/workspace'} className="flex items-center gap-2 bg-[#f9f7f2] hover:bg-white border border-[#e8e4d9] hover:border-[#d6d1c4] px-4 py-2 rounded-xl text-[#524b42] hover:text-[#3d3730] transition-all shadow-sm hover:shadow text-sm font-medium">
+      <div className="py-3 sm:py-4 mb-6 sm:mb-8 bg-surface-warm print:hidden border-b border-border-soft relative">
+        <div className="max-w-6xl mx-auto w-full px-4 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+          <div className="w-full md:w-1/3 flex justify-center md:justify-start">
+            <button onClick={() => window.location.href = loginScopeEnv === 'G002' ? '/' : '/workspace'} className="flex items-center gap-2 bg-[#f9f7f2] hover:bg-white border border-[#e8e4d9] hover:border-[#d6d1c4] px-4 py-2 rounded-xl text-[#524b42] hover:text-[#3d3730] transition-all shadow-sm hover:shadow text-sm font-medium cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><path d="m15 18-6-6 6-6"/></svg>
               Mi espacio
             </button>
           </div>
           <div className="w-full md:w-1/3 flex flex-col items-center justify-center">
-            <img src={logos.imagotypeTransparent || undefined} alt="TutorIA" className="h-14 mb-2" />
+            <img src={logos.imagotypeTransparent || undefined} alt="TutorIA" className="h-10 sm:h-12 md:h-14 mb-1 sm:mb-2 object-contain" />
           </div>
-          <div className="w-full md:w-1/3 flex justify-end">
+          <div className="w-full md:w-1/3 flex justify-center md:justify-end">
             <div className="flex items-center gap-3">
-              <div className="text-right">
+              <div className="text-center md:text-right">
                 <p className="text-sm font-semibold text-text-primary">
                   {isBootstrapLoading
                     ? (role === 'TEACHER' ? 'Asistente Educativa' : role === 'DIRECTOR' ? 'Educadora' : 'Directora')
@@ -1584,7 +1586,7 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
                     : (role === 'TEACHER' ? `Asistente Educativa · ${activeRoom?.name || 'Sala'}` : role === 'DIRECTOR' ? 'Educadora' : 'Directora')}
                 </p>
               </div>
-              <img src={role === 'TEACHER' ? personas.anita : role === 'DIRECTOR' ? personas.ceci : personas.tere} alt={role === 'TEACHER' ? 'Asistente Educativa' : role === 'DIRECTOR' ? 'Educadora' : 'Directora'} className="w-[128px] h-[128px] object-contain" />
+              <img src={role === 'TEACHER' ? personas.anita : role === 'DIRECTOR' ? personas.ceci : personas.tere} alt={role === 'TEACHER' ? 'Asistente Educativa' : role === 'DIRECTOR' ? 'Educadora' : 'Directora'} className="w-14 h-14 sm:w-20 sm:h-20 md:w-28 md:h-28 object-contain" />
             </div>
           </div>
         </div>
@@ -1958,17 +1960,17 @@ const TeacherList = ({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in max-w-2xl mx-auto w-full">
-      <h2 className="text-5xl font-bold mb-6 text-brand-dark tracking-tight">Hola, {getAssistantRoleLabel(effectiveActiveRoomId)} 👋</h2>
-      <p className="text-2xl text-text-muted mb-6 max-w-xl leading-relaxed">
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-fade-in max-w-2xl mx-auto w-full px-2 sm:px-4">
+      <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 sm:mb-6 text-brand-dark tracking-tight">Hola, {getAssistantRoleLabel(effectiveActiveRoomId)} 👋</h2>
+      <p className="text-base sm:text-xl md:text-2xl text-text-muted mb-4 sm:mb-6 max-w-xl leading-relaxed">
         Vamos a preparar tu semana.<br/>
-        Del 24 al 28 de agosto para <span className="font-bold text-text-primary">{effectiveRoomLabel}</span>.<br/><span className="text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
+        Del 24 al 28 de agosto para <span className="font-bold text-text-primary">{effectiveRoomLabel}</span>.<br/><span className="text-xs sm:text-sm font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full inline-block mt-2">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
       </p>
 
       {/* Selector interactivo de salas autorizadas (Validación A) */}
       {authorizedRooms && authorizedRooms.length > 1 && (
-        <div className="flex items-center justify-center gap-2 mb-8 bg-white/70 p-1.5 rounded-full border border-slate-200/80 shadow-xs" data-testid="teacher-room-selector">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-3">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8 bg-white/70 p-2 sm:p-1.5 rounded-2xl sm:rounded-full border border-slate-200/80 shadow-xs max-w-full overflow-hidden" data-testid="teacher-room-selector">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 sm:px-3">
             Sala:
           </span>
           {authorizedRooms.map((room) => {
@@ -1979,7 +1981,7 @@ const TeacherList = ({
                 type="button"
                 data-testid={`room-tab-${room.roomId}`}
                 onClick={() => onSelectRoom && onSelectRoom(room)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer min-h-[32px] flex items-center justify-center ${
                   isSelected
                     ? 'bg-brand-primary text-white shadow-sm ring-2 ring-brand-primary/20'
                     : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -2108,7 +2110,7 @@ const WeekDayTabs = ({
   isApprovedPlanning?: boolean;
   role?: string;
 }) => (
-  <div className="max-w-4xl mx-auto flex justify-between gap-3 mb-10 overflow-x-auto pb-4 px-2" role="tablist">
+  <div className="max-w-4xl mx-auto flex justify-start sm:justify-between gap-2 sm:gap-3 mb-6 sm:mb-10 overflow-x-auto pb-3 sm:pb-4 px-1 sm:px-2" role="tablist">
     {days.map((d, idx) => {
       const isActive = idx === activeIndex;
 
@@ -2183,10 +2185,10 @@ const WeekDayTabs = ({
           aria-selected={isActive}
           aria-controls={'panel-' + d.dayOfWeek}
           onClick={() => onSelect(idx)}
-          className={`flex-1 min-w-[140px] px-6 py-4 rounded-full font-bold text-lg transition border whitespace-nowrap outline-none focus:ring-4 focus:ring-brand-primary/30 ${bgClass}`}
+          className={`flex-1 min-w-[105px] sm:min-w-[130px] md:min-w-[140px] px-3 sm:px-5 md:px-6 py-2.5 sm:py-3.5 md:py-4 rounded-full font-bold text-sm sm:text-base md:text-lg transition border whitespace-nowrap outline-none focus:ring-4 focus:ring-brand-primary/30 cursor-pointer ${bgClass}`}
         >
           <span>{icon}{label}</span>
-          {tabSuffix && <span className="text-xs block font-normal opacity-85 mt-0.5">{tabSuffix.replace(/[()]/g, '').trim()}</span>}
+          {tabSuffix && <span className="text-[11px] sm:text-xs block font-normal opacity-85 mt-0.5">{tabSuffix.replace(/[()]/g, '').trim()}</span>}
         </button>
       );
     })}
@@ -2723,39 +2725,39 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-10">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-10">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-3 sm:px-4 py-2 rounded-full hover:bg-gray-200 transition text-sm cursor-pointer">← Volver al listado</button>
           {role === 'TEACHER' && onNew && (
             <button
               onClick={onNew}
               data-testid="wizard-new-planning-btn"
-              className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-5 py-2 rounded-full shadow-sm transition text-sm flex items-center gap-2 cursor-pointer"
+              className="bg-brand-primary hover:bg-brand-dark text-white font-bold px-4 sm:px-5 py-2 rounded-full shadow-sm transition text-xs sm:text-sm flex items-center gap-2 cursor-pointer min-h-[36px]"
             >
               + Nueva planeación
             </button>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-bold text-teal-700 bg-teal-50 px-4 py-2 rounded-full border border-teal-200">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 justify-start sm:justify-end">
+          <span className="text-xs sm:text-sm font-bold text-teal-700 bg-teal-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-teal-200">{modality === 'DIRECT' ? 'Prestación Directa' : 'Prestación Indirecta'}</span>
           {status === 'CLOSED' ? (
-            <span className="text-sm font-bold text-teal-900 bg-teal-100 px-4 py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
+            <span className="text-xs sm:text-sm font-bold text-teal-900 bg-teal-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
               <span>✓</span> Semana cerrada
             </span>
           ) : (status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION') && (
-            <span className="text-sm font-bold text-green-800 bg-green-50 px-4 py-2 rounded-full border border-green-200">
+            <span className="text-xs sm:text-sm font-bold text-green-800 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-green-200">
               Aprobada para ejecución
             </span>
           )}
           {(status === 'APPROVED' || status === 'APPROVED_FOR_EXECUTION' || status === 'CLOSED' || role === 'SUPERVISOR') && (
-            <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
+            <button onClick={onViewOfficial} className="text-xs sm:text-sm font-bold bg-gray-900 hover:bg-black text-white px-4 sm:px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2 cursor-pointer min-h-[36px]">
               Versión Oficial IMSS
             </button>
           )}
         </div>
       </div>
 
-      <h3 className="text-4xl font-bold text-text-primary mb-8 text-center">Planeación Semanal</h3>
+      <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary mb-6 sm:mb-8 text-center">Planeación Semanal</h3>
       {role === 'SUPERVISOR' && <p className="text-center text-text-muted font-bold mb-8 uppercase tracking-widest text-sm">Vista de solo lectura (Supervisión)</p>}
 
       <div className="space-y-8 pb-8">
@@ -2916,17 +2918,17 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
                                  {gObs.status === 'CHANGED_BY_EDUCATOR' && <span className="text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 mt-2 inline-block rounded">✓ Modificado, pendiente de reenviar</span>}
                                </div>
                              )}
-                             <button onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)} className="w-full text-left p-6 hover:bg-white/50 transition flex justify-between items-center group outline-none">
+                             <button onClick={() => setExpandedActivityId(isExpanded ? null : a.activityId)} className="w-full text-left p-4 sm:p-6 hover:bg-white/50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group outline-none cursor-pointer">
                                <div>
-                                 <p className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-2">{a.category} • {a.durationMinutes} min</p>
-                                 <p className="font-bold text-text-primary text-xl group-hover:text-teal-800 transition">{a.objective}</p>
+                                 <p className="text-[11px] sm:text-xs font-bold text-teal-700 uppercase tracking-wider mb-1 sm:mb-2">{a.category} • {a.durationMinutes} min</p>
+                                 <p className="font-bold text-text-primary text-base sm:text-xl group-hover:text-teal-800 transition break-words">{a.objective}</p>
                                </div>
-                               <div className="text-teal-600 font-medium px-4 py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition">
+                               <div className="text-xs sm:text-sm text-teal-600 font-medium px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white border border-teal-100 shadow-sm flex-shrink-0 transition self-start sm:self-auto min-h-[36px] flex items-center justify-center">
                                  {isExpanded ? 'Ocultar' : 'Revisar / Editar'}
                                </div>
                              </button>
                              {isExpanded && (
-                               <div className="px-6 pb-6 pt-2 border-t border-teal-50 bg-white">
+                               <div className="px-4 sm:px-6 pb-4 sm:pb-6 pt-2 border-t border-teal-50 bg-white">
                                  <textarea disabled={readOnly} value={a.description} onChange={e => {
                                     const newDays = [...days];
                                     newDays[activeDayIndex]!.activities![j]!.description = e.target.value;
@@ -3888,37 +3890,37 @@ const DirectorReview = ({
 
       {/* Sticky Prepared Summary */}
       {preparedCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-orange-100 border-t-4 border-orange-500 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] z-40 flex justify-center items-center gap-6">
-          <p className="text-orange-900 font-bold text-lg uppercase tracking-wider">{preparedCount} observaciones preparadas</p>
-          <button onClick={handleSendRound} className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-8 py-3 rounded-full shadow-md transition">
+        <div className="fixed bottom-0 left-0 right-0 bg-orange-100 border-t-4 border-orange-500 p-3 sm:p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] z-40 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-6 text-center">
+          <p className="text-orange-900 font-bold text-sm sm:text-lg uppercase tracking-wider">{preparedCount} observaciones preparadas</p>
+          <button onClick={handleSendRound} className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 sm:px-8 py-2.5 sm:py-3 rounded-full shadow-md transition text-xs sm:text-base cursor-pointer min-h-[44px]">
             ENVIAR OBSERVACIONES A LA EDUCADORA
           </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-8">
-        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition text-sm cursor-pointer self-start sm:self-auto">← Volver al listado</button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 justify-start sm:justify-end">
           {plan.status === 'CLOSED' ? (
-            <span className="text-sm font-bold text-teal-900 bg-teal-100 px-4 py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
+            <span className="text-xs sm:text-sm font-bold text-teal-900 bg-teal-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
               <span>✓</span> Semana cerrada
             </span>
           ) : (plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION') && (
-            <span className="text-sm font-bold text-green-800 bg-green-50 px-4 py-2 rounded-full border border-green-200">
+            <span className="text-xs sm:text-sm font-bold text-green-800 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-green-200">
               Aprobada para ejecución
             </span>
           )}
           {(plan.status === 'APPROVED' || plan.status === 'APPROVED_FOR_EXECUTION' || plan.status === 'CLOSED') && (
-            <button onClick={onViewOfficial} className="text-sm font-bold bg-gray-900 hover:bg-black text-white px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2">
+            <button onClick={onViewOfficial} className="text-xs sm:text-sm font-bold bg-gray-900 hover:bg-black text-white px-4 sm:px-6 py-2 rounded-full shadow-sm transition flex items-center gap-2 cursor-pointer min-h-[36px]">
               Versión Oficial IMSS
             </button>
           )}
         </div>
       </div>
 
-      <div className="text-center mb-12">
-        <h2 className="text-5xl font-bold mb-4">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
-        <p className="text-text-muted font-bold text-2xl uppercase tracking-widest">{((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'}</p>
+      <div className="text-center mb-8 sm:mb-12 px-2">
+        <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-4">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
+        <p className="text-text-muted font-bold text-base sm:text-xl md:text-2xl uppercase tracking-widest">{((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'}</p>
       </div>
 
       {(() => {
@@ -4676,28 +4678,29 @@ const SupervisorReview = ({ service, planId, modality, onBack, onViewOfficial, a
 
   return (
     <div className="max-w-5xl mx-auto pb-32 animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
-        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition">← Volver al listado</button>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-teal-900 bg-teal-100 px-4 py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
+        <button onClick={onBack} className="text-text-muted hover:text-gray-800 font-bold px-4 py-2 rounded-full hover:bg-gray-200 transition text-sm cursor-pointer self-start sm:self-auto">← Volver al listado</button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-start sm:justify-end">
+          <span className="text-xs sm:text-sm font-bold text-teal-900 bg-teal-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-teal-300 shadow-sm flex items-center gap-1.5">
             <span>🔒</span> ✓ Semana cerrada
           </span>
           {plan.closedBy && (
-            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
+            <span className="text-[11px] sm:text-xs font-bold text-gray-500 bg-gray-100 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-gray-200">
               Cerrada por: {getInstitutionalActorLabel(plan.closedBy, plan.roomId)} {plan.closedAt ? `• ${formatInstitutionalDate(plan.closedAt)}` : ''}
             </span>
           )}
         </div>
-        <div className="flex gap-3">
-          <button onClick={() => setActiveTab('PLAN')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'PLAN' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER PLANEACIÓN Y EVALUACIONES</button>
-          <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-2 rounded-full font-bold transition ${activeTab === 'HISTORY' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER HISTORIAL DE CAMBIOS</button>
-          <button onClick={onViewOfficial} className="px-6 py-2 rounded-full font-bold transition bg-teal-700 hover:bg-teal-800 text-white shadow-sm flex items-center gap-2">VER VERSIÓN OFICIAL IMSS</button>
-        </div>
       </div>
 
-      <div className="text-center mb-8">
-        <h2 className="text-4xl font-bold mb-2">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
-        <p className="text-text-muted font-bold text-xl uppercase tracking-widest">
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+        <button onClick={() => setActiveTab('PLAN')} className={`px-4 sm:px-6 py-2 rounded-full font-bold transition text-xs sm:text-sm cursor-pointer min-h-[36px] ${activeTab === 'PLAN' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER PLANEACIÓN Y EVALUACIONES</button>
+        <button onClick={() => setActiveTab('HISTORY')} className={`px-4 sm:px-6 py-2 rounded-full font-bold transition text-xs sm:text-sm cursor-pointer min-h-[36px] ${activeTab === 'HISTORY' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>VER HISTORIAL DE CAMBIOS</button>
+        <button onClick={onViewOfficial} className="px-4 sm:px-6 py-2 rounded-full font-bold transition text-xs sm:text-sm bg-teal-700 hover:bg-teal-800 text-white shadow-sm flex items-center gap-2 cursor-pointer min-h-[36px]">VER VERSIÓN OFICIAL IMSS</button>
+      </div>
+
+      <div className="text-center mb-6 sm:mb-8 px-2">
+        <h2 className="text-2xl sm:text-4xl font-bold mb-2">{getAssistantRoleLabel((plan as any)?.roomId || activeRoom?.roomId)}</h2>
+        <p className="text-text-muted font-bold text-sm sm:text-xl uppercase tracking-widest">
           {((plan as any)?.daycareId === FIRST_LIGHT_G002_DAYCARE_ID ? 'Guardería 002' : 'Guardería IMSS Demo (001)')} • Sala: {((plan as any)?.roomId && RoomCatalog.getRoom((plan as any)?.roomId)?.name) || activeRoom?.name || 'Lactantes C'} • Periodo: {formatPlanPeriod(plan)}
         </p>
         <div className="flex items-center justify-center gap-3 mt-3">
@@ -5574,10 +5577,10 @@ const PrintableView = ({
     };
     return (
       <div className="bg-white font-serif w-full text-black">
-        <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
-          <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-lg">← Volver</button>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
+        <div className="print:hidden mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 p-4 sm:p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
+          <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-4 sm:px-6 py-2 sm:py-3 rounded-full hover:bg-gray-200 transition text-sm sm:text-lg cursor-pointer self-start sm:self-auto min-h-[44px]">← Volver</button>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 justify-start sm:justify-end">
+            <span className="text-xs sm:text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
             {!measurementFailed && (
               <button onClick={() => {
                 const printWindow = window.open('', '_blank');
@@ -5595,7 +5598,7 @@ const PrintableView = ({
                     setTimeout(() => { printWindow.print(); }, 1000);
                     printWindow.onafterprint = () => { printWindow.close(); };
                 }
-              }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
+              }} className="bg-gray-900 hover:bg-black text-white font-bold px-6 sm:px-10 py-2.5 sm:py-4 rounded-full shadow-sm text-sm sm:text-lg transition cursor-pointer min-h-[44px]">Imprimir PDF</button>
             )}
           </div>
         </div>
@@ -5681,7 +5684,8 @@ const PrintableView = ({
             </p>
           </div>
         ) : (
-          <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none print:w-full p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none space-y-16 print:space-y-0 print:m-0">
+          <div className="w-full overflow-x-auto">
+            <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none print:w-full p-4 sm:p-8 md:p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none space-y-12 sm:space-y-16 print:space-y-0 print:m-0">
             {plan.days.map((d: any) => {
               const dayLabel = daySpanishNames[d.dayOfWeek] || d.dayOfWeek;
               const composedPages = getComposedAnversoPages(d);
@@ -5786,6 +5790,7 @@ const PrintableView = ({
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </div>
@@ -5803,10 +5808,10 @@ const PrintableView = ({
 
     return (
       <div className="bg-white font-serif w-full text-black">
-        <div className="print:hidden mb-8 flex justify-between items-center p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
-          <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-lg">← Volver</button>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200">Vista previa institucional</span>
+        <div className="print:hidden mb-8 flex flex-col sm:flex-row justify-between items-center gap-4 p-4 sm:p-6 bg-surface-soft border border-border-default rounded-xl max-w-5xl mx-auto">
+          <button onClick={onBack} className="text-text-muted hover:text-text-primary font-bold px-6 py-3 rounded-full hover:bg-gray-200 transition text-base sm:text-lg w-full sm:w-auto text-center min-h-[44px]">← Volver</button>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <span className="text-xs sm:text-sm font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full uppercase tracking-widest border border-teal-200 text-center">Vista previa institucional</span>
             <button onClick={() => {
               const printWindow = window.open('', '_blank');
               if (printWindow) {
@@ -5822,7 +5827,7 @@ const PrintableView = ({
                   printWindow.focus();
                   setTimeout(() => { printWindow.print(); }, 1000); printWindow.onafterprint = () => { printWindow.close(); };
               }
-            }} className="bg-gray-900 hover:bg-black text-white font-bold px-10 py-4 rounded-full shadow-sm text-lg transition">Imprimir PDF</button>
+            }} className="bg-gray-900 hover:bg-black text-white font-bold px-6 sm:px-10 py-3 sm:py-4 rounded-full shadow-sm text-base sm:text-lg transition w-full sm:w-auto text-center min-h-[44px]">Imprimir PDF</button>
           </div>
         </div>
 
@@ -5863,8 +5868,9 @@ const PrintableView = ({
           }
         `}} />
 
-        <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none print:w-full p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none space-y-16 print:space-y-0 print:m-0">
-          {plan.days.map((d: any) => {
+        <div className="w-full overflow-x-auto">
+          <div id="printable-document-root" className="bg-white max-w-5xl mx-auto print:max-w-none print:w-full p-4 sm:p-8 md:p-16 print:p-0 border border-border-default print:border-none print:shadow-none shadow-sm rounded-lg print:rounded-none space-y-16 print:space-y-0 print:m-0 min-w-[320px]">
+            {plan.days.map((d: any) => {
             const dayLabel = daySpanishNames[d.dayOfWeek] || d.dayOfWeek;
             return (
               <div key={d.dayOfWeek} className="indirect-daily-document" data-testid={`indirect-day-${d.dayOfWeek}`}>
@@ -6121,6 +6127,7 @@ const PrintableView = ({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
     );

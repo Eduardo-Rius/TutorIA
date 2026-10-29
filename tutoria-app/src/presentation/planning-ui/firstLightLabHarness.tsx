@@ -199,9 +199,9 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <div className="flex items-center gap-1 mr-1">
-              <label htmlFor="first-light-identity-select" className="text-amber-800 font-medium">
+              <label htmlFor="first-light-identity-select" className="text-amber-800 font-medium whitespace-nowrap">
                 Identidad:
               </label>
               <select
@@ -210,7 +210,7 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value as FirstLightIdentityOption)}
                 disabled={isLoggingIn}
-                className="text-xs bg-white border border-amber-300 rounded px-1.5 py-0.5 font-semibold text-amber-900 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                className="text-xs bg-white border border-amber-300 rounded px-1.5 py-1 font-semibold text-amber-900 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer min-h-[36px]"
               >
                 {effectiveScope === "G002" ? (
                   <>
@@ -240,7 +240,7 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 )}
               </select>
             </div>
-            <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
+            <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
               <input
                 type="password"
                 data-testid="first-light-password-input"
@@ -255,19 +255,19 @@ export const FirstLightLabBanner: React.FC<FirstLightLabBannerProps> = ({
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoggingIn}
                 required
-                className="text-xs bg-white border border-amber-300 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-gray-400"
+                className="text-xs bg-white border border-amber-300 rounded px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-gray-400 min-h-[36px] flex-1 sm:flex-initial"
               />
               <button
                 type="submit"
                 data-testid="first-light-login-btn"
                 disabled={isLoggingIn || !password}
-                className="text-xs font-semibold bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded px-2.5 py-0.5 shadow-xs transition cursor-pointer"
+                className="text-xs font-semibold bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded px-3 py-1.5 shadow-xs transition cursor-pointer min-h-[36px] flex items-center justify-center whitespace-nowrap"
               >
                 {isLoggingIn ? "Autenticando..." : "Autenticar en LAB"}
               </button>
             </form>
             {loginError && (
-              <span data-testid="first-light-login-error" className="text-red-700 font-bold text-[11px]">
+              <span data-testid="first-light-login-error" className="text-red-700 font-bold text-[11px] w-full sm:w-auto">
                 {loginError}
               </span>
             )}
