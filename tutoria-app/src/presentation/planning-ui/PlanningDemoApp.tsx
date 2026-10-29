@@ -331,7 +331,9 @@ export function readPersistedSelectedRoom(
       (candidate === 'maternal-b1' && r.roomId === 'room-maternal-b1') ||
       (candidate === 'room-maternal-b1' && r.roomId === 'maternal-b1') ||
       (candidate === 'maternal-b2' && r.roomId === 'room-maternal-b2') ||
-      (candidate === 'room-maternal-b2' && r.roomId === 'maternal-b2')
+      (candidate === 'room-maternal-b2' && r.roomId === 'maternal-b2') ||
+      (candidate === 'maternal-c1' && r.roomId === 'room-maternal-c1') ||
+      (candidate === 'room-maternal-c1' && r.roomId === 'maternal-c1')
     );
     if (!isAuthorized) {
       clearPersistedSelectedRoom(userId, daycareId);
@@ -353,6 +355,9 @@ export function readPersistedSelectedRoom(
   }
   if (candidate === 'maternal-b2' && authorizedRooms?.some(r => r.roomId === 'room-maternal-b2')) {
     return 'room-maternal-b2';
+  }
+  if (candidate === 'maternal-c1' && authorizedRooms?.some(r => r.roomId === 'room-maternal-c1')) {
+    return 'room-maternal-c1';
   }
 
   return candidate;
@@ -700,6 +705,9 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       if (userSelectedRoomId === 'room-maternal-b2' || userSelectedRoomId === 'maternal-b2') {
         return { roomId: 'room-maternal-b2', name: 'Maternal B2', minAgeMonths: 31, maxAgeMonths: 36 };
       }
+      if (userSelectedRoomId === 'room-maternal-c1' || userSelectedRoomId === 'maternal-c1') {
+        return { roomId: 'room-maternal-c1', name: 'Maternal C1', minAgeMonths: 37, maxAgeMonths: 42 };
+      }
     }
     if (firstLightGuard.isEligible) {
       return (
@@ -746,7 +754,9 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       (targetRoomId === 'room-maternal-b1' && r.roomId === 'maternal-b1') ||
       (targetRoomId === 'maternal-b1' && r.roomId === 'room-maternal-b1') ||
       (targetRoomId === 'room-maternal-b2' && r.roomId === 'maternal-b2') ||
-      (targetRoomId === 'maternal-b2' && r.roomId === 'room-maternal-b2')
+      (targetRoomId === 'maternal-b2' && r.roomId === 'room-maternal-b2') ||
+      (targetRoomId === 'room-maternal-c1' && r.roomId === 'maternal-c1') ||
+      (targetRoomId === 'maternal-c1' && r.roomId === 'room-maternal-c1')
     );
     if (!isAuthorized) return;
 
