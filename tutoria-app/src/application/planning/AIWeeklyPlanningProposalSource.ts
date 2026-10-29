@@ -1414,7 +1414,9 @@ export function buildWeeklyPlanningAIUserPrompt(
       '   - INVENTARIO ESTRICTO: Queda TERMINANTEMENTE PROHIBIDO inventar masa casera, plastilina, pintura, pegamento, cojines, almohadas, mantas, conos, cuerdas, túneles, sillas adicionales, mesas adicionales, estantes bajos, muebles, módulos de espuma, módulos psicomotrices, bandejas, recipientes no declarados, reproductores de música, cinta adhesiva, chinchetas u objetos abstractos ausentes del inventario.',
       '   - CERO INSTRUMENTOS MUSICALES O FRAGMENTACIÓN ARTIFICIAL: Queda TERMINANTEMENTE PROHIBIDO inventar «instrumentos musicales infantiles seguros», maracas, panderos, tambores o fragmentar materiales en elementos artificiales como «cajas como tambores» o «usar cajas como tambor». Todo acompañamiento sonoro debe realizarse exclusivamente con cantos acapela de la Asistente y palmadas suaves sobre colchonetas limpias a ras de suelo.',
       '   - COHERENCIA DE MATERIALES DECLARADOS: En "materials", incluye ÚNICAMENTE los recursos que efectivamente intervienen y son manipulados en la actividad descrita. TERMINANTEMENTE PROHIBIDO listar materiales no intervinientes (por ejemplo, bloques, cajas o pelotas en una lectura de cuentos; o crayones en una actividad de marcha). Si no requiere objetos físicos, declara "materials": [].',
-      '   - CERO DUPLICIDAD DE ELEMENTOS DE DIBUJO: Queda TERMINANTEMENTE PROHIBIDO incluir «colores» como elemento independiente duplicado en "materials" cuando la actividad utilice crayones gruesos de cera. Únicamente se declara el material efectivamente utilizado («crayones gruesos de cera»).',
+      '   - CERO DUPLICIDAD DE ELEMENTOS DE DIBUJO Y CERO CAJAS EN DIBUJO: Queda TERMINANTEMENTE PROHIBIDO incluir «colores» como elemento independiente duplicado o «cajas de cartón» en "materials" cuando la actividad sea dibujo con crayones gruesos sobre papel bond. Únicamente se declaran los crayones gruesos de cera, pliegos de papel bond y colchonetas limpias.',
+      '   - UNIDAD ESTRICTA EN SENSORIAL CON TELAS: En actividades sensoriales con telas, describe Inicio, Desarrollo, Cierre, Adaptaciones y Materiales EXCLUSIVAMENTE alrededor de las telas y colchonetas limpias; TERMINANTEMENTE PROHIBIDO mezclar crayones, papel o cajas en una actividad de telas.',
+      '   - DECLARACIÓN DE COLCHONETAS UTILIZADAS: Si la actividad describe desplazamientos o acciones sobre colchonetas limpias a ras de suelo en Inicio o Desarrollo, DEBEN declararse las colchonetas en "materials" / "materialRefs".',
       '   - COHERENCIA DE CIERRES CON MATERIALES: El Cierre de cada actividad DEBE corresponder ESTRICTAMENTE con los materiales manipulados en Inicio y Desarrollo. Si la actividad clasifica bloques, el cierre debe guardar y admirar los bloques clasificados; PROHIBIDO mencionar aros o recursos distintos.',
       '   - OBJETIVOS OBSERVABLES EN PENSAMIENTO MATEMÁTICO: En actividades de clasificación por atributos (color y forma), el objetivo debe reflejar explícitamente dicha acción cognitiva («Observar y consolidar la discriminación perceptual y la clasificación por atributos reconociendo color y forma al agrupar bloques grandes en cajas limpias»), evitando fórmulas genéricas desalineadas como autonomía motriz.',
       '   - REPETICIONES ÚTILES CON VARIACIÓN OBSERVABLE: Es pedagógicamente válido y deseable releer el mismo cuento diariamente (ej. «¿Dónde está Spot?») o utilizar bloques en distintos días, SIEMPRE QUE cada día presente una variación pedagógica observable (ej. lectura: lunes portada/anticipación, martes solapas/preguntas, miércoles onomatopeyas/emociones, jueves dramatización gestual, viernes recuento de pasajes favoritos).',
@@ -2719,7 +2721,41 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     );
   }
 
-  // 3j. P1.1 (SR-MD-31G & SR-MD-31I): Evitar materiales que no intervienen en la actividad
+  // SR-MD-31K Defecto 3: Asegurar que colchonetas efectivamente utilizadas en el procedimiento aparezcan en materials
+  if (/\bcolchonetas?\b/i.test(description)) {
+    const matEntry = table.entries.find((e) => /\bcolchonetas?\b/i.test(e.displayName));
+    const matName = matEntry ? matEntry.displayName : 'colchonetas limpias';
+    if (!materials.includes(matName)) {
+      materials.push(matName);
+    }
+  }
+
+  // SR-MD-31K Defecto 2 & SR-MD-31L: Erradicar cajas de cartón adicionales en actividades de dibujo sobre papel cuando no intervienen activamente
+  const usesBoxesActively =
+    /\b(?:decorar|pintar|constru(?:ir|cci[oó]n\s+con)?|apilar|transformar|intervenir|soporte|trazar\s+sobre|escultura)\s+(?:las?\s+|con\s+)?cajas?\b/i.test(`${description} ${objective}`) ||
+    /\bcajas?\s+(?:de\s+cart[oó]n\s+)?como\s+(?:soporte|lienzo|escultura|bloques?|base)/i.test(`${description} ${objective}`);
+
+  const isPaperDrawingAct =
+    (/\b(?:cray[oó]n|dibuj|garabate|traz)\b/i.test(description) && /\b(?:papel|pliegos?|mural)\b/i.test(description)) ||
+    (act.category === 'EXPERIENCIAS ARTÍSTICAS' && /\b(?:papel|pliegos?)\b/i.test(description));
+
+  if (isPaperDrawingAct && !usesBoxesActively) {
+    materials = materials.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
+    description = description
+      .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
+      .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+  }
+
+  // SR-MD-31K Defecto 1 & 4: Coherencia estricta en actividades con telas (sin crayones ni cajas parásitas)
+  const isFabricsAct =
+    !/\b(?:muñecos?|muñecas?)\b/i.test(`${description} ${objective}`) &&
+    /\b(?:telas?\s+(?:limpias?|con\s+texturas?|suaves?|rugosas?|ligeras?|livianas?|variadas?)|texturas?\s+de\s+tela|lienzos?|pañuelos?)\b/i.test(`${description} ${objective}`) &&
+    !/\b(?:cray[oó]n|dibuj|garabate)\b/i.test(objective);
+  if (isFabricsAct) {
+    materials = materials.filter((m) => !/\b(?:cray[oó]n|papel|pliegos?|cajas?\s+de\s+cart[oó]n|colores?)\b/i.test(m));
+  }
+
+  // 3j. P1.1 (SR-MD-31G, SR-MD-31I & SR-MD-31K): Evitar materiales que no intervienen en la actividad
   if (materials.length > 1) {
     const descAndObjLower = `${description} ${objective}`.toLowerCase();
     const isFloorActivity = /\b(?:colchonetas?|suelo|piso|ras\s+de\s+suelo|acostad|sentad|recorrer|circuito|marcha|caminar|desplaz)\b/i.test(descAndObjLower);
@@ -2730,8 +2766,9 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       if (/\bcolchonetas?\b/i.test(matLower)) {
         return isFloorActivity;
       }
-      // Boxes can intervene if boxes/guardar/clasificar/recipientes appear
+      // Boxes can intervene if boxes/guardar/clasificar/recipientes appear, but NOT as ghost containers in paper drawing
       if (/\bcajas?\b/i.test(matLower)) {
+        if (isPaperDrawingAct && !usesBoxesActively) return false;
         return /\b(?:cajas?|guardar|recipientes?|adentro|depositar|ordenar|almacenar)\b/i.test(descAndObjLower);
       }
       // Storybooks / cuentos
@@ -2762,6 +2799,11 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       // Paper / pliegos
       if (/\b(?:papel|pliegos?|cartulina)\b/i.test(matLower)) {
         return /\b(?:papel|pliegos?|mural|dibuj(?:ar|os?)|traz(?:ar|os?)|garabate(?:ar|o))\b/i.test(descAndObjLower);
+      }
+      // Fabrics / telas
+      if (/\btelas?\b/i.test(matLower)) {
+        if (isPaperDrawingAct) return false;
+        return /\b(?:telas?|lienzos?|pañuelos?|texturas?\s+de\s+tela|ondear|brisa)\b/i.test(descAndObjLower);
       }
       // Dolls / muñecos
       if (/\bmuñecos?\b/i.test(matLower)) {
@@ -3889,7 +3931,7 @@ export function enrichMaternalB1WeeklyProgression(
       });
     }
 
-    // Item 1 (SR-MD-31I): Martes — Pensamiento matemático: coherencia bloques vs aros en cierre y materiales
+    // Item 1 (SR-MD-31I & SR-MD-31K): Martes — Pensamiento matemático: coherencia bloques vs aros en cierre y materiales, y asegurar colchonetas utilizadas
     if (tuesdayDay) {
       tuesdayDay.activities = tuesdayDay.activities.map((tuesdayAct) => {
         let updatedObj = tuesdayAct.objective;
@@ -3912,6 +3954,11 @@ export function enrichMaternalB1WeeklyProgression(
             .replace(/\baros?\b/gi, 'bloques');
         }
 
+        // SR-MD-31K Defecto 3: asegurar que las colchonetas efectivamente utilizadas en el procedimiento aparezcan en materiales
+        if (/\bcolchonetas?\b/i.test(updatedDesc) && !updatedMats.some((m) => /\bcolchonetas?\b/i.test(m))) {
+          updatedMats.push('colchonetas limpias');
+        }
+
         return {
           ...tuesdayAct,
           materials: updatedMats,
@@ -3921,63 +3968,163 @@ export function enrichMaternalB1WeeklyProgression(
       });
     }
 
-    // Item 2 (SR-MD-31I): Miércoles — Experiencias artísticas: erradicar "colores" duplicado con crayones
+    // Item 2 (SR-MD-31I & SR-MD-31K): Miércoles — Experiencias artísticas: erradicar "colores" duplicado y cajas de cartón no utilizadas
     if (wednesdayDay) {
       wednesdayDay.activities = wednesdayDay.activities.map((wedAct) => {
         let updatedMats = [...wedAct.materials];
-        const hasCrayons =
-          updatedMats.some((m) => /\bcray[oó]n/i.test(m)) ||
-          /\bcray[oó]n/i.test(`${wedAct.description} ${wedAct.objective}`);
-        if (hasCrayons) {
+        let updatedDesc = wedAct.description;
+        let updatedObj = wedAct.objective;
+
+        const usesBoxesActively =
+          /\b(?:decorar|pintar|constru(?:ir|cci[oó]n\s+con)?|apilar|transformar|intervenir|soporte|trazar\s+sobre|escultura)\s+(?:las?\s+|con\s+)?cajas?\b/i.test(`${updatedDesc} ${updatedObj}`) ||
+          /\bcajas?\s+(?:de\s+cart[oó]n\s+)?como\s+(?:soporte|lienzo|escultura|bloques?|base)/i.test(`${updatedDesc} ${updatedObj}`);
+
+        const isDrawingAct =
+          (wedAct.category === 'EXPERIENCIAS ARTÍSTICAS' && /\b(?:papel|pliegos?)\b/i.test(`${updatedDesc} ${updatedObj}`)) ||
+          (/\b(?:cray[oó]n|dibuj|garabate|traz)\b/i.test(`${updatedDesc} ${updatedObj}`) &&
+            /\b(?:papel|pliegos?|mural)\b/i.test(`${updatedDesc} ${updatedObj}`));
+
+        if (isDrawingAct && !usesBoxesActively) {
+          // Erradicar "colores" o "lápices" duplicados con crayones y cajas de cartón no manipuladas
           updatedMats = updatedMats.filter(
             (m) =>
               !/^\s*colores(?:\s+de\s+madera)?\s*$/i.test(m) &&
-              !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m)
+              !/^\s*l[aá]pices(?:\s+de\s+colores?)?\s*$/i.test(m) &&
+              !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m)
           );
+          // Normalizar procedimentalmente cajas en dibujo a "su caja limpia"
+          updatedDesc = updatedDesc
+            .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
+            .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+
+          // Asegurar colchonetas limpias en materiales si se dibuja a ras de suelo sobre colchonetas
+          if (/\bcolchonetas?\b/i.test(updatedDesc) && !updatedMats.some((m) => /\bcolchonetas?\b/i.test(m))) {
+            updatedMats.push('colchonetas limpias');
+          }
         }
+
         return {
           ...wedAct,
           materials: updatedMats,
-          objective: cleanDuplicatePedagogicalPhrases(wedAct.objective),
-          description: cleanDuplicatePedagogicalPhrases(wedAct.description),
+          objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+          description: cleanDuplicatePedagogicalPhrases(updatedDesc),
         };
       });
     }
 
-    // Item 3 (SR-MD-31E): Diferenciación real de exploración sensorial Martes vs Jueves respetando materiales disponibles
+    // Item 3 (SR-MD-31E & SR-MD-31K): Diferenciación real de exploración sensorial Martes vs Jueves con UNIDAD PEDAGÓGICA ESTRICTA (telas y colchonetas)
     if (tuesdayDay && thursdayDay) {
       const isSensory = (act: ProposedActivity) =>
-        /\b(?:sensorial|texturas?|percepci[oó]n\s+t[aá]ctil|exploraci[oó]n\s+(?:de\s+)?texturas?|t[aá]ctil)\b/i.test(`${act.description} ${act.objective}`);
+        !/\b(?:muñecos?|muñecas?|beb[eé]s?\s+de\s+juguete)\b/i.test(`${act.description} ${act.objective}`) &&
+        /\b(?:sensorial|texturas?|percepci[oó]n\s+t[aá]ctil|exploraci[oó]n\s+(?:de\s+)?texturas?|t[aá]ctil|lienzos?\s+de\s+tela|telas?\s+(?:limpias?|con\s+texturas?|suaves?|rugosas?|ligeras?|livianas?|variadas?))\b/i.test(`${act.description} ${act.objective}`);
       const tuesdaySensory = tuesdayDay.activities.find((a) => isSensory(a));
       const thursdaySensoryIdx = thursdayDay.activities.findIndex((a) => isSensory(a));
 
       if (tuesdaySensory && thursdaySensoryIdx !== -1) {
         const thursdaySensory = thursdayDay.activities[thursdaySensoryIdx];
-        const updatedObj = 'Favorecer la discriminación sensorial visual y rítmica explorando contrastes de color con crayones gruesos y ritmos suaves sobre colchonetas limpias.';
-        let updatedDesc = thursdaySensory.description;
-        if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
-          updatedDesc = updatedDesc.replace(
-            /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
-            'Desarrollo: Durante la sesión del jueves, la Asistente propone explorar contrastes sensoriales visuales y auditivos, combinando trazos suaves y enérgicos con crayones gruesos de distintos colores sobre pliegos de papel bond a ras de suelo al compás de rimas y palmadas pausadas, permitiendo que cada niña y niño experimente la intensidad visual y sonora a su propio ritmo.'
+        let updatedMats = [...thursdaySensory.materials];
+
+        const hasTelas =
+          !/\b(?:muñecos?|muñecas?)\b/i.test(`${thursdaySensory.description} ${thursdaySensory.objective}`) &&
+          (/\b(?:telas?\s+(?:limpias?|con\s+texturas?|suaves?|rugosas?|ligeras?|livianas?|variadas?)|texturas?\s+de\s+tela|lienzos?|pañuelos?)\b/i.test(`${thursdaySensory.description} ${thursdaySensory.objective}`) ||
+          updatedMats.some((m) => /\b(?:telas?\s+(?:limpias?|con\s+texturas?)|lienzos?|pañuelos?)\b/i.test(m)));
+
+        const hasOnlyCrayons =
+          updatedMats.some((m) => /\bcray[oó]n/i.test(m)) && !hasTelas;
+
+        if (hasOnlyCrayons) {
+          // Si los materiales declarados son exclusivamente crayones y papel bond (variación visual/auditiva con crayones)
+          const updatedObj = 'Favorecer la discriminación sensorial visual y rítmica explorando contrastes de color con crayones gruesos y ritmos suaves sobre colchonetas limpias.';
+          let updatedDesc = thursdaySensory.description;
+          if (/\bInicio:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bInicio:\s*[\s\S]*?(?=\s*(?:\bDesarrollo:|$))/i,
+              'Inicio: La Asistente dispone pliegos de papel bond a ras de suelo sobre colchonetas limpias y ofrece crayones gruesos de diversos colores.'
+            );
+          }
+          if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+              'Desarrollo: Durante la sesión del jueves, la Asistente propone explorar contrastes sensoriales visuales y auditivos, combinando trazos suaves y enérgicos con crayones gruesos de distintos colores sobre pliegos de papel bond a ras de suelo al compás de rimas y palmadas pausadas, permitiendo que cada niña y niño experimente la intensidad visual y sonora a su propio ritmo.'
+            );
+          }
+          if (/\bCierre:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
+              'Cierre: Admirar los contrastes de colores logrados sobre las colchonetas limpias y guardar los crayones en su caja limpia a ras de suelo.'
+            );
+          }
+          if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
+              'Adaptaciones: Acompañar el ritmo con suavidad para quienes muestren mayor sensibilidad sonora y ofrecer crayones ergonómicos.'
+            );
+          }
+          thursdayDay.activities[thursdaySensoryIdx] = {
+            ...thursdaySensory,
+            materials: updatedMats,
+            objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+            description: cleanDuplicatePedagogicalPhrases(updatedDesc),
+          };
+        } else {
+          // SR-MD-31K Defecto 1 & 4: Unidad pedagógica 100% coherente (telas y colchonetas en todos los campos)
+          // Variación dinámica frente a la exploración táctil estática del martes: ondear telas, brisa suave, filtración de luz y caída lenta
+          const updatedObj = 'Favorecer la percepción sensorial dinámica y visual-motriz experimentando el movimiento, la brisa suave y la caída de lienzos de tela limpios sobre colchonetas limpias.';
+          let updatedDesc = thursdaySensory.description;
+
+          // Inicio con telas y colchonetas
+          if (/\bInicio:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bInicio:\s*[\s\S]*?(?=\s*(?:\bDesarrollo:|$))/i,
+              'Inicio: La Asistente Educativa invita a las niñas y niños a sentarse cómodamente sobre colchonetas limpias a ras de suelo y les presenta lienzos de tela limpios y livianos de distintos colores, motivándoles a tocarlos y descubrir su ligereza.'
+            );
+          } else {
+            updatedDesc = `Inicio: La Asistente Educativa invita a las niñas y niños a sentarse cómodamente sobre colchonetas limpias a ras de suelo y les presenta lienzos de tela limpios y livianos de distintos colores, motivándoles a tocarlos y descubrir su ligereza.\n${updatedDesc}`;
+          }
+
+          // Desarrollo con telas y colchonetas
+          if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+              'Desarrollo: Durante la sesión del jueves, la Asistente modela ondear suavemente los lienzos de tela hacia arriba y dejarlos descender despacio, animando a cada niña y niño a mover sus telas creando una brisa suave en el espacio, observando los contrastes de luz y color al moverlas y disfrutando de su caída suave sobre las colchonetas limpias a ras de suelo.'
+            );
+          }
+
+          // Cierre con telas y colchonetas
+          if (/\bCierre:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
+              'Cierre: Doblar con calma los lienzos de tela sobre las colchonetas limpias y guardarlos en su caja limpia, felicitando su participación entusiasta en la sala.'
+            );
+          }
+
+          // Adaptaciones con telas
+          if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
+            updatedDesc = updatedDesc.replace(
+              /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
+              'Adaptaciones: Brindar acompañamiento cercano tomando suavemente la tela junto a niñas y niños en adaptación o con mayor sensibilidad, graduando la amplitud y velocidad del movimiento según su respuesta.'
+            );
+          }
+
+          // Materiales: telas limpias y colchonetas limpias; NUNCA crayones, papel bond ni cajas de cartón adicionales
+          updatedMats = updatedMats.filter(
+            (m) =>
+              !/\b(?:cray[oó]n|papel|pliegos?|colores?|l[aá]pices?|cajas?\s+de\s+cart[oó]n)\b/i.test(m)
           );
+          if (!updatedMats.some((m) => /\b(?:telas?|lienzos?|pañuelos?)\b/i.test(m))) {
+            updatedMats.unshift('telas limpias con texturas variadas');
+          }
+          if (!updatedMats.some((m) => /\bcolchonetas?\b/i.test(m))) {
+            updatedMats.push('colchonetas limpias');
+          }
+
+          thursdayDay.activities[thursdaySensoryIdx] = {
+            ...thursdaySensory,
+            materials: updatedMats,
+            objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+            description: cleanDuplicatePedagogicalPhrases(updatedDesc),
+          };
         }
-        if (/\bCierre:\s*/i.test(updatedDesc)) {
-          updatedDesc = updatedDesc.replace(
-            /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
-            'Cierre: Admirar los contrastes de colores logrados sobre las colchonetas limpias y guardar los crayones en su caja limpia a ras de suelo.'
-          );
-        }
-        if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
-          updatedDesc = updatedDesc.replace(
-            /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
-            'Adaptaciones: Acompañar el ritmo con suavidad para quienes muestren mayor sensibilidad sonora y ofrecer crayones ergonómicos.'
-          );
-        }
-        thursdayDay.activities[thursdaySensoryIdx] = {
-          ...thursdaySensory,
-          objective: cleanDuplicatePedagogicalPhrases(updatedObj),
-          description: cleanDuplicatePedagogicalPhrases(updatedDesc),
-        };
       }
     }
 
@@ -4038,27 +4185,19 @@ export function enrichMaternalB1WeeklyProgression(
           .replace(/\ba\s+ras\s+de\s+suelo[\s,]*(?:y\s+)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, 'a ras de suelo')
           .replace(/\b(?:,\s*)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
 
-        // Erradicar mural colectivo en jueves
-        if (/\b(?:mural\s+colectivo|mural|dibujo\s+colectivo)\b/i.test(updatedDesc) || /\b(?:mural\s+colectivo|mural|dibujo\s+colectivo)\b/i.test(updatedObj)) {
-          updatedObj = 'Promover la sincronía rítmica y la expresión gráfico-plástica mediante trazos libres individuales con crayones gruesos sobre papel bond al compás del canto de la Asistente.';
-          if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
-            updatedDesc = updatedDesc.replace(
-              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
-              'Desarrollo: La Asistente entona rimas melodiosas pausadas («rápido, rápido, despacio, despacio») acompañadas de palmadas suaves, animando a las niñas y niños a acompañar el compás con trazos individuales enérgicos o suaves con crayones gruesos sobre sus propios pliegos de papel bond a ras de suelo sobre colchonetas limpias.'
-            );
-          }
-          if (/\bCierre:\s*/i.test(updatedDesc)) {
-            updatedDesc = updatedDesc.replace(
-              /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
-              'Cierre: Admirar colectivamente los trazos individuales extendidos sobre colchonetas limpias y guardar los crayones en sus cajas limpias a ras de suelo.'
-            );
-          }
-          if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
-            updatedDesc = updatedDesc.replace(
-              /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
-              'Adaptaciones: Modelar el agarre de los crayones y adaptar el ritmo del canto para respetar los diferentes tiempos de atención y prensión digital.'
-            );
-          }
+        // Erradicar mural colectivo en jueves exclusivamente si se trata de expresión plástica / dibujo
+        const isDrawingThursday =
+          thursdayAct.category === 'EXPERIENCIAS ARTÍSTICAS' ||
+          (/\b(?:cray[oó]n|dibuj|garabate|traz)\b/i.test(`${updatedDesc} ${updatedObj}`) &&
+            /\b(?:papel|pliegos?)\b/i.test(`${updatedDesc} ${updatedObj}`));
+
+        if (isDrawingThursday && /\b(?:mural\s+colectivo|mural|dibujo\s+colectivo)\b/i.test(`${updatedDesc} ${updatedObj}`)) {
+          updatedObj = updatedObj
+            .replace(/\b(?:un\s+)?mural\s+colectivo\b/gi, 'trazos libres individuales')
+            .replace(/\bmural\b/gi, 'trazos libres individuales');
+          updatedDesc = updatedDesc
+            .replace(/\b(?:un\s+)?mural\s+colectivo\b/gi, 'trazos individuales sobre pliegos de papel bond a ras de suelo sobre colchonetas limpias')
+            .replace(/\bmural\b/gi, 'trazos individuales');
         }
 
         // Erradicar lenguaje de consolidación/cierre semanal de jueves (reservado exclusivamente para viernes)
@@ -4204,6 +4343,44 @@ export function enrichMaternalB1WeeklyProgression(
       });
     }
   }
+
+  // SR-MD-31K: Reconciliación transversal de materiales y coherencia procedural para Maternal C1 / B1 / B2
+  diversifiedDays.forEach((d) => {
+    d.activities = d.activities.map((a) => {
+      let mats = [...a.materials];
+      let desc = a.description;
+      let obj = a.objective;
+
+      const usesBoxesActively =
+        /\b(?:decorar|pintar|constru(?:ir|cci[oó]n\s+con)?|apilar|transformar|intervenir|soporte|trazar\s+sobre|escultura)\s+(?:las?\s+|con\s+)?cajas?\b/i.test(`${desc} ${obj}`) ||
+        /\bcajas?\s+(?:de\s+cart[oó]n\s+)?como\s+(?:soporte|lienzo|escultura|bloques?|base)/i.test(`${desc} ${obj}`);
+
+      const isDrawing =
+        (a.category === 'EXPERIENCIAS ARTÍSTICAS' && /\b(?:papel|pliegos?)\b/i.test(`${desc} ${obj}`)) ||
+        (/\b(?:cray[oó]n|dibuj|garabate|traz)\b/i.test(`${desc} ${obj}`) &&
+          /\b(?:papel|pliegos?)\b/i.test(`${desc} ${obj}`));
+
+      if (isDrawing && !usesBoxesActively) {
+        // Erradicar cajas de cartón auxiliares en dibujo sobre papel
+        mats = mats.filter((m) => !/\bcajas?\s+de\s+cart[oó]n\b/i.test(m));
+        desc = desc
+          .replace(/\ben\s+cajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'en su caja limpia')
+          .replace(/\bcajas\s+de\s+cart[oó]n\s+limpias\b/gi, 'caja limpia');
+      }
+
+      // Asegurar colchonetas limpias en materiales si están efectivamente descritas
+      if (/\bcolchonetas?\b/i.test(desc) && !mats.some((m) => /\bcolchonetas?\b/i.test(m))) {
+        mats.push('colchonetas limpias');
+      }
+
+      return {
+        ...a,
+        materials: mats,
+        objective: cleanDuplicatePedagogicalPhrases(obj),
+        description: cleanDuplicatePedagogicalPhrases(desc),
+      };
+    });
+  });
 
   return diversifiedDays;
 }

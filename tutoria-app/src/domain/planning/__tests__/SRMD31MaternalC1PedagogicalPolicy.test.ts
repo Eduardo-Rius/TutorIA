@@ -1934,6 +1934,209 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       expect(sanitized.materials).toContain('colchonetas limpias');
     });
   });
+
+  // =========================================================================
+  // 12. VERIFICACIÓN TÉCNICA SR-MD-31K — CORRECCIÓN FOCALIZADA DE COHERENCIA MATERNAL C1
+  // =========================================================================
+  describe('12. Verificación Técnica SR-MD-31K — Corrección Focalizada de Coherencia Maternal C1', () => {
+    const table = createRequestScopedMaterialTable(
+      'bloques grandes de plástico lavable, cuentos infantiles de Spot, muñecos de tela, pelotas de vinil, aros plásticos grandes, colchonetas limpias, crayones gruesos de cera, cajas de cartón limpias, pliegos de papel bond, telas limpias con texturas variadas, títeres de tela'
+    );
+
+    it('Defecto 1: Jueves EXP-D4-A5 — Coherencia estricta en actividad sensorial con telas (objetivo, Inicio, Desarrollo, Cierre, Adaptaciones y materiales)', () => {
+      const tuesdaySensoryAct = {
+        category: 'AMBIENTES DE APRENDIZAJE' as const,
+        objective: 'Favorecer la exploración táctil reconociendo diferentes texturas de telas limpias sobre colchonetas limpias.',
+        description:
+          'Inicio: La Asistente invita a sentarse sobre colchonetas limpias a ras de suelo y presenta lienzos con texturas suaves y rugosas.\nDesarrollo: Las niñas y niños exploran con manos y pies descalzos las diferentes texturas de tela a ras de suelo.\nCierre: Doblar las telas y guardarlas en su caja limpia.\nAdaptaciones: Acompañamiento afectivo.',
+        durationMinutes: 15,
+        materials: ['telas limpias con texturas variadas', 'colchonetas limpias'],
+      };
+
+      const thursdaySensoryAct = {
+        category: 'AMBIENTES DE APRENDIZAJE' as const,
+        objective: 'Favorecer la discriminación sensorial visual y rítmica explorando contrastes de color con crayones gruesos y ritmos suaves sobre colchonetas limpias.',
+        description:
+          'Inicio: La Asistente Educativa invita a las niñas y niños a descubrir telas limpias con texturas variadas sobre colchonetas limpias a ras de suelo.\nDesarrollo: Durante la sesión del jueves, la Asistente propone explorar contrastes sensoriales visuales y auditivos, combinando trazos suaves y enérgicos con crayones gruesos de distintos colores sobre pliegos de papel bond a ras de suelo al compás de rimas y palmadas pausadas.\nCierre: Admirar los contrastes de colores logrados sobre las colchonetas limpias y guardar los crayones en su caja limpia a ras de suelo.\nAdaptaciones: Acompañar el ritmo con suavidad para quienes muestren mayor sensibilidad sonora y ofrecer crayones ergonómicos.',
+        durationMinutes: 15,
+        materials: ['telas limpias con texturas variadas', 'colchonetas limpias'],
+      };
+
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...tuesdaySensoryAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...tuesdaySensoryAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...tuesdaySensoryAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...thursdaySensoryAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...tuesdaySensoryAct }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedThursday = enriched[3].activities[0];
+
+      // 1. Objetivo: habla de telas, movimiento y brisa; NUNCA de crayones ni ritmos de trazo
+      expect(enrichedThursday.objective).toMatch(/telas?|lienzos?|brisa/i);
+      expect(enrichedThursday.objective).not.toMatch(/cray[oó]n|trazos?|color(?:es)?\s+con\s+crayones/i);
+
+      // 2. Inicio: describe telas y colchonetas; NUNCA crayones ni papel
+      expect(enrichedThursday.description).toMatch(/Inicio:[\s\S]*?(?:telas|lienzos)/i);
+      expect(enrichedThursday.description).not.toMatch(/Inicio:[\s\S]*?(?:cray[oó]n|papel\s+bond)/i);
+
+      // 3. Desarrollo: describe ondear telas, brisa suave y caída lenta; NUNCA trazos con crayones ni palmadas
+      expect(enrichedThursday.description).toMatch(/Desarrollo:[\s\S]*?(?:ondear|telas|brisa|caída)/i);
+      expect(enrichedThursday.description).not.toMatch(/Desarrollo:[\s\S]*?(?:cray[oó]n|trazos?|palmadas?|papel\s+bond)/i);
+
+      // 4. Cierre: doblar telas y guardar en caja limpia; NUNCA guardar crayones
+      expect(enrichedThursday.description).toMatch(/Cierre:[\s\S]*?(?:telas|lienzos)/i);
+      expect(enrichedThursday.description).not.toMatch(/Cierre:[\s\S]*?(?:cray[oó]n|colores\s+logrados)/i);
+
+      // 5. Adaptaciones: acompañamiento con telas; NUNCA crayones ergonómicos ni sensibilidad sonora
+      expect(enrichedThursday.description).toMatch(/Adaptaci[oó]n(?:es)?:[\s\S]*?(?:tela|movimiento)/i);
+      expect(enrichedThursday.description).not.toMatch(/Adaptaci[oó]n(?:es)?:[\s\S]*?(?:crayones\s+ergon[oó]micos|sensibilidad\s+sonora)/i);
+
+      // 6. Materiales: exclusivamente telas y colchonetas; NUNCA crayones, papel bond ni cajas adicionales
+      expect(enrichedThursday.materials).toContain('telas limpias con texturas variadas');
+      expect(enrichedThursday.materials).toContain('colchonetas limpias');
+      expect(enrichedThursday.materials).not.toContain('crayones gruesos de cera');
+      expect(enrichedThursday.materials).not.toContain('pliegos de papel bond');
+      expect(enrichedThursday.materials).not.toContain('cajas de cartón limpias');
+    });
+
+    it('Defecto 2: Miércoles EXP-D3-A2 — Eliminar cajas de cartón adicionales en actividades de dibujo', () => {
+      const wednesdayDrawingAct = {
+        category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+        objective: 'Estimular la expresión gráfico-plástica y el control visomotriz realizando trazos libres con crayones gruesos sobre papel a ras de suelo.',
+        description:
+          'Inicio: La Asistente extiende pliegos de papel bond sobre colchonetas limpias a ras de suelo y ofrece crayones gruesos.\nDesarrollo: Las niñas y niños exploran trazos libres con crayones gruesos sobre papel bond.\nCierre: Admirar los trazos y guardar los crayones en cajas de cartón limpias a ras de suelo.\nAdaptaciones: Ofrecer crayones ergonómicos.',
+        durationMinutes: 20,
+        materials: ['crayones gruesos de cera', 'pliegos de papel bond', 'cajas de cartón limpias', 'colchonetas limpias'],
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(wednesdayDrawingAct as any, table, 'MATERNAL_C1');
+
+      // Las cajas de cartón no deben figurar en materials
+      expect(sanitized.materials).not.toContain('cajas de cartón limpias');
+      expect(sanitized.materials).toContain('crayones gruesos de cera');
+      expect(sanitized.materials).toContain('pliegos de papel bond');
+      expect(sanitized.materials).toContain('colchonetas limpias');
+
+      // El cierre se normaliza a "su caja limpia"
+      expect(sanitized.description).not.toContain('cajas de cartón limpias');
+      expect(sanitized.description).toContain('su caja limpia');
+
+      // Verificación en enrichMaternalB1WeeklyProgression para el miércoles
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...wednesdayDrawingAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...wednesdayDrawingAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...wednesdayDrawingAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...wednesdayDrawingAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...wednesdayDrawingAct }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedWed = enriched[2].activities[0];
+      expect(enrichedWed.materials).not.toContain('cajas de cartón limpias');
+      expect(enrichedWed.materials).toContain('crayones gruesos de cera');
+      expect(enrichedWed.materials).toContain('pliegos de papel bond');
+      expect(enrichedWed.description).not.toContain('en cajas de cartón limpias');
+    });
+
+    it('Defecto 3: Martes EXP-D2-A4 — Asegurar que colchonetas efectivamente utilizadas en el procedimiento aparezcan en materiales', () => {
+      const tuesdayMathAct = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Observar y consolidar la discriminación perceptual agrupando bloques grandes de plástico lavable por color en cajas de cartón limpias.',
+        description:
+          'Inicio: La Asistente invita a las niñas y niños a reunirse sobre colchonetas limpias a ras de suelo y presenta bloques grandes.\nDesarrollo: Cada niña y niño clasifica y coloca bloques grandes dentro de cajas de cartón limpias.\nCierre: Admirar los bloques clasificados y guardarlos con alegría.\nAdaptaciones: Acompañamiento cercano.',
+        durationMinutes: 20,
+        materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'], // Falta colchonetas limpias
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(tuesdayMathAct as any, table, 'MATERNAL_C1');
+      expect(sanitized.materials).toContain('colchonetas limpias');
+      expect(sanitized.materials).toContain('bloques grandes de plástico lavable');
+      expect(sanitized.materials).toContain('cajas de cartón limpias');
+
+      // Verificación en enrichMaternalB1WeeklyProgression
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...tuesdayMathAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...tuesdayMathAct }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedTuesday = enriched[1].activities[0];
+      expect(enrichedTuesday.materials).toContain('colchonetas limpias');
+    });
+
+    it('Defecto 4: Coherencia de dibujo transversal y variación sensorial observable Martes vs Jueves', () => {
+      const tuesdaySensory = {
+        category: 'AMBIENTES DE APRENDIZAJE' as const,
+        objective: 'Favorecer la discriminación táctil explorando texturas suaves y rugosas de telas limpias.',
+        description:
+          'Inicio: Sentarse sobre colchonetas limpias a ras de suelo.\nDesarrollo: Sentir con manos y pies descalzos la textura suave y rugosa de las telas limpias extendidas sobre colchonetas limpias.\nCierre: Doblar las telas con calma.\nAdaptaciones: Respeto al ritmo.',
+        materials: ['telas limpias con texturas variadas', 'colchonetas limpias'],
+      };
+
+      const thursdaySensory = {
+        category: 'AMBIENTES DE APRENDIZAJE' as const,
+        objective: 'Favorecer la exploración sensorial con telas limpias sobre colchonetas limpias.',
+        description:
+          'Inicio: Sentarse sobre colchonetas limpias.\nDesarrollo: Sentir telas limpias sobre colchonetas limpias.\nCierre: Guardar telas.\nAdaptaciones: Apoyo cercano.',
+        materials: ['telas limpias con texturas variadas', 'colchonetas limpias'],
+      };
+
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...tuesdaySensory }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...tuesdaySensory }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...tuesdaySensory }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...thursdaySensory }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...tuesdaySensory }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const tuesdayAct = enriched[1].activities[0];
+      const thursdayAct = enriched[3].activities[0];
+
+      // Martes: táctil estático
+      expect(tuesdayAct.objective).toMatch(/t[aá]ctil|texturas/i);
+      expect(tuesdayAct.description).toMatch(/manos\s+y\s+pies|textura/i);
+
+      // Jueves: dinámico (ondear, brisa suave, caída)
+      expect(thursdayAct.objective).toMatch(/din[aá]mica|movimiento|brisa|ca[ií]da/i);
+      expect(thursdayAct.description).toMatch(/ondear|brisa\s+suave|ca[ií]da\s+suave/i);
+
+      // Ambos describen telas y colchonetas sin crayones parásitos
+      expect(tuesdayAct.materials).toContain('telas limpias con texturas variadas');
+      expect(tuesdayAct.materials).toContain('colchonetas limpias');
+      expect(thursdayAct.materials).toContain('telas limpias con texturas variadas');
+      expect(thursdayAct.materials).toContain('colchonetas limpias');
+      expect(thursdayAct.materials).not.toContain('crayones gruesos de cera');
+      expect(thursdayAct.materials).not.toContain('pliegos de papel bond');
+
+      // Existe variación pedagógica observable entre ambos días
+      expect(thursdayAct.description).not.toEqual(tuesdayAct.description);
+      expect(thursdayAct.objective).not.toEqual(tuesdayAct.objective);
+    });
+
+    it('SR-MD-31L: Preserva cajas de cartón en experiencias artísticas cuando participan activamente como medio o soporte', () => {
+      const activeBoxesArtAct = {
+        category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+        objective: 'Estimular la expresión plástico-creativa y la tridimensionalidad decorando cajas de cartón limpias a ras de suelo.',
+        description:
+          'Inicio: La Asistente dispone cajas de cartón limpias sobre colchonetas limpias y ofrece crayones gruesos de cera.\nDesarrollo: Cada niña y niño decora las caras exteriores de las cajas de cartón limpias con trazos libres y colores.\nCierre: Admirar las esculturas decoradas y acomodarlas en su espacio de exhibición.\nAdaptaciones: Acompañar el trazo sobre el cartón.',
+        durationMinutes: 20,
+        materials: ['cajas de cartón limpias', 'crayones gruesos de cera', 'colchonetas limpias'],
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(activeBoxesArtAct as any, table, 'MATERNAL_C1');
+
+      // Las cajas de cartón SÍ participan activamente, por lo que se deben conservar
+      expect(sanitized.materials).toContain('cajas de cartón limpias');
+      expect(sanitized.materials).toContain('crayones gruesos de cera');
+      expect(sanitized.materials).toContain('colchonetas limpias');
+    });
+  });
 });
 
 
