@@ -1130,4 +1130,364 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       expect(sanitizedReading.description).toContain('observar la lectura sentados junto a la Asistente');
     });
   });
+
+  // =========================================================================
+  // 9. CORRECCIÓN FINAL FOCALIZADA MATERNAL C1 (SR-MD-31E)
+  // =========================================================================
+  describe('9. Corrección Final Focalizada Maternal C1 (SR-MD-31E)', () => {
+    const table = createRequestScopedMaterialTable([
+      'Bloques grandes de plástico lavable',
+      'Cuentos ilustrados infantiles',
+      'Muñecos de tela',
+      'Pelotas medianas de vinil',
+      'Colchonetas limpias',
+      'Crayones gruesos de cera',
+      'Cajas de cartón limpias',
+      'Pliegos de papel bond',
+    ]);
+
+    // 1. Eliminar la contradicción del jueves en activación física: «a ras de suelo, sin desplazamientos a ras de suelo».
+    it('Item 1: elimina la contradicción «a ras de suelo, sin desplazamientos a ras de suelo» y cualquier fórmula «sin desplazamientos»', () => {
+      const awkwardActivity = {
+        category: 'ACTIVACIÓN FÍSICA',
+        objective: 'Desarrollar la agilidad motriz a ras de suelo, sin desplazamientos a ras de suelo.',
+        description:
+          'Inicio: Sentarse en colchonetas limpias.\nDesarrollo: La Asistente propone desplazamientos a ras de suelo, sin desplazamientos a ras de suelo imitando animalitos.\nCierre: Retorno a la calma.\nAdaptaciones: Acompañar según ritmo.',
+        materials: ['colchonetas limpias'],
+        durationMinutes: 18,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(
+        awkwardActivity,
+        table,
+        'Maternal C1',
+        true
+      );
+
+      expect(sanitized.objective).not.toContain('sin desplazamientos a ras de suelo');
+      expect(sanitized.objective).not.toContain('sin desplazamientos');
+      expect(sanitized.description).not.toContain('sin desplazamientos a ras de suelo');
+      expect(sanitized.description).not.toContain('sin desplazamientos');
+      expect(sanitized.description).toContain('a ras de suelo');
+
+      const cleanedText = cleanDuplicatePedagogicalPhrases(
+        'Desplazamientos a ras de suelo, sin desplazamientos a ras de suelo sobre colchonetas limpias.'
+      );
+      expect(cleanedText).not.toContain('sin desplazamientos');
+      expect(cleanedText).toBe('Desplazamientos a ras de suelo sobre colchonetas limpias.');
+    });
+
+    // 2. Mejorar la coherencia de la imitación de animales del lunes, sin introducir movimientos forzados.
+    it('Item 2: mejora la coherencia de la imitación de animales del lunes, erradicando movimientos forzados o agachados', () => {
+      const rawMondayDays = [
+        {
+          dayOfWeek: 'MONDAY',
+          activities: [
+            {
+              category: 'ACTIVACIÓN FÍSICA',
+              objective: 'Desarrollar la agilidad motriz desplazándose como animalitos agachándose y caminando.',
+              description:
+                'Inicio: En colchoneta limpia.\nDesarrollo: La Asistente propone imitar animalitos agachándose y caminando a ras de suelo sobre colchonetas limpias.\nCierre: Respiración suave.\nAdaptaciones: Apoyo cercano.',
+              materials: ['colchonetas limpias'],
+              durationMinutes: 18,
+            },
+          ],
+        },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        { dayOfWeek: 'FRIDAY', activities: [] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawMondayDays, 'MATERNAL_C1');
+      const mondayAct = enriched[0].activities[0];
+
+      expect(mondayAct.objective).not.toMatch(/agach[aá]ndose|en cuclillas/i);
+      expect(mondayAct.description).not.toMatch(/agach[aá]ndose|en cuclillas/i);
+      expect(mondayAct.description).toContain('caminando con pasos cómodos y seguros sobre colchonetas limpias');
+    });
+
+    // 3. Diferenciar realmente la exploración sensorial del martes y jueves, respetando los materiales disponibles.
+    it('Item 3: diferencia genuinamente la exploración sensorial de martes y jueves respetando materiales disponibles', () => {
+      const fiveDaysWithSensory = [
+        {
+          dayOfWeek: 'MONDAY',
+          activities: [
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Explorar bloques grandes.',
+              description: 'Inicio: Sentarse.\nDesarrollo: Bloques.\nCierre: Guardar.\nAdaptaciones: Apoyo.',
+              materials: ['bloques grandes de plástico lavable'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        {
+          dayOfWeek: 'TUESDAY',
+          activities: [
+            {
+              category: 'AMBIENTES DE APRENDIZAJE',
+              objective: 'Favorecer la exploración sensorial táctil de texturas y firmeza de bloques y cajas.',
+              description:
+                'Inicio: Sentarse en colchonetas limpias.\nDesarrollo: Las niñas y niños exploran texturas táctiles pasando sus palmas sobre bloques y cajas limpias.\nCierre: Guardar materiales.\nAdaptaciones: Modelar la caricia.',
+              materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        {
+          dayOfWeek: 'THURSDAY',
+          activities: [
+            {
+              category: 'AMBIENTES DE APRENDIZAJE',
+              objective: 'Favorecer la exploración sensorial de texturas con materiales.',
+              description:
+                'Inicio: En colchoneta.\nDesarrollo: Exploración de texturas sensoriales.\nCierre: Guardar.\nAdaptaciones: Apoyo.',
+              materials: ['crayones gruesos de cera', 'pliegos de papel bond'],
+              durationMinutes: 15,
+            },
+          ],
+        },
+        { dayOfWeek: 'FRIDAY', activities: [] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(fiveDaysWithSensory, 'MATERNAL_C1');
+      const tuesdayAct = enriched[1].activities[0];
+      const thursdayAct = enriched[3].activities[0];
+
+      // Martes conserva su exploración sensorial táctil
+      expect(tuesdayAct.objective).toContain('táctil');
+      // Jueves es diferenciado a contrastes visuales y rítmicos sobre materiales declarados
+      expect(thursdayAct.objective).toContain('discriminación sensorial visual y rítmica');
+      expect(thursdayAct.description).toContain('contrastes sensoriales visuales y auditivos');
+      expect(thursdayAct.description).toContain('crayones gruesos');
+      expect(thursdayAct.description).not.toBe(tuesdayAct.description);
+    });
+
+    // 4. Dar al viernes una finalidad de observación o consolidación diferente de la actividad de láminas de animales del miércoles.
+    it('Item 4: da al viernes una finalidad de consolidación comunicativa diferente de las láminas de animales del miércoles', () => {
+      const fiveDaysWithAnimalCards = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        {
+          dayOfWeek: 'WEDNESDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Estimular el lenguaje oral identificando láminas de animales del cuento.',
+              description:
+                'Inicio: Mostrar láminas ilustradas de animales.\nDesarrollo: Las niñas y niños observan láminas de animales e imitan sus sonidos.\nCierre: Guardar láminas.\nAdaptaciones: Modelar gestos.',
+              materials: ['cuentos ilustrados infantiles'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Reconocer láminas de animales en el cierre.',
+              description:
+                'Inicio: Mostrar tarjetas de animales.\nDesarrollo: Las niñas y niños vuelven a mirar láminas de animales.\nCierre: Guardar tarjetas.\nAdaptaciones: Apoyo verbal.',
+              materials: ['cuentos ilustrados infantiles'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(fiveDaysWithAnimalCards, 'MATERNAL_C1');
+      const wednesdayAct = enriched[2].activities[0];
+      const fridayAct = enriched[4].activities[0];
+
+      // Miércoles mantiene el trabajo con láminas/onomatopeyas
+      expect(wednesdayAct.description).toContain('láminas de animales');
+      // Viernes se transforma en consolidación comunicativa y círculo compartido
+      expect(fridayAct.objective).toContain('Observar y consolidar la expresión oral y la comunicación afectiva');
+      expect(fridayAct.description).toContain('consolidación semanal');
+      expect(fridayAct.description).toContain('sin recurrir a láminas repetitivas');
+      expect(fridayAct.description).not.toContain('tarjetas de animales');
+    });
+
+    // 5. Alinear el objetivo de observación matemática del viernes con la actividad efectivamente generada.
+    it('Item 5: alinea dinámicamente el objetivo de observación matemática del viernes con la actividad generada (color, construcción, correspondencia, tamaño)', () => {
+      // Caso 5A: Actividad generada enfocada en colores
+      const fridayColor = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Observar y consolidar la discriminación perceptual por tamaño.', // Desalineado originalmente
+              description:
+                'Inicio: Disponer cajas limpias.\nDesarrollo: Las niñas y niños clasifican bloques grandes por color amarillo y azul en cajas limpias a ras de suelo.\nCierre: Guardar bloques.\nAdaptaciones: Permitir clasificar libremente.',
+              materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+      ];
+
+      const enrichedColor = enrichMaternalB1WeeklyProgression(fridayColor, 'MATERNAL_C1');
+      expect(enrichedColor[4].activities[0].objective).toContain('clasificación cromática agrupando bloques grandes por color notorio');
+      expect(enrichedColor[4].activities[0].objective).not.toContain('tamaño');
+
+      // Caso 5B: Actividad generada enfocada en construcción de caminos/trenes
+      const fridayRoads = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Observar y consolidar la discriminación perceptual por tamaño.', // Desalineado
+              description:
+                'Inicio: En colchoneta.\nDesarrollo: Las niñas y niños alinean bloques formando un tren o camino largo continuo en el piso.\nCierre: Guardar bloques.\nAdaptaciones: Acompañar.',
+              materials: ['bloques grandes de plástico lavable'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+      ];
+
+      const enrichedRoads = enrichMaternalB1WeeklyProgression(fridayRoads, 'MATERNAL_C1');
+      expect(enrichedRoads[4].activities[0].objective).toContain('nociones espaciales al alinear y apilar bloques grandes');
+      expect(enrichedRoads[4].activities[0].objective).not.toContain('tamaño');
+
+      // Caso 5C: Actividad generada enfocada en correspondencia / conteo
+      const fridayCorrespondence = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Observar y consolidar la discriminación perceptual por tamaño.', // Desalineado
+              description:
+                'Inicio: En colchoneta.\nDesarrollo: Las niñas y niños colocan bloques uno a uno dentro de recipientes limpios contando verbalmente.\nCierre: Guardar.\nAdaptaciones: Respetar ritmo.',
+              materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+      ];
+
+      const enrichedCorrespondence = enrichMaternalB1WeeklyProgression(fridayCorrespondence, 'MATERNAL_C1');
+      expect(enrichedCorrespondence[4].activities[0].objective).toContain('correspondencia uno a uno y la noción de continente');
+      expect(enrichedCorrespondence[4].activities[0].objective).not.toContain('tamaño');
+
+      // Caso 5D: Actividad generada enfocada en tamaño (grande y pequeño)
+      const fridaySize = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Favorecer el juego.',
+              description:
+                'Inicio: En colchoneta.\nDesarrollo: Las niñas y niños agrupan bloques por tamaño separando los grandes de los pequeños en sus cajas.\nCierre: Guardar.\nAdaptaciones: Apoyo visual.',
+              materials: ['bloques grandes de plástico lavable', 'cajas de cartón limpias'],
+              durationMinutes: 12,
+            },
+          ],
+        },
+      ];
+
+      const enrichedSize = enrichMaternalB1WeeklyProgression(fridaySize, 'MATERNAL_C1');
+      expect(enrichedSize[4].activities[0].objective).toContain('discriminación perceptual por tamaño agrupando bloques grandes y pequeños');
+    });
+
+    // 6. Reducir cierres repetitivos y corregir construcciones gramaticales poco naturales.
+    it('Item 6: reduce cierres repetitivos diversificando por categoría y corrige construcciones gramaticales poco naturales', () => {
+      // 6.1 Correcciones gramaticales en cleanDuplicatePedagogicalPhrases
+      const awkwardGrammar =
+        'De forma voluntaria y supervisada a ras de suelo, La Asistente dispone los bloques en en las cajas de de cartón sobre sobre colchonetas limpias.';
+      const cleanedGrammar = cleanDuplicatePedagogicalPhrases(awkwardGrammar);
+
+      expect(cleanedGrammar).toContain(', la Asistente');
+      expect(cleanedGrammar).not.toContain('La Asistente');
+      expect(cleanedGrammar).not.toMatch(/\ben en\b/);
+      expect(cleanedGrammar).not.toMatch(/\bde de\b/);
+      expect(cleanedGrammar).not.toMatch(/\bsobre sobre\b/);
+
+      // 6.2 Cierres diversificados en viernes (no todos iguales)
+      const fridayWithRepetitiveClosures = [
+        { dayOfWeek: 'MONDAY', activities: [] },
+        { dayOfWeek: 'TUESDAY', activities: [] },
+        { dayOfWeek: 'WEDNESDAY', activities: [] },
+        { dayOfWeek: 'THURSDAY', activities: [] },
+        {
+          dayOfWeek: 'FRIDAY',
+          activities: [
+            {
+              category: 'LECTURA EN VOZ ALTA',
+              objective: 'Consolidar lectura.',
+              description:
+                'Inicio: Mostrar cuento.\nDesarrollo: Lectura de cierre.\nCierre: Celebrar colectivamente los logros semanales con una ronda de aplausos afectuosos y guardar juntos los materiales en sus cajas limpias a ras de suelo.\nAdaptaciones: Acompañar.',
+              materials: ['cuentos ilustrados infantiles'],
+              durationMinutes: 12,
+            },
+            {
+              category: 'PENSAMIENTO MATEMÁTICO',
+              objective: 'Consolidar conteo.',
+              description:
+                'Inicio: Bloques.\nDesarrollo: Conteo de bloques.\nCierre: Celebrar colectivamente los logros semanales con una ronda de aplausos afectuosos y guardar juntos los materiales en sus cajas limpias a ras de suelo.\nAdaptaciones: Acompañar.',
+              materials: ['bloques grandes de plástico lavable'],
+              durationMinutes: 12,
+            },
+            {
+              category: 'EXPERIENCIAS ARTÍSTICAS',
+              objective: 'Consolidar mural.',
+              description:
+                'Inicio: Papel bond.\nDesarrollo: Mural colectivo.\nCierre: Celebrar colectivamente los logros semanales con una ronda de aplausos afectuosos y guardar juntos los materiales en sus cajas limpias a ras de suelo.\nAdaptaciones: Acompañar.',
+              materials: ['pliegos de papel bond', 'crayones gruesos de cera'],
+              durationMinutes: 15,
+            },
+            {
+              category: 'ACTIVACIÓN FÍSICA',
+              objective: 'Consolidar marcha.',
+              description:
+                'Inicio: Colchonetas.\nDesarrollo: Circuito calmado.\nCierre: Celebrar colectivamente los logros semanales con una ronda de aplausos afectuosos y guardar juntos los materiales en sus cajas limpias a ras de suelo.\nAdaptaciones: Acompañar.',
+              materials: ['colchonetas limpias'],
+              durationMinutes: 18,
+            },
+          ],
+        },
+      ];
+
+      const enrichedFriday = enrichMaternalB1WeeklyProgression(fridayWithRepetitiveClosures, 'MATERNAL_C1');
+      const readingClosure = enrichedFriday[4].activities[0].description;
+      const mathClosure = enrichedFriday[4].activities[1].description;
+      const artClosure = enrichedFriday[4].activities[2].description;
+      const motorClosure = enrichedFriday[4].activities[3].description;
+
+      // Cada cierre debe ser distinto según su eje pedagógico
+      expect(readingClosure).toContain('Cerrar el libro con cariño');
+      expect(mathClosure).toContain('Admirar con alegría las figuras construidas o clasificadas');
+      expect(artClosure).toContain('Admirar colectivamente el mural y los trazos compartidos');
+      expect(motorClosure).toContain('Sentarse en colchonetas limpias en círculo, respirar serenamente');
+
+      expect(readingClosure).not.toBe(mathClosure);
+      expect(mathClosure).not.toBe(artClosure);
+      expect(artClosure).not.toBe(motorClosure);
+    });
+  });
 });
+

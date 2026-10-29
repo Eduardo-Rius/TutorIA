@@ -1023,7 +1023,7 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
         '       - En Pensamiento y Exploración: Lunes (exploración libre y apilado), Martes (clasificación por color notorio de bloques grandes en cajas de cartón limpias o sobre el tapete limpio), Miércoles (correspondencia uno a uno introduciendo bloques grandes dentro y fuera de cajas de cartón limpias), Jueves (alineación horizontal continua en tren o camino), Viernes (clasificación por tamaño grande/pequeño de bloques grandes y dinámica formativa de orden en cajas de cartón limpias sobre el tapete limpio; PROHIBIDO estantes bajos).',
         '       - En Juego Simbólico con Muñecos: Progresión observable con materiales declarados: Lunes (acoger y acunar con nana), Martes (alimentar con gestos y mímica afectuosa), Miércoles (arropar y mecer a dormir en colchoneta con telas suaves), Jueves (reconocer esquema corporal señalando con ternura ojos, nariz, boca, manos y pies en el muñeco de tela), Viernes (ronda de convivencia en semicírculo con canción).',
         '       - En Artes Plásticas (con crayones y papel): Lunes (garabateo libre en piso), Martes (trazos amplios en papel a ras de suelo), Miércoles (trazos ondulados libres con cambio autónomo de crayones), Jueves (trazos rítmicos guiados por el canto acapela de la Asistente («rápido, rápido, despacio, despacio») y palmadas suaves, sin reproductor de música), Viernes (creación colectiva de mural sobre papel amplio disponible extendido a ras de suelo sobre el tapete limpio, sin fijaciones en pared ni cinta).',
-        '       - En Activación Física: Lunes (desplazamientos y marchas con ritmo a ras de suelo), Martes (circuito psicomotriz seguro sobre colchonetas limpias a ras de suelo siguiendo trayectorias libres o curvas sin desniveles ni obstáculos), Miércoles (rodar y recibir pelotas a nivel de piso en parejas), Jueves (imitación motriz de ranitas a ras de suelo agachándose y dando pasos firmes sin saltos), Viernes (recorrido libre y calmado en colchonetas con canto suave de cuna y transición al descanso).',
+        '       - En Activación Física: Lunes (desplazamientos y marchas con ritmo a ras de suelo), Martes (circuito psicomotriz seguro sobre colchonetas limpias a ras de suelo siguiendo trayectorias libres o curvas sin desniveles ni obstáculos), Miércoles (rodar y recibir pelotas a nivel de piso en parejas), Jueves (imitación motriz de animalitos sobre colchonetas limpias con pasos cómodos y seguros, sin posturas forzadas ni saltos bruscos), Viernes (recorrido libre y calmado en colchonetas con canto suave de cuna y transición al descanso).',
         '     * 6. LECTURA EN VOZ ALTA DIARIA CON EL CUENTO DEL CONTEXTO (5 DINÁMICAS DIFERENCIADAS):',
         '       - Lunes: Vínculo afectivo, presentación de la portada, personajes e ilustraciones del cuento.',
         '       - Martes: Relectura interactiva con preguntas sencillas («¿dónde está Spot?») y solapas.',
@@ -1130,7 +1130,7 @@ export function buildWeeklyPlanningAISystemPrompt(input: PrivacyMinimizedPlannin
         '       - En Pensamiento y Relaciones Espaciales: Lunes (exploración y construcción combinada libre a ras de suelo), Martes (clasificación por dos atributos: color y forma en cajas de cartón limpias), Miércoles (seriación simple de 3 tamaños: grande, mediano, pequeño en recipientes limpios), Jueves (conteo lúdico funcional 1 a 1 de 3 a 5 objetos concretos al guardar o repartir), Viernes (consolidación de relaciones espaciales y clasificación combinada con observación formativa en cajas limpias a ras de suelo).',
         '       - En Lenguaje Conversacional y Juego Simbólico: Lunes (diálogo espontáneo sobre vivencias y presentación de muñecos de tela), Martes (sociodrama de roles cotidianos: consultorio médico o cuidado familiar peinando y arropando al muñeco), Miércoles (interacción con títeres o guiñoles respondiendo a preguntas causales «¿por qué?»), Jueves (dramatización de preparar comida o tienda usando cajas limpias y utensilios plásticos), Viernes (ronda cooperativa y expresión de preferencias con muñecos y títeres).',
         '       - En Expresión Artística y Plástica: Lunes (garabateo circular amplio con crayones gruesos en pliegos a ras de suelo sobre colchonetas limpias), Martes (dibujo intencionado con asignación de nombre: «Mi dibujo es...»), Miércoles (exploración de formas libres sobre papel a ras de suelo con crayones gruesos; modelado tridimensional con masa casera SOLO si está declarada en el inventario), Jueves (trazos rítmicos libres individuales acompañados de canto acapela), Viernes (mural colectivo a ras de suelo reservado exclusivamente para el cierre semanal, sin fijaciones en pared).',
-        '       - En Movimiento y Expresión Corporal: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos agachándose a ras de suelo sobre colchonetas limpias sin saltos de impacto), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
+        '       - En Movimiento y Expresión Corporal: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo o imitación de animalitos con movimientos cómodos), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos sobre colchonetas limpias con pasos cómodos y seguros, sin posturas forzadas ni saltos bruscos), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
         '       - En Hábitos, Higiene y Autonomía: Lavado y secado autónomo de manos en lavabo infantil con toallero bajo, y práctica cotidiana de guardar y ordenar los materiales de la sala («Guardar y ordenar»).',
         '       - INVENTARIO ESTRICTO: NUNCA propongas actividades que requieran masa casera u otros materiales no declarados en el inventario. No menciones materiales físicos inexistentes cuando materials permanezca vacío.',
         '     * 6. LECTURA EN VOZ ALTA DIARIA CON EL CUENTO DEL CONTEXTO (5 DINÁMICAS DIFERENCIADAS):',
@@ -1332,7 +1332,7 @@ export function buildWeeklyPlanningAIUserPrompt(
       '     * PENSAMIENTO Y EXPLORACIÓN: Lunes (exploración libre y apilado), Martes (clasificación por color notorio de bloques grandes en cajas de cartón limpias o sobre el tapete limpio), Miércoles (correspondencia uno a uno introduciendo bloques grandes dentro y fuera de cajas de cartón limpias), Jueves (alineación horizontal continua en tren o camino), Viernes (clasificación por tamaño grande/pequeño de bloques grandes y dinámica formativa de orden en cajas de cartón limpias a ras de suelo; CERO estantes bajos).',
       '     * JUEGO SIMBÓLICO: Lunes (acoger y acunar con nana), Martes (alimentar con gestos y mímica afectuosa), Miércoles (arropar y mecer a dormir en colchoneta con telas suaves), Jueves (reconocer esquema corporal y prendas señalando con ternura ojos, nariz, boca, manos y pies en el muñeco de tela), Viernes (ronda de convivencia en semicírculo con canción).',
       '     * ARTES PLÁSTICAS: Lunes (garabateo libre en piso), Martes (trazos amplios en papel en el piso), Miércoles (trazos ondulados con cambio autónomo de crayones), Jueves (trazos rítmicos guiados por el canto acapela y palmadas de la Asistente, sin reproductor de música), Viernes (creación colectiva de mural sobre papel amplio disponible extendido a ras de suelo sobre el tapete limpio, sin fijar en pared ni cinta).',
-      '     * ACTIVACIÓN FÍSICA: Lunes (desplazamientos y marchas con ritmo a ras de suelo), Martes (circuito psicomotriz seguro sobre colchonetas limpias siguiendo trayectorias libres o curvas sin desniveles ni obstáculos), Miércoles (rodar y recibir pelotas a nivel de piso en parejas), Jueves (imitación motriz de ranitas a ras de suelo agachándose y caminando a ras de suelo sin saltos), Viernes (recorrido libre y calmado en colchonetas con canto suave de cuna y transición al descanso).',
+      '     * ACTIVACIÓN FÍSICA: Lunes (desplazamientos y marchas con ritmo a ras de suelo), Martes (circuito psicomotriz seguro sobre colchonetas limpias siguiendo trayectorias libres o curvas sin desniveles ni obstáculos), Miércoles (rodar y recibir pelotas a nivel de piso en parejas), Jueves (imitación motriz de animalitos a ras de suelo con pasos firmes y cómodos sobre colchonetas limpias, sin saltos), Viernes (recorrido libre y calmado en colchonetas con canto suave de cuna y transición al descanso).',
       '     * LECTURA EN VOZ ALTA (5 DINÁMICAS PROGRESIVAS): Lunes (vínculo afectivo y portada), Martes (relectura con preguntas sencillas y solapas), Miércoles (expresión oral e imitación de onomatopeyas), Jueves (dramatización gestual a ras de suelo sin saltos), Viernes (reencuentro con pasajes favoritos elegidos por los niños y canción de cierre).',
       '2. COHERENCIA MATERIAL Y UNIDAD PEDAGÓGICA (CERO MATERIALES INVENTADOS, CERO CONCATENACIONES ARTIFICIALES):',
       '   - Concebir cada actividad como una UNIDAD PEDAGÓGICA COHERENTE: Objetivo observable → Materiales declarados → Inicio → Desarrollo → Cierre concreto → Adaptaciones contextuales.',
@@ -1405,7 +1405,7 @@ export function buildWeeklyPlanningAIUserPrompt(
       '     * PENSAMIENTO Y EXPLORACIÓN: Lunes (exploración y construcción combinada libre a ras de suelo), Martes (clasificación por dos atributos: color y forma en cajas de cartón limpias), Miércoles (seriación simple de 3 tamaños: grande, mediano, pequeño en recipientes limpios), Jueves (conteo funcional 1 a 1 de 3 a 5 objetos concretos en recipientes limpios), Viernes (consolidación de relaciones espaciales y clasificación combinada con observación formativa en cajas limpias a ras de suelo).',
       '     * LENGUAJE CONVERSACIONAL Y JUEGO SIMBÓLICO: Lunes (diálogo sobre vivencias y presentación de muñecos de tela), Martes (sociodrama de roles cotidianos: consultorio médico o cuidado familiar peinando y arropando al muñeco), Miércoles (interacción con títeres o guiñoles respondiendo a preguntas causales «¿por qué?»), Jueves (dramatización de preparar comida o tienda usando cajas limpias y utensilios plásticos), Viernes (ronda cooperativa y expresión de preferencias con muñecos y títeres).',
       '     * EXPRESIÓN ARTÍSTICO-PLÁSTICA: Lunes (garabateo circular amplio con crayones gruesos en pliegos a ras de suelo sobre colchonetas limpias), Martes (dibujo intencionado con asignación de nombre: «Mi dibujo es...»), Miércoles (exploración de formas libres sobre papel a ras de suelo con crayones gruesos; modelado tridimensional con masa casera SOLO si está declarada en el inventario), Jueves (trazos rítmicos libres individuales acompañados de canto acapela; NUNCA mural colectivo), Viernes (mural colectivo a ras de suelo reservado exclusivamente para el cierre semanal, sin fijaciones en pared).',
-      '     * ACTIVACIÓN FÍSICA Y PSICOMOTRICIDAD: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos agachándose a ras de suelo sobre colchonetas limpias sin saltos de impacto), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
+      '     * ACTIVACIÓN FÍSICA Y PSICOMOTRICIDAD: Lunes (marcha con alternancia de ritmos rápido/lento a ras de suelo o imitación lúdica de animalitos con movimientos naturales y cómodos sobre colchonetas limpias, sin posturas forzadas), Martes (desplazamientos coordinados en trayectorias libres sobre colchonetas limpias), Miércoles (lanzar y atrapar pelotas de vinil en parejas a ras de suelo), Jueves (variación motriz lúdica: desplazamientos imitando animalitos sobre colchonetas limpias con pasos seguros y cómodos, sin posturas forzadas ni saltos bruscos), Viernes (circuito sereno a ras de suelo con respiración consciente y retorno a la calma).',
       '     * LECTURA EN VOZ ALTA (5 DINÁMICAS PROGRESIVAS): Lunes (lectura dialogada, portada y anticipación a partir de ilustraciones), Martes (relectura interactiva con preguntas de predicción), Miércoles (diálogo sobre emociones y decisiones de personajes), Jueves (dramatización gestual de pasajes del cuento a ras de suelo), Viernes (recuento participativo y reconstrucción de la secuencia del cuento).',
       '     * HÁBITOS, HIGIENE Y AUTONOMÍA: Lavado y secado autónomo de manos en lavabo bajo con toallero bajo, y hábito formativo de recoger y ordenar la sala («Guardar y ordenar»).',
       '2. COHERENCIA MATERIAL Y UNIDAD PEDAGÓGICA (CERO MATERIALES INVENTADOS):',
@@ -2289,21 +2289,28 @@ export function sanitizeMaternalB1PedagogicalFidelity(
     /\b(?:salt(?:ar|os?|itos?|ando|ados?|atorios?)?|brinc(?:ar|os?|ando|ados?)?)\b/i.test(objective);
 
   if (hasJumping) {
+    // Erradicar fórmulas negativas antes de reemplazos de palabras individuales para evitar «sin desplazamientos»
+    description = description
+      .replace(/\bsin\s+(?:exigir\s+)?(?:saltos?|saltar|brincos?|brincar)(?:\s+(?:de\s+impacto|bruscos?|obligatorios?))?\b/gi, 'con marcha autónoma y segura')
+      .replace(/\bsaltos?\s+obligatorios?\b/gi, 'desplazamiento autónomo a su propio ritmo')
+      .replace(/\bexigir\s+saltar\b/gi, 'invitar a desplazarse libremente a su propio ritmo');
+    objective = objective
+      .replace(/\bsin\s+(?:exigir\s+)?(?:saltos?|saltar|brincos?|brincar)(?:\s+(?:de\s+impacto|bruscos?|obligatorios?))?\b/gi, 'de forma voluntaria y segura');
+
     description = description
       .replace(/\bsaltar\s+adentro\s+de\s+los\s+aros\b/gi, 'pasar caminando o dando un paso amplio sobre las colchonetas limpias')
       .replace(/\bsaltar\s+sobre\s+(?:los\s+)?aros\b/gi, 'avanzar caminando con paso firme a ras de suelo')
-      .replace(/\bsalto\s+obligatorio\b/gi, 'desplazamiento autónomo a su propio ritmo sin saltos')
       .replace(/\bsaltos?\s+(?:bipodales?|continuos?|hacia\s+adelante|voluntarios?|en\s+aros?)\b/gi, 'pasos firmes y desplazamientos a ras de suelo')
       .replace(/\bbrincar\s+dentro\s+del\s+aro\b/gi, 'dar un paso firme a nivel del piso según su ritmo')
       .replace(/\bsaltar\s+los\s+aros\b/gi, 'rodear o pasar con paso amplio sobre los aros en el suelo')
-      .replace(/\b(?:saltando|saltar|brincar|brincando)\s+como\s+ranitas?\b/gi, 'imitando ranitas agachándose y caminando a ras de suelo con paso firme')
-      .replace(/\bimitaci[oó]n\s+(?:motriz\s+)?de\s+ranitas?\s+(?:con\s+|al\s+)?(?:saltar|saltos?|saltando|brincar|brincos?|brincando)\b/gi, 'imitación de ranitas agachándose y caminando a ras de suelo')
+      .replace(/\b(?:saltando|saltar|brincar|brincando)\s+como\s+ranitas?\b/gi, 'imitando los pasos de animalitos sobre colchonetas limpias con pasos cómodos y seguros')
+      .replace(/\bimitaci[oó]n\s+(?:motriz\s+)?de\s+ranitas?\s+(?:con\s+|al\s+)?(?:saltar|saltos?|saltando|brincar|brincos?|brincando)\b/gi, 'imitación lúdica de animalitos caminando sobre colchonetas limpias')
+      .replace(/\bagach[aá]ndose\s+y\s+caminando\s+a\s+ras\s+de\s+suelo\b/gi, 'caminando con pasos cómodos y seguros sobre colchonetas limpias')
       .replace(/\b(?:saltando|brincando)\s+suavemente\b/gi, 'caminando a paso firme a ras de suelo')
       .replace(/\b(?:saltar|brincar)\s+suavemente\b/gi, 'dar un paso amplio a ras de suelo')
       .replace(/\b(?:saltar|brincar)\s+voluntariamente\b/gi, 'avanzar con paso firme a ras de suelo de forma voluntaria')
       .replace(/\b(?:saltos?\s+suaves?|saltitos?|dar\s+saltitos?)\b/gi, 'pasos firmes a ras de suelo')
       .replace(/\bsalt(?:os?|ar)\s+(?:con\s+ambos\s+pies|hacia\s+adelante)\b/gi, 'dar un paso amplio y firme a ras de suelo')
-      .replace(/\bexigir\s+saltar\b/gi, 'invitar a desplazarse libremente a su propio ritmo sin saltos')
       .replace(/\b(?:felicitar|celebrar|reconocer)\s+(?:los\s+)?(?:saltos?|brincos?)\b/gi, 'celebrar los desplazamientos y pasos firmes')
       .replace(/\b(?:despu[eé]s\s+de|al\s+terminar\s+de)\s+(?:saltar|brincar)\b/gi, 'al concluir los desplazamientos sobre colchonetas limpias')
       .replace(/\b(?:si\s+prefieren?\s+no|si\s+no\s+desean?)\s+(?:saltar|brincar)\b/gi, 'si muestran marcha vacilante')
@@ -2318,10 +2325,19 @@ export function sanitizeMaternalB1PedagogicalFidelity(
       .replace(/\bsaltos?\s+(?:bipodales?|continuos?|hacia\s+adelante|voluntarios?|en\s+aros?)\b/gi, 'desplazamientos lúdicos y marcha a ras de suelo')
       .replace(/\bsaltos?\s+suaves?|saltitos?\b/gi, 'desplazamientos lúdicos a ras de suelo')
       .replace(/\b(?:saltando|saltar|brincar)\s+suavemente\b/gi, 'avanzar a paso firme a ras de suelo')
-      .replace(/\b(?:saltando|saltar)\s+como\s+ranitas?\b/gi, 'agacharse y caminar a ras de suelo imitando animalitos')
+      .replace(/\b(?:saltando|saltar)\s+como\s+ranitas?\b/gi, 'caminar sobre colchonetas limpias imitando animalitos')
+      .replace(/\bagacharse\s+y\s+caminar\s+a\s+ras\s+de\s+suelo\s+imitando\s+animalitos\b/gi, 'recrear pasos y sonidos de animalitos de forma cómoda y segura')
       .replace(/\b(?:saltos?|brincos?)\b/gi, 'desplazamientos coordinados')
       .replace(/\b(?:saltar|brincar)\b/gi, 'desplazarse a ras de suelo');
   }
+
+  // Erradicar de forma absoluta la contradicción «a ras de suelo, sin desplazamientos a ras de suelo» (SR-MD-31E)
+  description = description
+    .replace(/\ba\s+ras\s+de\s+suelo[\s,]*(?:y\s+)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, 'a ras de suelo')
+    .replace(/\b(?:,\s*)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
+  objective = objective
+    .replace(/\ba\s+ras\s+de\s+suelo[\s,]*(?:y\s+)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, 'a ras de suelo')
+    .replace(/\b(?:,\s*)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
 
   // 3c. Defecto 3 (SR-MD-29M): Seguridad motriz 25-30 meses (eliminar exigencias de mantener equilibrio forzado)
   if (/\b(?:mantener|guardar|hacer|exigir)\s+(?:el\s+)?equilibrio\b/i.test(description)) {
@@ -3060,13 +3076,59 @@ export function enrichMaternalB1WeeklyProgression(
             );
           }
         } else if (currentIdx >= 4) {
-          // Occurrence 5 (Viernes): Size discrimination (big vs small) and observational consolidation in clean boxes
-          updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en sus cajas correspondientes.';
-          if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
-            updatedDesc = updatedDesc.replace(
-              /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
-              'Desarrollo: Como consolidación semanal, la Asistente observa con atención la autonomía de las niñas y niños al diferenciar tamaños («grande» y «pequeño»), acompañando la iniciativa de clasificar y guardar colaborativamente los bloques dentro de sus cajas de cartón limpias a ras de suelo con alegría.'
-            );
+          if (roomType === 'MATERNAL_C1') {
+            // Occurrence 5 (Viernes): Observational consolidation aligned with actual activity generated (SR-MD-31E)
+            const mathText = `${act.description} ${act.objective}`.toLowerCase();
+            if (/\b(?:colores?|amarill|azul|roj|verde|crom[aá]tic)\b/i.test(mathText)) {
+              updatedObj = 'Observar y consolidar la discriminación visual y la clasificación cromática agrupando bloques grandes por color notorio en cajas limpias.';
+              if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+                updatedDesc = updatedDesc.replace(
+                  /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                  'Desarrollo: Como consolidación semanal, la Asistente observa con atención la autonomía de las niñas y niños al clasificar bloques grandes por color notorio en cajas de cartón limpias a ras de suelo, acompañando su iniciativa con entusiasmo y afecto.'
+                );
+              }
+            } else if (/\b(?:camino|tren|torre|alinear|filas?|espacial|orientaci[oó]n|constru)\b/i.test(mathText)) {
+              updatedObj = 'Observar y consolidar la coordinación visomotriz fina y las nociones espaciales al alinear y apilar bloques grandes a ras de suelo.';
+              if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+                updatedDesc = updatedDesc.replace(
+                  /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                  'Desarrollo: Como consolidación semanal, la Asistente observa con atención y registra la coordinación de cada niña y niño al alinear y apilar bloques grandes a ras de suelo, respetando sus construcciones e iniciativas espontáneas.'
+                );
+              }
+            } else if (/\b(?:correspondencia|uno\s+a\s+uno|contar|conteo|continente|adentro|meter)\b/i.test(mathText)) {
+              updatedObj = 'Observar y consolidar la correspondencia uno a uno y la noción de continente colocando bloques dentro de cajas de cartón limpias.';
+              if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+                updatedDesc = updatedDesc.replace(
+                  /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                  'Desarrollo: Como consolidación semanal, la Asistente observa y registra la noción de continente y correspondencia uno a uno cuando las niñas y niños colocan bloques dentro de cajas de cartón limpias a ras de suelo a su propio ritmo.'
+                );
+              }
+            } else if (/\b(?:tamaño|grande|pequeñ|chico|mediano|seriaci[oó]n)\b/i.test(mathText)) {
+              updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en sus cajas correspondientes.';
+              if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+                updatedDesc = updatedDesc.replace(
+                  /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                  'Desarrollo: Como consolidación semanal, la Asistente observa con atención la autonomía de las niñas y niños al diferenciar tamaños («grande» y «pequeño»), acompañando la iniciativa de clasificar y guardar colaborativamente los bloques dentro de sus cajas de cartón limpias a ras de suelo con alegría.'
+                );
+              }
+            } else {
+              updatedObj = 'Observar y consolidar la autonomía y coordinación en el juego estructurado con bloques grandes y cajas de cartón limpias a ras de suelo.';
+              if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+                updatedDesc = updatedDesc.replace(
+                  /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                  'Desarrollo: Como consolidación semanal, la Asistente observa y registra con calidez la autonomía y destreza en el juego con bloques grandes y cajas de cartón limpias a ras de suelo, favoreciendo la cooperación espontánea.'
+                );
+              }
+            }
+          } else {
+            // Maternal B1 / B2: Size discrimination (big vs small) and observational consolidation in clean boxes
+            updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en sus cajas correspondientes.';
+            if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+              updatedDesc = updatedDesc.replace(
+                /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+                'Desarrollo: Como consolidación semanal, la Asistente observa con atención la autonomía de las niñas y niños al diferenciar tamaños («grande» y «pequeño»), acompañando la iniciativa de clasificar y guardar colaborativamente los bloques dentro de sus cajas de cartón limpias a ras de suelo con alegría.'
+              );
+            }
           }
         }
         const updatedAct = { ...act, objective: updatedObj, description: updatedDesc };
@@ -3235,12 +3297,12 @@ export function enrichMaternalB1WeeklyProgression(
             );
           }
         } else if (currentIdx === 3) {
-          // Occurrence 4 (Jueves — Defecto 2): Animal movement imitation at floor level without jumping
-          updatedObj = 'Desarrollar la agilidad motriz y el juego imitativo desplazándose como animalitos a ras de suelo agachándose sin saltos.';
+          // Occurrence 4 (Jueves — SR-MD-31E): Animal movement imitation at floor level without forced postures or jumping
+          updatedObj = 'Desarrollar la coordinación motriz y el juego imitativo recreando pasos y sonidos de animalitos sobre colchonetas limpias con movimientos cómodos y seguros.';
           if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
             updatedDesc = updatedDesc.replace(
               /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
-              'Desarrollo: La Asistente propone imitar a nivel de suelo los pasos de ranitas u ositos sobre las colchonetas limpias agachándose y caminando a paso firme sin saltos, permitiendo que cada niña y niño avance a su propio ritmo con pausas libres.'
+              'Desarrollo: La Asistente propone recrear a ras de suelo los pasos y sonidos de animalitos sobre las colchonetas limpias con pasos cómodos y seguros, permitiendo que cada niña y niño avance a su propio ritmo con pausas espontáneas sin posturas forzadas.'
             );
           }
         } else if (currentIdx >= 4) {
@@ -3588,11 +3650,11 @@ export function enrichMaternalB1WeeklyProgression(
               );
             }
           } else if (bothMotor) {
-            updatedObj = 'Desarrollar la agilidad motriz y el juego imitativo desplazándose como animalitos a ras de suelo agachándose con paso firme sin saltos.';
+            updatedObj = 'Desarrollar la coordinación motriz y el juego imitativo recreando pasos y sonidos de animalitos sobre colchonetas limpias con movimientos cómodos y seguros.';
             if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
               updatedDesc = updatedDesc.replace(
                 /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
-                'Desarrollo: La Asistente propone imitar a ras de suelo los pasos de animalitos sobre colchonetas limpias agachándose y avanzando con paso firme sin saltos, permitiendo que cada niña y niño avance a su propio ritmo con pausas libres.'
+                'Desarrollo: La Asistente propone imitar a ras de suelo los pasos y sonidos de animalitos sobre colchonetas limpias con pasos cómodos y seguros, permitiendo que cada niña y niño avance a su propio ritmo con pausas espontáneas sin posturas forzadas.'
               );
             }
             if (/\bCierre:\s*/i.test(updatedDesc)) {
@@ -3624,17 +3686,133 @@ export function enrichMaternalB1WeeklyProgression(
     };
   });
 
-  // SR-MD-30C & SR-MD-31C: Progresión auténtica Jueves–Viernes y Diversidad de mural
-  // - Evitar que jueves y viernes repitan literalmente el mural colectivo (mural reservado para viernes).
-  // - Reservar el cierre observacional semanal para el viernes. El jueves debe ofrecer una variación pedagógica real.
+  // SR-MD-30C, SR-MD-31C & SR-MD-31E: Progresión auténtica, diferenciación cross-day y consolidación viernes
   if (diversifiedDays.length >= 5) {
+    const mondayDay = diversifiedDays[0];
+    const tuesdayDay = diversifiedDays[1];
+    const wednesdayDay = diversifiedDays[2];
     const thursdayDay = diversifiedDays[3];
     const fridayDay = diversifiedDays[4];
+
+    // Item 2 (SR-MD-31E): Lunes — Coherencia de imitación de animales sin movimientos forzados ni agachados
+    if (mondayDay) {
+      mondayDay.activities = mondayDay.activities.map((mondayAct) => {
+        let updatedObj = mondayAct.objective;
+        let updatedDesc = mondayAct.description;
+        if (/\b(?:animal(?:es|itos)?|ranitas?)\b/i.test(`${updatedDesc} ${updatedObj}`)) {
+          updatedObj = updatedObj
+            .replace(/\bagach[aá]ndose\s+y\s+caminando\b/gi, 'caminando con pasos cómodos y seguros')
+            .replace(/\bagach[aá]ndose\b/gi, 'con movimientos cómodos y seguros')
+            .replace(/\ben\s+cuclillas\b/gi, 'sobre colchonetas limpias')
+            .replace(/\bsin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
+          updatedDesc = updatedDesc
+            .replace(/\bagach[aá]ndose\s+y\s+caminando\s+a\s+ras\s+de\s+suelo\b/gi, 'caminando con pasos cómodos y seguros sobre colchonetas limpias')
+            .replace(/\bagach[aá]ndose\s+y\s+avanzando\b/gi, 'avanzando con pasos cómodos y seguros')
+            .replace(/\bagach[aá]ndose\b/gi, 'con movimientos cómodos y naturales')
+            .replace(/\ben\s+cuclillas\b/gi, 'a ras de suelo sobre colchonetas limpias')
+            .replace(/\bsin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
+        }
+        return {
+          ...mondayAct,
+          objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+          description: cleanDuplicatePedagogicalPhrases(updatedDesc),
+        };
+      });
+    }
+
+    // Item 3 (SR-MD-31E): Diferenciación real de exploración sensorial Martes vs Jueves respetando materiales disponibles
+    if (tuesdayDay && thursdayDay) {
+      const isSensory = (act: WeeklyPlanningActivityProposal) =>
+        /\b(?:sensorial|texturas?|percepci[oó]n\s+t[aá]ctil|exploraci[oó]n\s+(?:de\s+)?texturas?|t[aá]ctil)\b/i.test(`${act.description} ${act.objective}`);
+      const tuesdaySensory = tuesdayDay.activities.find((a) => isSensory(a));
+      const thursdaySensoryIdx = thursdayDay.activities.findIndex((a) => isSensory(a));
+
+      if (tuesdaySensory && thursdaySensoryIdx !== -1) {
+        const thursdaySensory = thursdayDay.activities[thursdaySensoryIdx];
+        const updatedObj = 'Favorecer la discriminación sensorial visual y rítmica explorando contrastes de color con crayones gruesos y ritmos suaves sobre colchonetas limpias.';
+        let updatedDesc = thursdaySensory.description;
+        if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+            'Desarrollo: Durante la sesión del jueves, la Asistente propone explorar contrastes sensoriales visuales y auditivos, combinando trazos suaves y enérgicos con crayones gruesos de distintos colores sobre pliegos de papel bond a ras de suelo al compás de rimas y palmadas pausadas, permitiendo que cada niña y niño experimente la intensidad visual y sonora a su propio ritmo.'
+          );
+        }
+        if (/\bCierre:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
+            'Cierre: Admirar los contrastes de colores logrados sobre las colchonetas limpias y guardar los crayones en su caja limpia a ras de suelo.'
+          );
+        }
+        if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
+            'Adaptaciones: Acompañar el ritmo con suavidad para quienes muestren mayor sensibilidad sonora y ofrecer crayones ergonómicos.'
+          );
+        }
+        thursdayDay.activities[thursdaySensoryIdx] = {
+          ...thursdaySensory,
+          objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+          description: cleanDuplicatePedagogicalPhrases(updatedDesc),
+        };
+      }
+    }
+
+    // Item 4 (SR-MD-31E): Viernes con finalidad de observación o consolidación diferente de la actividad de láminas de animales del Miércoles
+    if (wednesdayDay && fridayDay) {
+      const isAnimalCards = (act: WeeklyPlanningActivityProposal) =>
+        /\b(?:l[aá]minas?\s+(?:ilustradas?\s+)?(?:de\s+)?animal(?:es|itos)?|tarjetas?\s+(?:de\s+)?animal(?:es|itos)?|l[aá]minas?\s+de\s+animales)\b/i.test(`${act.description} ${act.objective}`);
+      const wednesdayAnimalCards = wednesdayDay.activities.find((a) => isAnimalCards(a));
+      const fridayAnimalCardsIdx = fridayDay.activities.findIndex((a) => isAnimalCards(a));
+
+      if (wednesdayAnimalCards && fridayAnimalCardsIdx !== -1) {
+        const fridayAnimalAct = fridayDay.activities[fridayAnimalCardsIdx];
+        const updatedObj = 'Observar y consolidar la expresión oral y la comunicación afectiva en un círculo compartido, expresando preferencias sobre las vivencias y personajes de la semana.';
+        let updatedDesc = fridayAnimalAct.description;
+        if (/\bInicio:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bInicio:\s*[\s\S]*?(?=\s*(?:\bDesarrollo:|\bCierre:|\bAdaptaci[oó]n|$))/i,
+            'Inicio: La Asistente reúne al grupo en círculo sobre colchonetas limpias y presenta al muñeco de tela para abrir la ronda de diálogo afectuoso.\n'
+          );
+        }
+        if (/\bDesarrollo:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
+            'Desarrollo: Como consolidación semanal, la Asistente observa con atención y registra la autonomía expresiva de cada niña y niño mientras comparten verbalmente o mediante gestos sus momentos y personajes favoritos de la semana, propiciando el diálogo respetuoso y la toma de turnos espontánea sin recurrir a láminas repetitivas.'
+          );
+        }
+        if (/\bCierre:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
+            'Cierre: Despedir la semana con un abrazo grupal al muñeco de tela y una ronda de aplausos afectuosos sobre las colchonetas limpias.'
+          );
+        }
+        if (/\bAdaptaci[oó]n(?:es)?:\s*/i.test(updatedDesc)) {
+          updatedDesc = updatedDesc.replace(
+            /\bAdaptaci[oó]n(?:es)?:\s*[\s\S]*$/i,
+            'Adaptaciones: Respetar las pausas y respuestas gestuales de quienes están afianzando el lenguaje verbal, modelando con preguntas abiertas afectuosas.'
+          );
+        }
+        fridayDay.activities[fridayAnimalCardsIdx] = {
+          ...fridayAnimalAct,
+          objective: cleanDuplicatePedagogicalPhrases(updatedObj),
+          description: cleanDuplicatePedagogicalPhrases(updatedDesc),
+        };
+      }
+    }
+
     if (thursdayDay && fridayDay) {
       // 1. Jueves: sustituir mural colectivo por trazos rítmicos individuales y eliminar cierre observacional anticipado
       thursdayDay.activities = thursdayDay.activities.map((thursdayAct) => {
         let updatedObj = thursdayAct.objective;
         let updatedDesc = thursdayAct.description;
+
+        // Item 1 (SR-MD-31E): Erradicar contradicción «a ras de suelo, sin desplazamientos a ras de suelo»
+        updatedObj = updatedObj
+          .replace(/\ba\s+ras\s+de\s+suelo[\s,]*(?:y\s+)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, 'a ras de suelo')
+          .replace(/\b(?:,\s*)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
+        updatedDesc = updatedDesc
+          .replace(/\ba\s+ras\s+de\s+suelo[\s,]*(?:y\s+)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, 'a ras de suelo')
+          .replace(/\b(?:,\s*)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
 
         // Erradicar mural colectivo en jueves
         if (/\b(?:mural\s+colectivo|mural|dibujo\s+colectivo)\b/i.test(updatedDesc) || /\b(?:mural\s+colectivo|mural|dibujo\s+colectivo)\b/i.test(updatedObj)) {
@@ -3706,13 +3884,58 @@ export function enrichMaternalB1WeeklyProgression(
               /\bDesarrollo:\s*[\s\S]*?(?=\s*(?:\bCierre:|\bAdaptaci[oó]n|$))/i,
               'Desarrollo: En la sesión de consolidación semanal, la Asistente observa con atención y registra la autonomía e iniciativa de cada niña y niño durante la actividad, fomentando que elijan sus propios recursos y compartan sus descubrimientos de forma cooperativa sin prisas.'
             );
-            if (/\bCierre:\s*/i.test(updatedDesc)) {
-              updatedDesc = updatedDesc.replace(
-                /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
-                'Cierre: Celebrar colectivamente los logros semanales con una ronda de aplausos afectuosos y guardar juntos los materiales en sus cajas limpias a ras de suelo.'
-              );
-            }
           }
+        }
+
+        const isMathAct =
+          fridayAct.category === 'PENSAMIENTO MATEMÁTICO' ||
+          /\b(?:bloques?|clasific|agrup|contar|conteo|correspondencia|seriaci[oó]n|torre|camino|tren)\b/i.test(`${updatedDesc} ${updatedObj}`);
+
+        // Item 5 (SR-MD-31E): Alinear el objetivo de observación matemática del viernes con la actividad efectivamente generada
+        if (roomType === 'MATERNAL_C1' && isMathAct) {
+          const isSizeFocus = /\b(?:por\s+tamaño|grandes?\s+y\s+pequeños?|separar\s+los\s+grandes|diferenciar\s+tamaños?|seriaci[oó]n\s+de\s+tamaños?)\b/i.test(updatedDesc);
+          const isColorFocus = /\b(?:colores?|amarill|azul|roj|verde|crom[aá]tic)\b/i.test(updatedDesc);
+          const isSpatialFocus = /\b(?:camino|tren|torre|alinear|filas?|espacial|orientaci[oó]n|constru)\b/i.test(updatedDesc);
+          const isCorrespondenceFocus = /\b(?:correspondencia|uno\s+a\s+uno|contar|conteo|continente|adentro|meter)\b/i.test(updatedDesc);
+
+          if (isColorFocus && !isSizeFocus) {
+            updatedObj = 'Observar y consolidar la discriminación visual y la clasificación cromática agrupando bloques grandes por color notorio en cajas limpias.';
+          } else if (isSpatialFocus && !isSizeFocus) {
+            updatedObj = 'Observar y consolidar la coordinación visomotriz fina y las nociones espaciales al alinear y apilar bloques grandes a ras de suelo.';
+          } else if (isCorrespondenceFocus && !isSizeFocus) {
+            updatedObj = 'Observar y consolidar la correspondencia uno a uno y la noción de continente colocando bloques dentro de cajas de cartón limpias.';
+          } else if (isSizeFocus) {
+            updatedObj = 'Observar y consolidar la discriminación perceptual por tamaño agrupando bloques grandes y pequeños en sus cajas correspondientes.';
+          } else if (!/\b(?:observar\s+y\s+consolidar|observar\s+la\s+consolidaci[oó]n)\b/i.test(updatedObj)) {
+            updatedObj = 'Observar y consolidar la autonomía y coordinación en el juego estructurado con bloques grandes y cajas de cartón limpias a ras de suelo.';
+          }
+        }
+
+        // Item 6 (SR-MD-31E): Reducir cierres repetitivos en viernes
+        const hasRepetitiveOrGenericClosure =
+          /\bCelebrar\s+colectivamente\s+los\s+logros\s+semanales\s+con\s+una\s+ronda\s+de\s+aplausos\b/i.test(updatedDesc) ||
+          /\b(?:aplaudir\s+y\s+)?cantar\s+una\s+rima\s+breve(?:\s+de\s+orden)?\s+para\s+guardar\b/i.test(updatedDesc);
+
+        if (hasRepetitiveOrGenericClosure && /\bCierre:\s*/i.test(updatedDesc)) {
+          let fridayClosure: string;
+          const descLower = updatedDesc.toLowerCase();
+          if (fridayAct.category === 'LECTURA EN VOZ ALTA' || /\b(?:cuento|libro|lectura)\b/i.test(descLower)) {
+            fridayClosure = 'Cierre: Cerrar el libro con cariño, despedir a los personajes con un gesto de la mano y acomodarlo en el canasto a ras de suelo.';
+          } else if (isMathAct) {
+            fridayClosure = 'Cierre: Admirar con alegría las figuras construidas o clasificadas y guardar los bloques en sus cajas de cartón limpias a ras de suelo.';
+          } else if (fridayAct.category === 'EXPERIENCIAS ARTÍSTICAS' || /\b(?:cray[oó]n|dibuj|mural)\b/i.test(descLower)) {
+            fridayClosure = 'Cierre: Admirar colectivamente el mural y los trazos compartidos sobre colchonetas limpias y guardar los crayones en su caja limpia.';
+          } else if (fridayAct.category === 'ACTIVACIÓN FÍSICA' || /\b(?:circuito|marcha|colchoneta)\b/i.test(descLower)) {
+            fridayClosure = 'Cierre: Sentarse en colchonetas limpias en círculo, respirar serenamente con palmadas suaves en los muslos y relajarse al compás de un canto suave.';
+          } else if (/\b(?:muñec|beb[eé]|roles)\b/i.test(descLower)) {
+            fridayClosure = 'Cierre: Abrazar al muñeco de tela con ternura, arroparlo con suavidad y acomodarlo en su canasta de descanso.';
+          } else {
+            fridayClosure = 'Cierre: Guardar colaborativamente los materiales en sus cajas limpias a ras de suelo con una sonrisa de satisfacción compartida.';
+          }
+          updatedDesc = updatedDesc.replace(
+            /\bCierre:\s*[\s\S]*?(?=\s*(?:\bAdaptaci[oó]n|$))/i,
+            `${fridayClosure}\n`
+          );
         }
 
         return {
@@ -3874,6 +4097,17 @@ export function cleanDuplicatePedagogicalPhrases(text: string): string {
   s = s.replace(/\b(?:explorar|tocar|sentir)\s+(?:las\s+)?texturas\s+(?:del?\s+)?(?:cuento|libro|p[aá]ginas)\b/gi, 'tocar y hojear las páginas del cuento');
   s = s.replace(/\btexturas\s+(?:del?\s+)?(?:cuento|libro|de\s+Spot)\b/gi, 'páginas y solapas del cuento');
   s = s.replace(/\btexturas\s+del?\s+cart[oó]n\b/gi, 'cubiertas de cartón grueso');
+
+  // 5c. SR-MD-31E: Grammatical cleanup, eradicate awkward contradictions and mid-sentence capitalizations
+  s = s.replace(/\ba\s+ras\s+de\s+suelo[\s,]*(?:y\s+)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, 'a ras de suelo');
+  s = s.replace(/\b(?:,\s*)?sin\s+desplazamientos(?:\s+a\s+ras\s+de\s+suelo)?\b/gi, '');
+  s = s.replace(/\b(en|de|sobre|a|con|para)\s+\1\b/gi, '$1');
+  s = s.replace(/(?:,\s*)La Asistente\b/g, ', la Asistente');
+  s = s.replace(/\bDe forma voluntaria y supervisada a ras de suelo,\s*La Asistente\b/g, 'De forma voluntaria y supervisada a ras de suelo, la Asistente');
+  s = s.replace(/\b(de\s+forma\s+voluntaria(?:\s+y\s+supervisada)?)(?:\s*,?\s*de\s+forma\s+voluntaria(?:\s+y\s+supervisada)?)+\b/gi, '$1');
+  s = s.replace(/\bagach[aá]ndose\s+y\s+caminando\s+a\s+ras\s+de\s+suelo\b/gi, 'caminando con pasos cómodos y seguros sobre colchonetas limpias');
+  s = s.replace(/\bagach[aá]ndose\s+con\s+paso\s+firme\b/gi, 'con pasos cómodos y seguros');
+  s = s.replace(/\ben\s+cuclillas\b/gi, 'a ras de suelo');
 
   // 6. Clean extra spaces
   s = s.replace(/[ \t]{2,}/g, ' ');
