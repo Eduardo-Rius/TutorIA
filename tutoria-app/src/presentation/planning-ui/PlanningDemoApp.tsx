@@ -333,7 +333,9 @@ export function readPersistedSelectedRoom(
       (candidate === 'maternal-b2' && r.roomId === 'room-maternal-b2') ||
       (candidate === 'room-maternal-b2' && r.roomId === 'maternal-b2') ||
       (candidate === 'maternal-c1' && r.roomId === 'room-maternal-c1') ||
-      (candidate === 'room-maternal-c1' && r.roomId === 'maternal-c1')
+      (candidate === 'room-maternal-c1' && r.roomId === 'maternal-c1') ||
+      (candidate === 'maternal-c2' && r.roomId === 'room-maternal-c2') ||
+      (candidate === 'room-maternal-c2' && r.roomId === 'maternal-c2')
     );
     if (!isAuthorized) {
       clearPersistedSelectedRoom(userId, daycareId);
@@ -358,6 +360,9 @@ export function readPersistedSelectedRoom(
   }
   if (candidate === 'maternal-c1' && authorizedRooms?.some(r => r.roomId === 'room-maternal-c1')) {
     return 'room-maternal-c1';
+  }
+  if (candidate === 'maternal-c2' && authorizedRooms?.some(r => r.roomId === 'room-maternal-c2')) {
+    return 'room-maternal-c2';
   }
 
   return candidate;
@@ -659,6 +664,12 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         minAgeMonths: 37,
         maxAgeMonths: 42,
       },
+      RoomCatalog.getRoom('room-maternal-c2') || {
+        roomId: 'room-maternal-c2',
+        name: 'Maternal C2',
+        minAgeMonths: 43,
+        maxAgeMonths: 48,
+      },
     ];
     if (roomOverride && !list.some(r => r.roomId === roomOverride.roomId)) {
       list.push(roomOverride);
@@ -708,6 +719,9 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       if (userSelectedRoomId === 'room-maternal-c1' || userSelectedRoomId === 'maternal-c1') {
         return { roomId: 'room-maternal-c1', name: 'Maternal C1', minAgeMonths: 37, maxAgeMonths: 42 };
       }
+      if (userSelectedRoomId === 'room-maternal-c2' || userSelectedRoomId === 'maternal-c2') {
+        return { roomId: 'room-maternal-c2', name: 'Maternal C2', minAgeMonths: 43, maxAgeMonths: 48 };
+      }
     }
     if (firstLightGuard.isEligible) {
       return (
@@ -756,7 +770,9 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
       (targetRoomId === 'room-maternal-b2' && r.roomId === 'maternal-b2') ||
       (targetRoomId === 'maternal-b2' && r.roomId === 'room-maternal-b2') ||
       (targetRoomId === 'room-maternal-c1' && r.roomId === 'maternal-c1') ||
-      (targetRoomId === 'maternal-c1' && r.roomId === 'room-maternal-c1')
+      (targetRoomId === 'maternal-c1' && r.roomId === 'room-maternal-c1') ||
+      (targetRoomId === 'room-maternal-c2' && r.roomId === 'maternal-c2') ||
+      (targetRoomId === 'maternal-c2' && r.roomId === 'room-maternal-c2')
     );
     if (!isAuthorized) return;
 
@@ -2291,7 +2307,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   const evaluationTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const planRoomId = (planningObj as any)?.roomId || (planId ? canonicalPlan?.roomId : undefined);
-  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined) || (planRoomId === 'room-maternal-a' || planRoomId === 'maternal-a' ? { roomId: 'room-maternal-a', name: 'Maternal A', minAgeMonths: 19, maxAgeMonths: 24 } : undefined) || (planRoomId === 'room-maternal-b1' || planRoomId === 'maternal-b1' ? { roomId: 'room-maternal-b1', name: 'Maternal B1', minAgeMonths: 25, maxAgeMonths: 30 } : undefined) || (planRoomId === 'room-maternal-b2' || planRoomId === 'maternal-b2' ? { roomId: 'room-maternal-b2', name: 'Maternal B2', minAgeMonths: 31, maxAgeMonths: 36 } : undefined) || (planRoomId === 'room-maternal-c1' || planRoomId === 'maternal-c1' ? { roomId: 'room-maternal-c1', name: 'Maternal C1', minAgeMonths: 37, maxAgeMonths: 42 } : undefined)))
+  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined) || (planRoomId === 'room-maternal-a' || planRoomId === 'maternal-a' ? { roomId: 'room-maternal-a', name: 'Maternal A', minAgeMonths: 19, maxAgeMonths: 24 } : undefined) || (planRoomId === 'room-maternal-b1' || planRoomId === 'maternal-b1' ? { roomId: 'room-maternal-b1', name: 'Maternal B1', minAgeMonths: 25, maxAgeMonths: 30 } : undefined) || (planRoomId === 'room-maternal-b2' || planRoomId === 'maternal-b2' ? { roomId: 'room-maternal-b2', name: 'Maternal B2', minAgeMonths: 31, maxAgeMonths: 36 } : undefined) || (planRoomId === 'room-maternal-c1' || planRoomId === 'maternal-c1' ? { roomId: 'room-maternal-c1', name: 'Maternal C1', minAgeMonths: 37, maxAgeMonths: 42 } : undefined) || (planRoomId === 'room-maternal-c2' || planRoomId === 'maternal-c2' ? { roomId: 'room-maternal-c2', name: 'Maternal C2', minAgeMonths: 43, maxAgeMonths: 48 } : undefined)))
     || activeRoom
     || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
     || RoomCatalog.getRoom('room-lactantes-c')

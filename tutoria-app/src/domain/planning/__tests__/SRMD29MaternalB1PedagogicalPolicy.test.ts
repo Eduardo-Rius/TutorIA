@@ -52,9 +52,9 @@ describe('SR-MD-29 — Política Pedagógica e Integración de IA para Maternal 
       expect(roomFromAlias?.maxAgeMonths).toBe(30);
     });
 
-    it('el catálogo canónico contiene exactamente 7 salas autorizadas: Lactantes A, B, C, Maternal A, Maternal B1, Maternal B2 y Maternal C1 (SR-MD-31)', () => {
+    it('el catálogo canónico contiene exactamente 8 salas autorizadas: Lactantes A, B, C, Maternal A, Maternal B1, Maternal B2, Maternal C1 y Maternal C2 (SR-MD-32)', () => {
       const allRooms = RoomCatalog.getAllRooms();
-      expect(allRooms).toHaveLength(7);
+      expect(allRooms).toHaveLength(8);
       expect(allRooms.map((r) => r.roomId)).toEqual([
         'lactantes-c',
         'room-lactantes-a',
@@ -63,6 +63,7 @@ describe('SR-MD-29 — Política Pedagógica e Integración de IA para Maternal 
         'room-maternal-b1',
         'room-maternal-b2',
         'room-maternal-c1',
+        'room-maternal-c2',
       ]);
     });
   });
@@ -102,7 +103,7 @@ describe('SR-MD-29 — Política Pedagógica e Integración de IA para Maternal 
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B2')).toBe(true);
 
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C1')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C2')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C2')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('PREESCOLAR_1')).toBe(false);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('UNKNOWN')).toBe(false);
     });

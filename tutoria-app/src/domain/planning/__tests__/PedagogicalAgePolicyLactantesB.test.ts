@@ -153,10 +153,10 @@ describe('ORDEN SR-MD-14-H — FASE 1: Política Pedagógica Lactantes B (7–12
       expect(policyByName).toBe(LACTANTES_B_AGE_POLICY);
     });
 
-    it('el catálogo contiene las políticas autorizadas de Lactantes A, Lactantes B, Lactantes C, Maternal A, Maternal B1, Maternal B2 y Maternal C1 (SR-MD-31)', () => {
+    it('el catálogo contiene las políticas autorizadas de Lactantes A, Lactantes B, Lactantes C, Maternal A, Maternal B1, Maternal B2, Maternal C1 y Maternal C2 (SR-MD-32)', () => {
       const allPolicies = PedagogicalAgePolicyCatalog.getAllPolicies();
-      expect(allPolicies).toHaveLength(7);
-      expect(allPolicies.map(p => p.roomType)).toEqual(['LACTANTES_A', 'LACTANTES_B', 'LACTANTES_C', 'MATERNAL_A', 'MATERNAL_B1', 'MATERNAL_B2', 'MATERNAL_C1']);
+      expect(allPolicies).toHaveLength(8);
+      expect(allPolicies.map(p => p.roomType)).toEqual(['LACTANTES_A', 'LACTANTES_B', 'LACTANTES_C', 'MATERNAL_A', 'MATERNAL_B1', 'MATERNAL_B2', 'MATERNAL_C1', 'MATERNAL_C2']);
     });
   });
 

@@ -59,9 +59,9 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
       expect(roomFromAlias?.maxAgeMonths).toBe(36);
     });
 
-    it('el catálogo canónico contiene exactamente 7 salas autorizadas sin duplicados (SR-MD-31)', () => {
+    it('el catálogo canónico contiene exactamente 8 salas autorizadas sin duplicados (SR-MD-32)', () => {
       const allRooms = RoomCatalog.getAllRooms();
-      expect(allRooms).toHaveLength(7);
+      expect(allRooms).toHaveLength(8);
       expect(allRooms.map((r) => r.roomId)).toEqual([
         'lactantes-c',
         'room-lactantes-a',
@@ -70,6 +70,7 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
         'room-maternal-b1',
         'room-maternal-b2',
         'room-maternal-c1',
+        'room-maternal-c2',
       ]);
     });
   });
@@ -107,7 +108,7 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B1')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C1')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C2')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C2')).toBe(true);
     });
 
     it('define política de densidad y duración recomendada para Maternal B2', () => {
