@@ -2137,6 +2137,200 @@ describe('SR-MD-31 — Política Pedagógica e Integración de IA para Maternal 
       expect(sanitized.materials).toContain('colchonetas limpias');
     });
   });
+
+  // =========================================================================
+  // 13. VERIFICACIÓN TÉCNICA SR-MD-31M — CIERRE FOCALIZADO DE MATERNAL C1
+  // =========================================================================
+  describe('13. Verificación Técnica SR-MD-31M — Cierre Focalizado de Maternal C1', () => {
+    const table = createRequestScopedMaterialTable(
+      'bloques grandes de plástico lavable, cuentos infantiles de Spot, muñecos de tela, pelotas de vinil, pelotas medianas de vinil, aros plásticos grandes, colchonetas limpias, crayones gruesos de cera, cajas de cartón limpias, pliegos de papel bond, recipientes limpios, telas limpias con texturas variadas, títeres de tela'
+    );
+
+    it('Defecto 1: EXP-D3-A4 — Elimina cajas de cartón si no participan en seriación y conserva recipientes utilizados', () => {
+      const seriationAct = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Favorecer el pensamiento lógico y las relaciones de orden mediante seriación simple de 3 tamaños en recipientes limpios.',
+        description:
+          'Inicio: La Asistente coloca recipientes limpios sobre colchonetas limpias y ofrece bloques de 3 tamaños.\nDesarrollo: Cada niña y niño ordena bloques por tamaño (grande, mediano, pequeño) colocándolos en sus recipientes limpios.\nCierre: Admirar el orden de los recipientes y guardar con cuidado.\nAdaptaciones: Modelar la seriación.',
+        materials: ['bloques grandes de plástico lavable', 'recipientes limpios', 'cajas de cartón limpias', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(seriationAct as any, table, 'MATERNAL_C1');
+      expect(sanitized.materials).not.toContain('cajas de cartón limpias');
+      expect(sanitized.materials).toContain('recipientes limpios');
+      expect(sanitized.materials).toContain('bloques grandes de plástico lavable');
+      expect(sanitized.materials).toContain('colchonetas limpias');
+
+      // Verificación en enrichMaternalB1WeeklyProgression para Miércoles
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...seriationAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...seriationAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...seriationAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...seriationAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...seriationAct }] },
+      ];
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedWed = enriched[2].activities[0];
+      expect(enrichedWed.materials).not.toContain('cajas de cartón limpias');
+      expect(enrichedWed.materials).toContain('recipientes limpios');
+    });
+
+    it('Defecto 2: EXP-D4-A3 — Corrige objetivo incompleto «sobre limpias» describiendo desplazamientos voluntarios, seguros y a ras de suelo', () => {
+      const truncatedThursdayAct = {
+        category: 'ACTIVACIÓN FÍSICA' as const,
+        objective: 'Promover la coordinación motriz y la autonomía corporal mediante desplazamientos sobre limpias.',
+        description:
+          'Inicio: Sentados en colchonetas.\nDesarrollo: Desplazamientos lúdicos sobre limpias a su propio paso.\nCierre: Respiración suave sobre colchonetas limpias.\nAdaptaciones: Acompañar.',
+        materials: ['colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(truncatedThursdayAct as any, table, 'MATERNAL_C1');
+      expect(sanitized.objective).not.toContain('sobre limpias');
+      expect(sanitized.objective).toContain('desplazamientos voluntarios, seguros y a ras de suelo sobre colchonetas limpias');
+      expect(sanitized.description).not.toContain('sobre limpias');
+      expect(sanitized.description).toContain('a ras de suelo sobre colchonetas limpias');
+
+      // Verificación en enrichMaternalB1WeeklyProgression para Jueves
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...truncatedThursdayAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...truncatedThursdayAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...truncatedThursdayAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...truncatedThursdayAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...truncatedThursdayAct }] },
+      ];
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const enrichedThu = enriched[3].activities[0];
+      expect(enrichedThu.objective).not.toContain('sobre limpias');
+      expect(enrichedThu.objective).toContain('desplazamientos voluntarios, seguros y a ras de suelo sobre colchonetas limpias');
+    });
+
+    it('Defecto 3: EXP-D5-A2 — Precisa cómo se conforma el mural colectivo con los dibujos existentes con materiales efectivamente disponibles', () => {
+      const fridayMuralRaw = {
+        category: 'EXPERIENCIAS ARTÍSTICAS' as const,
+        objective: 'Mural colectivo.',
+        description:
+          'Inicio: Pliegos.\nDesarrollo: Dibujar mural.\nCierre: Admirar.\nAdaptaciones: Apoyo.',
+        materials: ['pliegos de papel bond', 'crayones gruesos de cera', 'pegamento', 'cinta adhesiva', 'cajas de cartón limpias'],
+        durationMinutes: 20,
+      };
+
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...fridayMuralRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...fridayMuralRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const fridayArt = enriched[4].activities[0];
+
+      // Describe cómo se conforma el mural colectivo con dibujos existentes
+      expect(fridayArt.description).toMatch(/reunir\s+y\s+extender(?:\s+sobre\s+ellas)?\s+sus\s+producciones\s+y\s+dibujos\s+elaborados\s+durante\s+la\s+semana/i);
+      expect(fridayArt.description).toMatch(/colocar\s+juntos\s+sus\s+dibujos\s+elaborados\s+durante\s+la\s+semana\s+a\s+ras\s+de\s+suelo\s+sobre\s+colchonetas\s+limpias/i);
+      expect(fridayArt.description).toMatch(/sin\s+requerir\s+pegamento\s+ni\s+(?:elementos\s+de\s+)?fijaci[oó]n/i);
+
+      // Materiales estrictamente autorizados y disponibles
+      expect(fridayArt.materials).toContain('crayones gruesos de cera');
+      expect(fridayArt.materials).toContain('colchonetas limpias');
+      expect(fridayArt.materials.some((m) => /papel|dibujos\s+existentes/i.test(m))).toBe(true);
+      expect(fridayArt.materials).not.toContain('pegamento');
+      expect(fridayArt.materials).not.toContain('cinta adhesiva');
+      expect(fridayArt.materials).not.toContain('cajas de cartón limpias');
+    });
+
+    it('Defecto 4: EXP-D5-A3 — Convierte el circuito en una experiencia concreta describiendo recorrido y acciones sin obstáculos', () => {
+      const fridayCircuitRaw = {
+        category: 'ACTIVACIÓN FÍSICA' as const,
+        objective: 'Circuito sereno.',
+        description:
+          'Inicio: Colchonetas.\nDesarrollo: Caminar en circuito.\nCierre: Descanso.\nAdaptaciones: Ayudar.',
+        materials: ['colchonetas limpias', 'conos plásticos', 'cajas de cartón limpias', 'obstáculos'],
+        durationMinutes: 20,
+      };
+
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...fridayCircuitRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...fridayCircuitRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...fridayCircuitRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...fridayCircuitRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...fridayCircuitRaw }] },
+      ];
+
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const fridayMotor = enriched[4].activities[0];
+
+      // Describe recorrido concreto y acciones motrices sin obstáculos
+      expect(fridayMotor.objective).toContain('recorrido continuo y sereno sobre colchonetas limpias dispuestas a ras de suelo');
+      expect(fridayMotor.description).toMatch(/camino\s+continuo\s+a\s+ras\s+de\s+suelo/i);
+      expect(fridayMotor.description).toMatch(/avanzan\s+caminando\s+a\s+paso\s+firme/i);
+      expect(fridayMotor.description).toMatch(/giro\s+amplio/i);
+      expect(fridayMotor.description).toMatch(/brazos\s+abiertos\s+para\s+mantener\s+la\s+estabilidad/i);
+      expect(fridayMotor.description).toMatch(/tocar\s+la\s+colchoneta\s+con\s+las\s+palmas/i);
+      expect(fridayMotor.description).toMatch(/sin\s+obst[aá]culos\s+ni\s+desniveles/i);
+
+      // Materiales: únicamente colchonetas limpias
+      expect(fridayMotor.materials).toEqual(['colchonetas limpias']);
+    });
+
+    it('Defecto 5: EXP-D5-A5 — Elimina la referencia al canasto cuando no se declara en inventario ni materiales', () => {
+      const dollsFridayRaw = {
+        category: 'LENGUAJE CONVERSACIONAL Y JUEGO SIMBÓLICO' as const,
+        objective: 'Juego simbólico con muñecos.',
+        description:
+          'Inicio: Sentados en círculo con los muñecos.\nDesarrollo: Compartir merienda imaginaria.\nCierre: Despedir la ronda de juego abrazando a los muñecos y guardándolos en el canasto de la sala.\nAdaptaciones: Apoyo cercano.',
+        materials: ['muñecos de tela', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(dollsFridayRaw as any, table, 'MATERNAL_C1');
+      expect(sanitized.description).not.toContain('canasto');
+      expect(sanitized.materials).not.toContain('canasto');
+      expect(sanitized.description).toContain('colchoneta limpia');
+
+      // Verificación en enrichMaternalB1WeeklyProgression para Viernes
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...dollsFridayRaw }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...dollsFridayRaw }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...dollsFridayRaw }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...dollsFridayRaw }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...dollsFridayRaw }] },
+      ];
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const fridayDolls = enriched[4].activities[0];
+      expect(fridayDolls.description).not.toContain('canasto');
+      expect(fridayDolls.materials).not.toContain('canasto');
+    });
+
+    it('Revisión adicional: EXP-D3-A3 — Expresa un objetivo de aprendizaje motriz y no solamente una instrucción de lanzar y atrapar', () => {
+      const rawBallInstruction = {
+        category: 'ACTIVACIÓN FÍSICA' as const,
+        objective: 'Lanzar y atrapar pelotas en parejas.',
+        description:
+          'Inicio: Sentarse en colchonetas.\nDesarrollo: Lanzar y atrapar la pelota entre parejas.\nCierre: Guardar pelotas.\nAdaptaciones: Acompañar.',
+        materials: ['pelotas medianas de vinil', 'colchonetas limpias'],
+        durationMinutes: 20,
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(rawBallInstruction as any, table, 'MATERNAL_C1');
+      expect(sanitized.objective).not.toEqual('Lanzar y atrapar pelotas en parejas.');
+      expect(sanitized.objective).toMatch(/Favorecer\s+la\s+coordinaci[oó]n\s+[oó]culo-manual,\s+el\s+control\s+postural/i);
+
+      // Verificación en enrichMaternalB1WeeklyProgression para Miércoles
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-08-24', activities: [{ ...rawBallInstruction }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-08-25', activities: [{ ...rawBallInstruction }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-08-26', activities: [{ ...rawBallInstruction }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-08-27', activities: [{ ...rawBallInstruction }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-08-28', activities: [{ ...rawBallInstruction }] },
+      ];
+      const enriched = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_C1');
+      const wednesdayBall = enriched[2].activities[0];
+      expect(wednesdayBall.objective).toMatch(/Favorecer\s+la\s+coordinaci[oó]n\s+[oó]culo-manual,\s+el\s+control\s+postural/i);
+    });
+  });
 });
 
 
