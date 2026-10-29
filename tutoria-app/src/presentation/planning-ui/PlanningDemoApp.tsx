@@ -648,6 +648,12 @@ export const PlanningDemoApp: React.FC<PlanningDemoAppProps & { simulateMeasurem
         minAgeMonths: 31,
         maxAgeMonths: 36,
       },
+      RoomCatalog.getRoom('room-maternal-c1') || {
+        roomId: 'room-maternal-c1',
+        name: 'Maternal C1',
+        minAgeMonths: 37,
+        maxAgeMonths: 42,
+      },
     ];
     if (roomOverride && !list.some(r => r.roomId === roomOverride.roomId)) {
       list.push(roomOverride);
@@ -2275,7 +2281,7 @@ const TeacherWizard = ({ service, source, curricularRecommendationSource, effect
   const evaluationTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const planRoomId = (planningObj as any)?.roomId || (planId ? canonicalPlan?.roomId : undefined);
-  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined) || (planRoomId === 'room-maternal-a' || planRoomId === 'maternal-a' ? { roomId: 'room-maternal-a', name: 'Maternal A', minAgeMonths: 19, maxAgeMonths: 24 } : undefined) || (planRoomId === 'room-maternal-b1' || planRoomId === 'maternal-b1' ? { roomId: 'room-maternal-b1', name: 'Maternal B1', minAgeMonths: 25, maxAgeMonths: 30 } : undefined) || (planRoomId === 'room-maternal-b2' || planRoomId === 'maternal-b2' ? { roomId: 'room-maternal-b2', name: 'Maternal B2', minAgeMonths: 31, maxAgeMonths: 36 } : undefined)))
+  const effectiveRoom = (planRoomId && (RoomCatalog.getRoom(planRoomId) || (planRoomId === 'room-lactantes-b' ? { roomId: 'room-lactantes-b', name: 'Lactantes B', minAgeMonths: 7, maxAgeMonths: 12 } : undefined) || (planRoomId === 'room-lactantes-c' || planRoomId === 'lactantes-c' ? { roomId: 'room-lactantes-c', name: 'Lactantes C', minAgeMonths: 13, maxAgeMonths: 18 } : undefined) || (planRoomId === 'room-maternal-a' || planRoomId === 'maternal-a' ? { roomId: 'room-maternal-a', name: 'Maternal A', minAgeMonths: 19, maxAgeMonths: 24 } : undefined) || (planRoomId === 'room-maternal-b1' || planRoomId === 'maternal-b1' ? { roomId: 'room-maternal-b1', name: 'Maternal B1', minAgeMonths: 25, maxAgeMonths: 30 } : undefined) || (planRoomId === 'room-maternal-b2' || planRoomId === 'maternal-b2' ? { roomId: 'room-maternal-b2', name: 'Maternal B2', minAgeMonths: 31, maxAgeMonths: 36 } : undefined) || (planRoomId === 'room-maternal-c1' || planRoomId === 'maternal-c1' ? { roomId: 'room-maternal-c1', name: 'Maternal C1', minAgeMonths: 37, maxAgeMonths: 42 } : undefined)))
     || activeRoom
     || (isFirstLight ? RoomCatalog.getRoom(FIRST_LIGHT_ROOM_ID) : undefined)
     || RoomCatalog.getRoom('room-lactantes-c')

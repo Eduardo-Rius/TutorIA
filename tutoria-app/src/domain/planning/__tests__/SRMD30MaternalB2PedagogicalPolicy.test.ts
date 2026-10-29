@@ -19,6 +19,7 @@ import {
   WeeklyPlanningProposalRequest,
   normalizeLactantesBDescriptionStructure,
   sanitizeMaternalB1PedagogicalFidelity,
+  enrichMaternalB1WeeklyProgression,
   buildWeeklyPlanningAISystemPrompt,
   buildWeeklyPlanningAIUserPrompt,
   projectPedagogicalGenerationPolicy,
@@ -58,9 +59,9 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
       expect(roomFromAlias?.maxAgeMonths).toBe(36);
     });
 
-    it('el catálogo canónico contiene exactamente 6 salas autorizadas sin duplicados', () => {
+    it('el catálogo canónico contiene exactamente 7 salas autorizadas sin duplicados (SR-MD-31)', () => {
       const allRooms = RoomCatalog.getAllRooms();
-      expect(allRooms).toHaveLength(6);
+      expect(allRooms).toHaveLength(7);
       expect(allRooms.map((r) => r.roomId)).toEqual([
         'lactantes-c',
         'room-lactantes-a',
@@ -68,6 +69,7 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
         'room-maternal-a',
         'room-maternal-b1',
         'room-maternal-b2',
+        'room-maternal-c1',
       ]);
     });
   });
@@ -104,8 +106,7 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('LACTANTES_C')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_A')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B1')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_B2')).toBe(true);
-      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C1')).toBe(false);
+      expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C1')).toBe(true);
       expect(PedagogicalAgePolicyCatalog.isAiGenerationAuthorized('MATERNAL_C2')).toBe(false);
     });
 
@@ -116,11 +117,13 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
       expect(MATERNAL_B2_AGE_POLICY.recommendedMaxDurationMinutes).toBe(25);
     });
 
-    it('reconoce fixtures aprobados de sala para Maternal B2 incluyendo canastos, toalleros, lavabos y cajas', () => {
+    it('reconoce fixtures aprobados de sala para Maternal B2 incluyendo canastos, toalleros, lavabos y cajas, y excluye estrictamente tapetes', () => {
       expect(MATERNAL_B2_APPROVED_ROOM_FIXTURES).toContain('colchonetas limpias');
       expect(MATERNAL_B2_APPROVED_ROOM_FIXTURES).toContain('lavabo infantil');
       expect(MATERNAL_B2_APPROVED_ROOM_FIXTURES).toContain('cajas de cartón limpias');
       expect(MATERNAL_B2_APPROVED_ROOM_FIXTURES).toContain('toallero bajo');
+      expect(MATERNAL_B2_APPROVED_ROOM_FIXTURES).not.toContain('tapete');
+      expect(MATERNAL_B2_APPROVED_ROOM_FIXTURES).not.toContain('tapete de actividades');
     });
   });
 
@@ -432,6 +435,111 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
       expect(sanitized.objective.length).toBeGreaterThan(15);
       expect(sanitized.description).not.toContain('Aplaudir y cantar una rima breve de orden para guardar');
     });
+
+    it('SR-MD-30C Obs 1 (Inventario estricto): elimina tapetes no autorizados y líneas marcadas en superficies inexistentes', () => {
+      const act = {
+        category: 'ACTIVACIÓN FÍSICA' as const,
+        objective: 'Desplazarse sobre el tapete limpio siguiendo líneas del tapete.',
+        description: 'Inicio: Se ubican sobre el tapete limpio.\nDesarrollo: Desplazamientos siguiendo las líneas del tapete y líneas marcadas en el piso.\nCierre: Descanso en el tapete.\nAdaptaciones: Apoyo cercano.',
+        durationMinutes: 20,
+        materials: ['tapete de actividades', 'colchonetas limpias'],
+      };
+
+      const table = {
+        entries: [
+          { id: 'MAT-01', displayName: 'colchonetas limpias', category: 'MOBILIARIO' },
+          { id: 'MAT-02', displayName: 'cajas de cartón limpias', category: 'MOBILIARIO' },
+        ],
+        refMap: new Map(),
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(act as any, table as any, 'MATERNAL_B2');
+
+      expect(sanitized.materials).not.toContain('tapete de actividades');
+      expect(sanitized.description).not.toContain('tapete');
+      expect(sanitized.description).not.toContain('líneas del tapete');
+      expect(sanitized.description).not.toContain('líneas marcadas');
+      expect(sanitized.description).toContain('colchonetas limpias');
+      expect(sanitized.objective).not.toContain('tapete');
+      expect(sanitized.objective).toContain('colchonetas limpias');
+    });
+
+    it('SR-MD-30C Obs 2 (Coherencia material-acción): identifica objetos manipulables concretos y los registra junto con recipientes al clasificar', () => {
+      const act = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Clasificar por color los objetos disponibles.',
+        description: 'Inicio: Se presentan los objetos para clasificar.\nDesarrollo: Las niñas y niños juegan a clasificar por colores y separar por tamaño.\nCierre: Guardado de materiales.\nAdaptaciones: Apoyo guiado.',
+        durationMinutes: 20,
+        materials: [],
+      };
+
+      const table = {
+        entries: [
+          { id: 'MAT-01', displayName: 'bloques grandes de plástico lavable', category: 'DIDÁCTICO' },
+          { id: 'MAT-02', displayName: 'cajas de cartón limpias', category: 'MOBILIARIO' },
+        ],
+        refMap: new Map(),
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(act as any, table as any, 'MATERNAL_B2');
+
+      expect(sanitized.materials).toContain('bloques grandes de plástico lavable');
+      expect(sanitized.materials).toContain('cajas de cartón limpias');
+      expect(sanitized.description).toContain('bloques grandes de plástico lavable');
+      expect(sanitized.description).toContain('cajas de cartón limpias');
+    });
+
+    it('SR-MD-30C Obs 3 (Progresión auténtica): evita duplicaciones literales jueves-viernes dotando a la consolidación de intención observacional y ejecución diferenciada', () => {
+      const duplicateThursdayAct = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Promover las relaciones espaciales construyendo con bloques grandes.',
+        description: 'Inicio: Disponer bloques grandes en cajas de cartón limpias.\nDesarrollo: Construir caminos sencillos a ras de suelo.\nCierre: Guardar en cajas de cartón limpias.\nAdaptaciones: Juego paralelo.',
+        durationMinutes: 20,
+        materials: Object.freeze(['bloques grandes de plástico lavable', 'cajas de cartón limpias']),
+      };
+
+      const rawDays = [
+        { dayOfWeek: 'MONDAY', date: '2026-11-02', activities: [{ ...duplicateThursdayAct }] },
+        { dayOfWeek: 'TUESDAY', date: '2026-11-03', activities: [{ ...duplicateThursdayAct }] },
+        { dayOfWeek: 'WEDNESDAY', date: '2026-11-04', activities: [{ ...duplicateThursdayAct }] },
+        { dayOfWeek: 'THURSDAY', date: '2026-11-05', activities: [{ ...duplicateThursdayAct }] },
+        { dayOfWeek: 'FRIDAY', date: '2026-11-06', activities: [{ ...duplicateThursdayAct }] },
+      ];
+
+      const enrichedDays = enrichMaternalB1WeeklyProgression(rawDays as any, 'MATERNAL_B2');
+      const fridayAct = enrichedDays[4].activities[0];
+      const thursdayAct = enrichedDays[3].activities[0];
+
+      expect(fridayAct.objective).not.toEqual(thursdayAct.objective);
+      expect(fridayAct.objective).toMatch(/\b(?:observar|consolidaci[oó]n)\b/i);
+      expect(fridayAct.description).not.toEqual(thursdayAct.description);
+      expect(fridayAct.description).toMatch(/consolidaci[oó]n\s+semanal/i);
+    });
+
+    it('SR-MD-30C Obs 4 (Redacción pedagógica): corrige preposiciones huérfanas en objetivos y erradica «estructuras complejas»', () => {
+      const act = {
+        category: 'PENSAMIENTO MATEMÁTICO' as const,
+        objective: 'Construcción de estructuras complejas a través de.',
+        description: 'Inicio: Se presentan los bloques.\nDesarrollo: Las niñas y niños realizan la construcción de estructuras complejas.\nCierre: Guardar bloques.\nAdaptaciones: Apoyo.',
+        durationMinutes: 20,
+        materials: ['bloques grandes de plástico lavable'],
+      };
+
+      const table = {
+        entries: [
+          { id: 'MAT-01', displayName: 'bloques grandes de plástico lavable', category: 'DIDÁCTICO' },
+          { id: 'MAT-02', displayName: 'cajas de cartón limpias', category: 'MOBILIARIO' },
+        ],
+        refMap: new Map(),
+      };
+
+      const sanitized = sanitizeMaternalB1PedagogicalFidelity(act as any, table as any, 'MATERNAL_B2');
+
+      expect(sanitized.objective).not.toContain('estructuras complejas');
+      expect(sanitized.objective).not.toMatch(/\ba\s+trav[eé]s(?:\s+de)?\.?$/i);
+      expect(sanitized.description).not.toContain('estructuras complejas');
+      expect(sanitized.description).toContain('caminos y puentes sencillos a ras de suelo');
+    });
   });
 
   // =========================================================================
@@ -588,6 +696,12 @@ describe('SR-MD-30 — Política Pedagógica e Integración de IA para Maternal 
           expect(act.description).toContain('Cierre:');
           expect(act.description).toContain('Adaptaciones:');
           expect(act.description).not.toContain('lactante');
+          expect(act.description).not.toContain('tapete');
+          expect(act.description).not.toContain('líneas del tapete');
+          expect(act.description).not.toContain('líneas marcadas');
+          expect(act.description).not.toContain('estructuras complejas');
+          expect(act.materials).not.toContain('tapete');
+          expect(act.materials).not.toContain('tapete limpio');
           expect(act.objective.length).toBeGreaterThan(15);
         }
       }

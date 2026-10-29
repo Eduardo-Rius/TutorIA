@@ -42,6 +42,12 @@ export class RoomCatalog {
       name: 'Maternal B2',
       minAgeMonths: 31,
       maxAgeMonths: 36
+    },
+    {
+      roomId: 'room-maternal-c1',
+      name: 'Maternal C1',
+      minAgeMonths: 37,
+      maxAgeMonths: 42
     }
   ];
 
@@ -76,6 +82,14 @@ export class RoomCatalog {
         name: 'Maternal B2',
         minAgeMonths: 31,
         maxAgeMonths: 36,
+      };
+    }
+    if (roomId === 'room-maternal-c1' || roomId === 'maternal-c1') {
+      return {
+        roomId: 'room-maternal-c1',
+        name: 'Maternal C1',
+        minAgeMonths: 37,
+        maxAgeMonths: 42,
       };
     }
     return this.rooms.find(r => r.roomId === roomId);

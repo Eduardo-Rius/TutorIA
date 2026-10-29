@@ -1430,8 +1430,6 @@ export const MATERNAL_B2_APPROVED_ROOM_FIXTURES: readonly string[] = Object.free
   'colchoneta',
   'colchonetas',
   'colchonetas limpias',
-  'tapete',
-  'tapete de actividades',
   'espejo de seguridad de sala',
   'espejo de pared',
   'espejo',
@@ -1480,6 +1478,254 @@ export const MATERNAL_B2_AGE_POLICY: PedagogicalAgePolicy = Object.freeze({
 });
 
 // ============================================================================
+// MATERNAL C1 POLICIES (37 A 42 MESES — SR-MD-31)
+// Conforme a GT_ECONOMICA_COMPLETA(2).pdf (págs. 89-98), 3D11-003-002 y MECI
+// ============================================================================
+
+export const MATERNAL_C1_SAFETY_RULES: readonly PedagogicalSafetyRule[] = Object.freeze([
+  {
+    id: 'safe-maternal-c1-choking-small-parts',
+    name: 'Peligro de asfixia por piezas pequeñas o semillas',
+    description: 'Prohíbe semillas, botones, cuentas, canicas o piezas menores a 3 cm susceptibles de atragantamiento.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedMaterials: [
+      'semilla',
+      'semillas',
+      'frijol',
+      'frijoles',
+      'arroz',
+      'lenteja',
+      'lentejas',
+      'maíz',
+      'maiz',
+      'botón',
+      'botones',
+      'cuenta',
+      'cuentas',
+      'canica',
+      'canicas',
+      'moneda',
+      'monedas',
+      'objeto pequeño',
+      'piezas pequeñas'
+    ],
+    riskRationale:
+      'A los 37 a 42 meses persiste el riesgo de aspiración accidental u oclusión de vías aéreas por piezas diminutas o semillas.'
+  },
+  {
+    id: 'safe-maternal-c1-plastic-bags-balloons',
+    name: 'Peligro de sofocación por bolsas plásticas o globos',
+    description: 'Prohíbe bolsas de plástico, globos de látex o membranas flexibles que puedan adherirse a vías respiratorias.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedMaterials: [
+      'bolsa de plástico',
+      'bolsas de plástico',
+      'bolsa plástica',
+      'bolsas plásticas',
+      'globo de látex',
+      'globos de látex',
+      'globo',
+      'globos'
+    ],
+    riskRationale:
+      'Películas plásticas y fragmentos de globos de látex se adhieren herméticamente a la glotis provocando asfixia fulminante.'
+  },
+  {
+    id: 'safe-maternal-c1-sharp-scissors',
+    name: 'Peligro de heridas por tijeras o elementos punzocortantes',
+    description: 'Prohíbe tijeras con filo o punta, cúters, palillos, alfileres u objetos punzocortantes.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedMaterials: [
+      'tijera',
+      'tijeras',
+      'cutter',
+      'cúter',
+      'palillo',
+      'palillos',
+      'alfiler',
+      'alfileres',
+      'aguja',
+      'agujas'
+    ],
+    riskRationale:
+      'A los 37–42 meses la motricidad fina y autorregulación aún se consolidan; se prioriza el trozado libre, rasgado digital y modelado con masa no tóxica.'
+  },
+  {
+    id: 'safe-maternal-c1-toxic-substances',
+    name: 'Peligro de intoxicación por pinturas o masas no comestibles o tóxicas',
+    description: 'Prohíbe plastilinas comerciales con solventes, pinturas acrílicas o pegamentos tóxicos.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedMaterials: [
+      'plastilina tóxica',
+      'pintura acrílica',
+      'pintura de esmalte',
+      'pegamento líquido tóxico',
+      'resistol tóxico',
+      'solvente'
+    ],
+    riskRationale:
+      'Las masas de modelar y pinturas para maternales de 37 a 42 meses deben ser de origen vegetal, caseras o certificadas estrictamente como no tóxicas.'
+  },
+  {
+    id: 'safe-maternal-c1-suffocation-head-covering',
+    name: 'Peligro de sofocación por cubrir cabeza o rostro con telas o sábanas',
+    description: 'Prohíbe cubrir la cabeza, rostro o vías respiratorias con sábanas, telas o prendas.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedActionPatterns: [
+      /\bcubr(ir|as|an|e|iendo)\b.*?\b(cabeza|rostro|cara)\b/i,
+      /\btap(ar|as|an|e|ando)\b.*?\b(cabeza|rostro|cara)\b/i,
+      /\bcabeza\s+de\s+un\s+(beb[ée]|lactante|niño)\s+adentro\b/i
+    ],
+    riskRationale:
+      'Cubrir el rostro o cabeza en 37 a 42 meses genera angustia y riesgo de hipoxia accidental.'
+  },
+  {
+    id: 'safe-maternal-c1-forced-limb-traction',
+    name: 'Peligro de tracción o levantamiento forzado de extremidades',
+    description: 'Prohíbe jalar, traccionar o levantar bruscamente por brazos o muñecas.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedActionPatterns: [
+      /\b(jal(ar|as|a|es|en|on|ón|ando)|tir(ar|as|a|es|en|on|ón|ando|ones))\b.*?\b(brazos?|manos?|mu[ñn]ecas?|piernas?|tobillos?|extremidades?)\b/i,
+      /\btracci[oó]n\s+forzada\b/i,
+      /\blevant(ar|es|en|ando)\s+(al\s+beb[ée]|al\s+lactante|al\s+niño)?\s*(del\s+suelo|de\s+la\s+colchoneta)?\s*por\s+los\s+brazos\b/i,
+      /\b(jal(ar|as|a|es|en|on|ón|ando)|tir(ar|as|a|es|en|on|ón|ando))\s+hacia\s+arriba\b/i
+    ],
+    riskRationale:
+      'La tracción intempestiva sobre extremidades superiores puede ocasionar subluxación de la cabeza del radio (pronación dolorosa o codo de niñera).'
+  },
+  {
+    id: 'safe-maternal-c1-forced-jumping-and-competition',
+    name: 'Peligro de lesiones por saltos forzados o carreras competitivas',
+    description:
+      'Prohíbe saltos obligatorios sobre aros o desde alturas, carreras competitivas de velocidad o movimientos motores forzados en niñas y niños de 37 a 42 meses.',
+    severity: 'BLOCKING_SAFETY',
+    provenance: 'PEDAGOGICAL_SAFETY_BASELINE',
+    prohibitedActionPatterns: [
+      /\b(?:salt(ar|os?|itos?|ando)|brinc(ar|os?|ando))\b.*?\b(?:obligatori[ao]s?|forzad[ao]s?|sobre\s+aros?|dentro\s+de\s+aros?)\b/i,
+      /\bcarreras?\s+(?:competitivas?|para\s+ganar|de\s+velocidad)\b/i,
+      /\b(?:obligar|forzar|exigir)\b.*?\b(?:saltar|brincar|correr)\b/i,
+      /\bcompetir\s+para\s+ver\s+qui[eé]n\s+llega\s+primero\b/i,
+      /\b(?:mantener|guardar|exigir|hacer)\s+(?:el\s+)?equilibrio\b/i,
+      /\bequilibrio\s+en\s+un\s+(?:solo\s+)?pie\b/i,
+      /\b(?:exigir|pedir(?:les)?|deben|tienen\s+que|instruir(?:les)?\s+a)\s+(?:saltar|brincar)\b/i,
+      /\bsaltar\s+desde\s+(?:(?:las?|los?|unas?)\s+)?(?:mesas?|sillas?|muebles?|alturas?|bancos?)\b/i
+    ],
+    riskRationale:
+      'A los 37–42 meses el salto con ambos pies debe ser voluntario, a ras de suelo y sobre colchonetas limpias. Las carreras competitivas provocan tropiezos por aceleración descontrolada y frustración socioemocional.'
+  }
+]);
+
+export const MATERNAL_C1_DEVELOPMENTAL_RULE: PedagogicalDevelopmentalRule = Object.freeze({
+  id: 'dev-maternal-c1-milestones',
+  name: 'Hitos del desarrollo y capacidades para Maternal C1 (37 a 42 meses)',
+  description:
+    'Establece las capacidades esperadas y expectativas excluidas para maternales de 37 a 42 meses conforme a la Guía Técnica IMSS (págs. 89-98), 3D11-003-002 y MECI.',
+  severity: 'DEVELOPMENTAL_MISMATCH',
+  provenance: 'CANONICAL_PRODUCT_RULE',
+  supportedCapabilities: [
+    'lenguaje conversacional con oraciones compuestas, formulación espontánea de preguntas causales («¿por qué?», «¿cómo?») y verbalización de vivencias o anécdotas personales',
+    'clasificación combinada por dos atributos (forma y color) y seriación simple de 3 elementos (grande, mediano, pequeño) con materiales manipulables concretos',
+    'conteo funcional inicial uno a uno (1 a 5 elementos concretos) en situaciones de juego y exploración activa',
+    'juego simbólico estructurado y sociodramático con asunción de roles compartidos (doctor, cocinero, tienda, cuidado de muñecos) y primeros acuerdos verbales',
+    'expresión artístico-plástica mediante garabateo con nombre asignado («Mi dibujo es...»), primeras formas circulares reconocibles y modelado tridimensional con masa no tóxica',
+    'interacción guiada con títeres y guiñoles para dramatización, narración de historias breves y expresión de emociones',
+    'autonomía consolidada en hábitos de higiene: lavado y secado de manos en lavabo bajo, guardado y orden activo de la sala («Guardar y ordenar»)',
+    'desplazamientos motrices coordinados con alternancia de ritmo (lento/rápido), marchas libres y saltos voluntarios con ambos pies a ras de suelo sobre colchonetas limpias',
+    'manipulación y coordinación visomotriz con pelotas medianas de vinil (lanzar con dos manos, atrapar y patear suavemente a ras de suelo)',
+    'escucha activa y participativa en lectura diaria en voz alta comentando ilustraciones, anticipando sucesos y nombrando personajes'
+  ],
+  excludedExpectations: [
+    'control de esfínteres formal obligatorio, exigido o punitivo',
+    'escolarización formal prematura (planas, trazos rígidos, grafomotricidad formal, caligrafía, letras o números escritos obligatorios)',
+    'uso de tijeras con filo o herramientas punzocortantes',
+    'saltos obligatorios desde alturas, mesas, sillas o desniveles peligrosos',
+    'carreras de velocidad competitivas o competir para ganar («quién llega primero»)',
+    'asambleas reflexivas prolongadas o debates de metacognición abstracta («hablar sobre lo que aprendieron»)',
+    'sedestación prolongada o inmovilidad obligatoria',
+    'tracción brusca de extremidades',
+    'clasificación o seriación abstracta sin materiales manipulables físicos presentes en el inventario',
+    'circuitos con obstáculos elevados o muebles no declarados'
+  ],
+  excludedActionPatterns: [
+    /\b(?:control\s+de\s+esf[ií]nteres\s+obligatorio|exigir\s+avisar\s+para\s+ir\s+al\s+ba[ñn]o|castigar\s+por\s+mojar)\b/i,
+    /\b(?:planas|grafomotricidad\s+formal|llenar\s+la\s+plana|calificar\s+planas)\b/i,
+    /\b(pedir|exigir|solicitar|hacer|repartir|completar|llenar)\b.*?\b(trazar|escribir|colorear\s+sin\s+salirse|hacer\s+letras|planas|grafomotricidad)\b/i,
+    /\b(aprender|identificar)\b.*?\b(letras|abecedario|n[uú]meros\s+escritos)\b/i,
+    /\b(asamblea|c[ií]rculo)\s+de\s+(discusi[oó]n|debate|reflexi[oó]n|conversaci[oó]n)\b/i,
+    /\bsaltar\s+desde\s+(?:(?:las?|los?|unas?)\s+)?(?:alturas|mesas|sillas|muebles|bancos)\b/i,
+    /\b(?:saltar|brincar)\s+(?:adentro\s+del\s+aro|sobre\s+el\s+aro|por\s+los\s+aros|obligatoriamente)\b/i,
+    /\b(?:mantener|guardar|hacer)\s+(?:el\s+)?equilibrio\b/i,
+    /\b(?:exigir|pedir(?:les)?|deben)\s+saltar\b/i,
+    /\b(?:sortear\s+desniveles|sorteando\s+desniveles|desniveles\s+suaves|sortear\s+obst[aá]culos)\b/i,
+    /\b(?:estantes?\s+bajos?|estante\s+bajo)\b/i,
+    /\bcarreras?\s+(?:competitivas?|para\s+ganar|para\s+ver\s+qui[eé]n\s+llega\s+primero)\b/i,
+    /\bclasificar\s+colores\b(?!\s+(?:de\s+)?(?:los\s+)?(?:bloques?|objetos?|piezas?|pelotas?|material))/i,
+    /\bcircuito\b.*?\b(?:sortear|subir(?:se)?|trepar|pasar\s+por\s+debajo\s+de)(?:\s+(?:a|sobre|en|por))?\s+(?:mesas?|sillas?|bancos?|muebles?)\b/i
+  ],
+  rationale:
+    'A los 37 a 42 meses se consolida el lenguaje conversacional, el juego sociodramático y la autonomía práctica. Las experiencias deben promover la exploración lúdica con materiales concretos, garantizando seguridad, respeto a los ritmos individuales y eliminando cualquier exigencia de escolarización formal o competencia conforme a la GT Económica IMSS.'
+});
+
+export const MATERNAL_C1_APPROVED_ROOM_FIXTURES: readonly string[] = Object.freeze([
+  'colchoneta de sala',
+  'colchonetas de sala',
+  'colchoneta',
+  'colchonetas',
+  'colchonetas limpias',
+  'espejo de seguridad de sala',
+  'espejo de pared',
+  'espejo',
+  'perchero bajo',
+  'cesto de ropa/toallas',
+  'cesto de toallas limpias',
+  'toallero bajo',
+  'lavabo infantil',
+  'tarja infantil',
+  'lavabo o tarja infantil para hábitos de higiene',
+  'cajas o canastos contenedores de juguetes',
+  'caja de cartón',
+  'cajas de cartón',
+  'cajas de cartón limpias',
+  'mesas infantiles',
+  'sillas infantiles'
+]);
+
+export const MATERNAL_C1_MATERIAL_POLICY: PedagogicalMaterialPolicy = Object.freeze({
+  strictEnclosure: true,
+  approvedRoomFixtures: [],
+  prohibitedMaterialCategories: [
+    'semillas o partes pequeñas menores a 3 cm',
+    'plastilina comercial tóxica o con solventes',
+    'tijeras con filo o punzocortantes',
+    'objetos punzocortantes',
+    'globos de látex',
+    'bolsas plásticas'
+  ],
+  provenance: 'CANONICAL_PRODUCT_RULE'
+});
+
+export const MATERNAL_C1_DENSITY_POLICY: WeeklyPlanningDensityPolicy = LACTANTES_A_DENSITY_POLICY;
+
+export const MATERNAL_C1_AGE_POLICY: PedagogicalAgePolicy = Object.freeze({
+  roomType: 'MATERNAL_C1',
+  label: 'Maternal C1 (37 a 42 meses)',
+  minAgeMonths: 37,
+  maxAgeMonths: 42,
+  recommendedMaxDurationMinutes: 25,
+  safetyRules: MATERNAL_C1_SAFETY_RULES,
+  developmentalRule: MATERNAL_C1_DEVELOPMENTAL_RULE,
+  materialPolicy: MATERNAL_C1_MATERIAL_POLICY,
+  densityPolicy: MATERNAL_C1_DENSITY_POLICY,
+  provenance: 'CANONICAL_PRODUCT_RULE'
+});
+
+// ============================================================================
 // POLICY CATALOG
 // ============================================================================
 
@@ -1490,7 +1736,8 @@ export class PedagogicalAgePolicyCatalog {
     LACTANTES_C_AGE_POLICY,
     MATERNAL_A_AGE_POLICY,
     MATERNAL_B1_AGE_POLICY,
-    MATERNAL_B2_AGE_POLICY
+    MATERNAL_B2_AGE_POLICY,
+    MATERNAL_C1_AGE_POLICY
   ]);
 
   /**
@@ -1535,6 +1782,11 @@ export class PedagogicalAgePolicyCatalog {
       return MATERNAL_B2_AGE_POLICY;
     }
 
+    // Exact match for 37–42 months -> Maternal C1 (SR-MD-31)
+    if (room.minAgeMonths >= 37 && room.maxAgeMonths <= 42) {
+      return MATERNAL_C1_AGE_POLICY;
+    }
+
     // Fallback search by room name if bounds overlap
     if (room.name) {
       const normalizedName = room.name.toLowerCase().trim();
@@ -1556,6 +1808,9 @@ export class PedagogicalAgePolicyCatalog {
       if (normalizedName.includes('maternal b2') || normalizedName === 'maternal-b2') {
         return MATERNAL_B2_AGE_POLICY;
       }
+      if (normalizedName.includes('maternal c1') || normalizedName === 'maternal-c1') {
+        return MATERNAL_C1_AGE_POLICY;
+      }
     }
 
     return undefined;
@@ -1570,6 +1825,7 @@ export class PedagogicalAgePolicyCatalog {
    * Maternal A: Authorized under SR-MD-28 (19–24 months).
    * Maternal B1: Authorized under SR-MD-29 (25–30 months).
    * Maternal B2: Authorized under SR-MD-30 (31–36 months).
+   * Maternal C1: Authorized under SR-MD-31 (37–42 months).
    * All other rooms: Strictly NOT authorized pending institutional validation.
    */
   public static isAiGenerationAuthorized(roomType: string): boolean {
@@ -1579,7 +1835,8 @@ export class PedagogicalAgePolicyCatalog {
       roomType === 'LACTANTES_C' ||
       roomType === 'MATERNAL_A' ||
       roomType === 'MATERNAL_B1' ||
-      roomType === 'MATERNAL_B2'
+      roomType === 'MATERNAL_B2' ||
+      roomType === 'MATERNAL_C1'
     );
   }
 
@@ -2427,9 +2684,9 @@ export class PedagogicalSafetyValidator {
           }
         }
 
-        // E. Room-Specific Pedagogical Structure Check (SR-MD-22H Section 5 & SR-MD-22J & SR-MD-23J & SR-MD-25 & SR-MD-28 & SR-MD-29 & SR-MD-30)
-        // Missing sections or dialogical closures are classified as NIVEL AMARILLO (WARNING) for Lactantes B, C, Maternal A, Maternal B1 & Maternal B2.
-        if (options?.requirePedagogicalStructure && (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2')) {
+        // E. Room-Specific Pedagogical Structure Check (SR-MD-22H Section 5 & SR-MD-22J & SR-MD-23J & SR-MD-25 & SR-MD-28 & SR-MD-29 & SR-MD-30 & SR-MD-31)
+        // Missing sections or dialogical closures are classified as NIVEL AMARILLO (WARNING) for Lactantes B, C, Maternal A, Maternal B1, Maternal B2 & Maternal C1.
+        if (options?.requirePedagogicalStructure && (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2' || policy.roomType === 'MATERNAL_C1')) {
           const desc = activity.description || '';
           const hasInicio = /\bInicio\b/i.test(desc);
           const hasDesarrollo = /\bDesarrollo\b/i.test(desc);
@@ -2455,7 +2712,7 @@ export class PedagogicalSafetyValidator {
             });
           }
 
-          // Check meaningful closures for Lactantes B, C, Maternal A, Maternal B1 & Maternal B2 (avoid generic assemblies or dialogical reflection)
+          // Check meaningful closures for Lactantes B, C, Maternal A, Maternal B1, Maternal B2 & Maternal C1 (avoid generic assemblies or dialogical reflection)
           const cierreMatch = desc.match(/\bCierre:\s*([^\n\r]+)/i);
           if (cierreMatch) {
             const cierreText = cierreMatch[1];
@@ -2481,9 +2738,9 @@ export class PedagogicalSafetyValidator {
       });
     }
 
-    // 3. Evaluate Cross-Day Variation (SR-MD-22H Section 6 & SR-MD-23J & SR-MD-25 & SR-MD-28 & SR-MD-29 & SR-MD-30)
+    // 3. Evaluate Cross-Day Variation (SR-MD-22H Section 6 & SR-MD-23J & SR-MD-25 & SR-MD-28 & SR-MD-29 & SR-MD-30 & SR-MD-31)
     // Under SR-MD-23J, repetition across days is classified as NIVEL AMARILLO (WARNING), NOT a blocking failure.
-    if (options?.checkPedagogicalVariation && (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2')) {
+    if (options?.checkPedagogicalVariation && (policy.roomType === 'LACTANTES_B' || policy.roomType === 'LACTANTES_C' || policy.roomType === 'MATERNAL_A' || policy.roomType === 'MATERNAL_B1' || policy.roomType === 'MATERNAL_B2' || policy.roomType === 'MATERNAL_C1')) {
       const seenActivities = new Map<string, { dayOfWeek: string; actIndex: number }>();
       for (const day of plan.days) {
         if (!day.activities) continue;

@@ -49,9 +49,9 @@ describe('SR-MD-28 — Política Pedagógica e Integración de IA para Maternal 
       expect(roomFromAlias?.maxAgeMonths).toBe(24);
     });
 
-    it('el catálogo canónico contiene las salas autorizadas: Lactantes A, B, C, Maternal A, Maternal B1 y Maternal B2 (SR-MD-30)', () => {
+    it('el catálogo canónico contiene las salas autorizadas: Lactantes A, B, C, Maternal A, Maternal B1, Maternal B2 y Maternal C1 (SR-MD-31)', () => {
       const allRooms = RoomCatalog.getAllRooms();
-      expect(allRooms).toHaveLength(6);
+      expect(allRooms).toHaveLength(7);
       expect(allRooms.map((r) => r.roomId)).toEqual([
         'lactantes-c',
         'room-lactantes-a',
@@ -59,6 +59,7 @@ describe('SR-MD-28 — Política Pedagógica e Integración de IA para Maternal 
         'room-maternal-a',
         'room-maternal-b1',
         'room-maternal-b2',
+        'room-maternal-c1',
       ]);
     });
   });
